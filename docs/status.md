@@ -26,11 +26,11 @@ Stand: 10. Oktober 2026 (Europe/Vienna). Projekt: `/home/codexdev/projects/estat
 | `./scripts/pnpm dev`                | Migrationen, API und Next-Entwicklungsserver tatsächlich gestartet; Web und API liefern HTTP 200.                                                                                                                                                                                                                            |
 | `./scripts/pnpm dev:mobile`         | Expo-Go-/Metro-Entwicklungsserver tatsächlich gestartet; `/status` meldet `packager-status:running`. Linux-VPS-Modus ohne grafische DevTools.                                                                                                                                                                                |
 | Quell-/HTML-Prüfung                 | Kein PWA-Manifest und kein Service Worker angelegt.                                                                                                                                                                                                                                                                          |
-| `./scripts/gh auth status`          | Keine GitHub-Anmeldung. Kein Remote, keine Repo-Erstellung und kein Push.                                                                                                                                                                                                                                                    |
+| `./scripts/gh auth status`          | Anmeldung als `LuPetro` bestätigt. Privates Repository `LuPetro/estate-atlas` nach ausdrücklicher Freigabe erstellt und als `origin` verbunden; erster Push freigegeben.                                                                                                                                                     |
 
 Die Browserprüfung deckte fehlende CORS-Methoden für PUT/PATCH/DELETE auf; die Konfiguration wurde korrigiert und ein Regressionstest ergänzt. Die abschließenden Tests prüfen auch die aktualisierte Liste nach dem Löschen und die fehlerfreie Rückkehr zur Anmeldung nach Logout.
 
-Getrennte Testcluster verwenden 55433/55434. Die normale PostgreSQL-18.4-Datenbank auf 55432 enthält keine von mir angelegten Benutzer oder Testimmobilien. Ihre `.env`-Zugangsdaten bleiben lokal und sind nicht in Git. GitHub-Workflows sind vorbereitet, aber mangels Remote noch nicht auf GitHub ausgeführt.
+Getrennte Testcluster verwenden 55433/55434. Die normale PostgreSQL-18.4-Datenbank auf 55432 enthält keine von mir angelegten Benutzer oder Testimmobilien. Ihre `.env`-Zugangsdaten bleiben lokal und sind nicht in Git. Der vorbereitete GitHub-Workflow wird beim ersten Push ausgelöst; sein Ergebnis ist separat von den bereits bestandenen lokalen Prüfungen zu bewerten.
 
 ## Grenzen und nächste Schritte
 
@@ -38,4 +38,4 @@ Getrennte Testcluster verwenden 55433/55434. Die normale PostgreSQL-18.4-Datenba
 - Vor eigenständigen Android-Builds Maps-Key und Beschränkungen abstimmen; für iOS-Builds einen Mac mit Xcode und spätere Signierung verwenden. Es wurde kein kostenpflichtiger Builddienst eingerichtet.
 - Für öffentlichen Betrieb HTTPS, dedizierte PostgreSQL-Rollen, Backups/Wiederherstellung, Monitoring, E-Mail-Verifizierung, Passwort-Reset und eine Upload-Scanning-/Quotenstrategie vorbereiten. Entwicklungsdienste bleiben auf Loopback.
 - Für echte Analysen zunächst zulässige Quellen und erforderliche API-Zugänge freigeben; dann asynchronen Worker, echte Vergleichsobjekte, Quellen-/Zeitnachweise, Unsicherheiten und Preisspannen entwickeln.
-- Für GitHub einmal per Browser anmelden (docs/github.md) und Repo-Erstellung bzw. Push ausdrücklich freigeben. Keine Tokens oder privaten Schlüssel in den Chat senden.
+- GitHub-Anmeldung und Freigabe für das private Repository sowie den ersten Push sind abgeschlossen (docs/github.md). Keine Tokens oder privaten Schlüssel in den Chat senden.

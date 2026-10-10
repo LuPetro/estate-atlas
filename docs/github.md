@@ -4,12 +4,15 @@
 
 - Git-Repository auf Branch `main` lokal vorhanden.
 - GitHub CLI projektlokal installiert; `./scripts/gh --version` zeigt die Version.
-- `./scripts/gh auth status`: keine Anmeldung.
-- `git remote -v`: noch kein Remote.
-- Es wurde kein GitHub-Repository angelegt und nichts gepusht.
+- `./scripts/gh auth status`: Anmeldung als `LuPetro` bestätigt.
+- Privates Repository nach ausdrücklicher Freigabe erstellt: [LuPetro/estate-atlas](https://github.com/LuPetro/estate-atlas).
+- `origin`: `https://github.com/LuPetro/estate-atlas.git`.
+- Der erste Push auf `main` ist ausdrücklich freigegeben. GitHub Actions wird beim Push ausgelöst; der Laufstatus ist auf GitHub zu prüfen.
 - `.local/`, `.env`, Datenbank, Tokens, Cache und Build-Ausgaben sind ignoriert.
 
-## Einmalige Aktion durch den Product Owner
+## Anmeldung auf einem neuen Rechner
+
+Auf diesem VPS ist die folgende Anmeldung bereits abgeschlossen.
 
 In einer eigenen interaktiven VPS-Sitzung ausführen:
 
@@ -30,9 +33,9 @@ Danach:
 ./scripts/gh auth status
 ```
 
-Sobald du die Anmeldung abgeschlossen hast, ausdrücklich mitteilen, ob ich das private Repository `estate-atlas` erstellen und verbinden darf und ob ein erster Push freigegeben ist. Diese Freigaben sind noch ausständig.
+Die Freigaben für die Erstellung des privaten Repositorys und den ersten Push wurden erteilt. Bei späteren neuen Repositorys oder weiteren nicht freigegebenen Pushes weiterhin die Projektregeln beachten.
 
-## Erst nach ausdrücklicher Freigabe
+## Verwendete Befehle
 
 Repository-Erstellung und Verknüpfung (ohne Push):
 
@@ -40,7 +43,7 @@ Repository-Erstellung und Verknüpfung (ohne Push):
 ./scripts/gh repo create estate-atlas --private --source=. --remote=origin
 ```
 
-Erster Push, separat freizugeben:
+Ausdrücklich freigegebener erster Push:
 
 ```bash
 git push -u origin main
