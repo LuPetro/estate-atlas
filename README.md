@@ -42,7 +42,13 @@ Das Skript führt Migrationen aus und startet API und Next.js. Auf demselben Rec
 - Web: [http://localhost:3000](http://localhost:3000)
 - Datenbank-Healthcheck: [http://localhost:4000/health](http://localhost:4000/health)
 
-Im Web ein eigenes Konto erstellen. Es gibt keine voreingestellten Konten oder Passwörter. Danach eine Immobilie anlegen oder ausdrücklich **Testdaten laden** wählen. Browser-Origin ist exakt `http://localhost:3000`; nicht zwischen `localhost` und `127.0.0.1` wechseln.
+Im Web ein eigenes Konto erstellen. Es gibt keine voreingestellten Konten oder Passwörter. Danach eine Immobilie anlegen oder ausdrücklich **Testdaten laden** wählen. Beim Anlegen oder Bearbeiten die Adresse eingeben und einen Vorschlag auswählen: Adresse, ISO-Land und GPS werden automatisch übernommen. Die Position lässt sich durch Kartenklick oder Ziehen des Pins korrigieren; manuelle GPS-Eingabe bleibt möglich. Änderungen am Adresstext verwerfen die alte Position, damit keine Koordinaten einer anderen Adresse gespeichert werden. Dasselbe Verhalten ist in der nativen App implementiert.
+
+Adressvorschläge verwenden [Photon mit OpenStreetMap-Daten](https://github.com/komoot/photon). Nur aktiv eingegebene Suchtexte werden über die authentifizierte API an den Dienst gesendet; keine vorhandenen Immobilien werden automatisch abgefragt. Name, Kontodaten, Werte und Dokumente werden nicht an Photon gesendet. Die App zeigt den Hinweis und die OSM-Attribution im Formular. Vorschläge können Straßen- oder Ortsmittelpunkte sein: Position prüfen und gegebenenfalls den Pin verschieben. Bei fehlenden Treffern oder Dienstausfall kann die Position weiterhin auf der Karte gesetzt werden.
+
+Der öffentliche Photon-Demodienst ist für moderate Anfragen freigegeben, ohne Verfügbarkeitsgarantie. Die API begrenzt Aufrufe und hält einen kleinen Cache pro Konto ausschließlich im Arbeitsspeicher. Über `GEOCODING_URL` lässt sich eine eigene Photon-kompatible Instanz konfigurieren; für größeren Betrieb ist ein geeigneter Dienst festzulegen. Es ist kein API-Key und kein kostenpflichtiger Dienst eingerichtet.
+
+Browser-Origin ist exakt `http://localhost:3000`; nicht zwischen `localhost` und `127.0.0.1` wechseln.
 
 **Vom eigenen Rechner zum VPS:** Einen bestehenden SSH-Zugang mit einem temporären lokalen Tunnel verwenden. Das ändert weder SSH-Konfiguration noch Firewall:
 
@@ -50,7 +56,7 @@ Im Web ein eigenes Konto erstellen. Es gibt keine voreingestellten Konten oder P
 ssh -N -L 3000:127.0.0.1:3000 -L 4000:127.0.0.1:4000 codexdev@DEIN_VPS
 ```
 
-Danach auf deinem Rechner `http://localhost:3000` öffnen. `DEIN_VPS` durch den vorhandenen Host ersetzen. Die Dienste sind bewusst nicht öffentlich an `0.0.0.0` gebunden. Keine private Adresse oder Dokumentdatei muss für diesen Test an einen Drittanbieter hochgeladen werden. Kartenkacheln kommen direkt von OpenStreetMap; der Anbieter sieht IP und Kartenausschnitt. Web-Schriftarten werden von Google Fonts geladen; Systemschriften dienen als Fallback.
+Danach auf deinem Rechner `http://localhost:3000` öffnen. `DEIN_VPS` durch den vorhandenen Host ersetzen. Die Dienste sind bewusst nicht öffentlich an `0.0.0.0` gebunden. Die Adresssuche sendet den eingegebenen Suchtext an Photon; du kannst stattdessen den Pin oder die GPS-Felder nutzen. Dokumentdateien bleiben in der privaten Projektdatenbank. Kartenkacheln kommen direkt von OpenStreetMap; der Anbieter sieht IP und Kartenausschnitt. Web-Schriftarten werden von Google Fonts geladen; Systemschriften dienen als Fallback.
 
 ### Direkt auf dem VPS prüfen
 
@@ -130,13 +136,13 @@ Ein eigenständiger Android-Build benötigt vor Veröffentlichung einen freigege
 
 Bei einem minimalen **Ubuntu 24.04 x64** ohne Chromium-Bibliotheken: `./scripts/browser-deps.sh` lädt die benötigten Debian-Pakete herunter und extrahiert sie ausschließlich nach `.local/sysroot`; keine Systeminstallation. `scripts/pnpm` setzt den lokalen Bibliothekspfad automatisch. Auf anderen Systemen vorhandene Browser-Abhängigkeiten verwenden.
 
-API-Tests starten einen isolierten echten PostgreSQL-Cluster auf `127.0.0.1:55433`. Browser-Tests starten einen separaten PostgreSQL-Cluster auf Port 55434 sowie API/Web auf 4000/3000. Vor `test:e2e` Entwicklungsserver auf 3000/4000 stoppen; zuerst den Web-Build erstellen. Die normale Benutzerdatenbank wird von den Tests nicht geleert oder benutzt. Testcluster werden anschließend entfernt. Screenshots und Traces bleiben ignoriert unter `work/` bzw. `test-results/`.
+API-Tests starten einen isolierten echten PostgreSQL-Cluster auf `127.0.0.1:55433`. `test:e2e` erstellt einen eigenen Webpack-Build unter `.next-e2e` und startet API/Web auf 4001/3001 sowie PostgreSQL auf 55434. Die Entwicklungsdienste auf 3000/4000 können weiterlaufen. Desktop und Smartphone-Bildschirmgröße werden nacheinander mit frischen Testservern geprüft, damit Testregistrierungen nicht die echte Registrierungsbegrenzung aufbrauchen. Geocoder-Antworten sind synthetische Fixtures; keine Testadressen werden an Photon gesendet. Die normale Benutzerdatenbank wird von den Tests nicht geleert oder benutzt. Testcluster werden anschließend entfernt. Screenshots und Traces bleiben ignoriert unter `work/` bzw. `test-results/`.
 
-`mobile:export` erzeugt Android- und iOS-Hermes-Bundles unter `apps/mobile/dist`. Das prüft den vollständigen JavaScript-Build, **keine installierbare APK/IPA und keinen Gerätetest**. Native Compiler/Simulatoren sind auf diesem VPS nicht installiert. CI ist vorbereitet; ohne GitHub-Push wurde sie noch nicht auf GitHub ausgeführt.
+`mobile:export` erzeugt Android- und iOS-Hermes-Bundles unter `apps/mobile/dist`. Das prüft den vollständigen JavaScript-Build, **keine installierbare APK/IPA und keinen Gerätetest**. Native Compiler/Simulatoren sind auf diesem VPS nicht installiert. CI ist vorbereitet; ihren Laufstatus separat auf GitHub prüfen.
 
 ## GitHub
 
-Lokales Git ist eingerichtet, GitHub CLI liegt unter `.local/gh` und ist über `./scripts/gh` erreichbar. Details und die einmalige Anmeldung stehen in `docs/github.md`. Repository-Erstellung und Push benötigen deine ausdrückliche Freigabe. Zugangsdaten gehören niemals in den Chat oder ins Repository.
+Lokales Git und das private Repository [LuPetro/estate-atlas](https://github.com/LuPetro/estate-atlas) sind verbunden; der freigegebene erste Push ist erfolgt. GitHub CLI liegt unter `.local/gh` und ist über `./scripts/gh` erreichbar. Details stehen in `docs/github.md`. Weitere Pushes benötigen deine ausdrückliche Freigabe. Zugangsdaten gehören niemals in den Chat oder ins Repository.
 
 ## Struktur und nächste Schritte
 

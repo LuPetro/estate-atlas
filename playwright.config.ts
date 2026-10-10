@@ -6,7 +6,7 @@ export default defineConfig({
   timeout: 45000,
   expect: { timeout: 10000 },
   reporter: 'list',
-  use: { baseURL: 'http://localhost:3000', trace: 'retain-on-failure' },
+  use: { baseURL: 'http://localhost:3001', trace: 'retain-on-failure' },
   projects: [
     {
       name: 'desktop',
@@ -17,14 +17,15 @@ export default defineConfig({
   webServer: [
     {
       command: 'node --import tsx scripts/e2e-api.ts',
-      url: 'http://localhost:4000/health',
+      url: 'http://localhost:4001/health',
       reuseExistingServer: false,
       gracefulShutdown: { signal: 'SIGTERM', timeout: 10000 },
       timeout: 60000,
     },
     {
-      command: 'pnpm --filter @estate-atlas/web start',
-      url: 'http://localhost:3000',
+      command: 'pnpm --filter @estate-atlas/web start --port 3001',
+      env: { NEXT_DIST_DIR: '.next-e2e', NEXT_PUBLIC_API_URL: 'http://localhost:4001' },
+      url: 'http://localhost:3001',
       reuseExistingServer: false,
       gracefulShutdown: { signal: 'SIGTERM', timeout: 10000 },
       timeout: 60000,

@@ -32,6 +32,7 @@ import * as Sharing from 'expo-sharing';
 import { File, Paths } from 'expo-file-system';
 import { StatusBar } from 'expo-status-bar';
 import { ApiClient, ApiError } from '@estate-atlas/api-client';
+import AddressPicker from './AddressPicker';
 import {
   portfolioStats,
   filterProperties,
@@ -895,6 +896,17 @@ function Editor({ route, navigation }: NativeStackScreenProps<Stack, 'Editor'>) 
   const [type, setType] = useState(p?.type ?? 'apartment');
   const [currency, setCurrency] = useState(p?.currency ?? 'EUR');
   const [condition, setCondition] = useState(p?.condition ?? 'good');
+  const latitude = Number(values.latitude.replace(',', '.'));
+  const longitude = Number(values.longitude.replace(',', '.'));
+  const position =
+    values.latitude.trim() &&
+    values.longitude.trim() &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    Math.abs(latitude) <= 90 &&
+    Math.abs(longitude) <= 180
+      ? { latitude, longitude }
+      : null;
   const submit = async () => {
     setError('');
     if (
@@ -902,7 +914,9 @@ function Editor({ route, navigation }: NativeStackScreenProps<Stack, 'Editor'>) 
         (k) => !values[k as keyof typeof values].trim(),
       )
     ) {
-      setError('Bitte alle Preis-, Flächen- und GPS-Felder ausfüllen.');
+      setError(
+        'Bitte Preis und Fläche ausfüllen und einen Adressvorschlag auswählen oder den Pin setzen.',
+      );
       return;
     }
     const num = (v: string) => Number(v.replace(',', '.'));
@@ -963,19 +977,44 @@ function Editor({ route, navigation }: NativeStackScreenProps<Stack, 'Editor'>) 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-        <Text style={styles.footnote}>
-          GPS manuell eingeben. Adressen werden nicht an einen Geocoder übermittelt.
-        </Text>
-        {fields.map((f) => (
-          <Field
-            key={f.key}
-            label={f.label}
-            value={values[f.key]}
-            number={f.number}
-            multiline={f.multiline}
-            onChange={(v) => setValues({ ...values, [f.key]: v })}
-          />
-        ))}
+        {fields.map((f) =>
+          f.key === 'address' ? (
+            <AddressPicker
+              key={f.key}
+              api={api}
+              value={values.address}
+              position={position}
+              onChange={(address) =>
+                setValues((current) => ({ ...current, address, latitude: '', longitude: '' }))
+              }
+              onSelect={(result) =>
+                setValues((current) => ({
+                  ...current,
+                  address: result.address,
+                  country: result.country,
+                  latitude: String(result.latitude),
+                  longitude: String(result.longitude),
+                }))
+              }
+              onPositionChange={(point) =>
+                setValues((current) => ({
+                  ...current,
+                  latitude: point.latitude.toFixed(7),
+                  longitude: point.longitude.toFixed(7),
+                }))
+              }
+            />
+          ) : (
+            <Field
+              key={f.key}
+              label={f.label}
+              value={values[f.key]}
+              number={f.number}
+              multiline={f.multiline}
+              onChange={(v) => setValues((current) => ({ ...current, [f.key]: v }))}
+            />
+          ),
+        )}
         <Choices
           label="Immobilienart"
           values={propertyTypes}

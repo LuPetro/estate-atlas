@@ -1,6 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { X, Check, MapPin } from 'lucide-react';
+import AddressSearch from './AddressSearch';
+import LocationMap from './LocationMap';
 import {
   propertyInputSchema,
   propertyTypes,
@@ -22,6 +24,20 @@ export default function PropertyEditor({
 }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [address, setAddress] = useState(property?.address ?? '');
+  const [country, setCountry] = useState(property?.country ?? 'AT');
+  const [latitude, setLatitude] = useState(property ? String(property.latitude) : '');
+  const [longitude, setLongitude] = useState(property ? String(property.longitude) : '');
+  const validPosition =
+    latitude.trim() &&
+    longitude.trim() &&
+    Number.isFinite(Number(latitude)) &&
+    Number.isFinite(Number(longitude)) &&
+    Math.abs(Number(latitude)) <= 90 &&
+    Math.abs(Number(longitude)) <= 180;
+  const position = validPosition
+    ? { latitude: Number(latitude), longitude: Number(longitude) }
+    : null;
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
@@ -90,22 +106,26 @@ export default function PropertyEditor({
                 placeholder="z. B. Stadtwohnung in Wien"
               />
             </label>
-            <label className="full">
-              Adresse
-              <input
-                name="address"
-                defaultValue={property?.address}
-                required
-                minLength={3}
-                maxLength={300}
-                placeholder="Straße, Hausnummer, PLZ und Ort"
-              />
-            </label>
+            <AddressSearch
+              value={address}
+              onChange={(value) => {
+                setAddress(value);
+                setLatitude('');
+                setLongitude('');
+              }}
+              onSelect={(result) => {
+                setAddress(result.address);
+                setCountry(result.country);
+                setLatitude(String(result.latitude));
+                setLongitude(String(result.longitude));
+              }}
+            />
             <label>
               Land (ISO-Code)
               <input
                 name="country"
-                defaultValue={property?.country ?? 'AT'}
+                value={country}
+                onChange={(event) => setCountry(event.target.value.toUpperCase())}
                 required
                 minLength={2}
                 maxLength={2}
@@ -122,6 +142,28 @@ export default function PropertyEditor({
                 ))}
               </select>
             </label>
+            <div className="full location-picker">
+              <div className="location-picker-heading">
+                <MapPin size={16} />
+                <strong>Position auf der Karte</strong>
+              </div>
+              <p>
+                Adressvorschlag auswählen oder auf die Karte klicken. Ziehe den Pin, um die Position
+                genauer zu setzen.
+              </p>
+              <LocationMap
+                position={position}
+                onChange={(point) => {
+                  setLatitude(point.latitude.toFixed(7));
+                  setLongitude(point.longitude.toFixed(7));
+                }}
+              />
+              <p aria-live="polite">
+                {position
+                  ? 'Position gesetzt. GPS-Felder wurden übernommen.'
+                  : 'Noch keine Position gewählt.'}
+              </p>
+            </div>
             <label>
               Breitengrad
               <input
@@ -131,7 +173,8 @@ export default function PropertyEditor({
                 min={-90}
                 max={90}
                 required
-                defaultValue={property?.latitude}
+                value={latitude}
+                onChange={(event) => setLatitude(event.target.value)}
                 placeholder="48.2082"
               />
             </label>
@@ -144,13 +187,14 @@ export default function PropertyEditor({
                 min={-180}
                 max={180}
                 required
-                defaultValue={property?.longitude}
+                value={longitude}
+                onChange={(event) => setLongitude(event.target.value)}
                 placeholder="16.3738"
               />
             </label>
             <p className="form-hint full">
-              <MapPin size={14} /> GPS manuell eingeben. Deine Adresse wird nicht an einen Geocoder
-              übermittelt.
+              <MapPin size={14} /> GPS wird aus deiner Auswahl übernommen. Bei Bedarf kannst du die
+              Koordinaten auch direkt bearbeiten.
             </p>
             <label>
               Kaufpreis

@@ -9,6 +9,7 @@ const app = await createApp(pool, {
   origin: process.env.WEB_ORIGIN,
   production: process.env.NODE_ENV === 'production',
   logging: true,
+  geocodingUrl: process.env.GEOCODING_URL,
 });
 await app.listen({
   host: process.env.API_HOST ?? '127.0.0.1',

@@ -12,12 +12,14 @@ import {
   credentialsSchema,
   registerSchema,
   archiveSchema,
+  geocodingQuerySchema,
   sampleProperties,
   type User,
   type PropertyInput,
 } from '@estate-atlas/shared';
 import { hashPassword, verifyPassword, newToken, tokenHash } from './auth';
 import { toProperty, toValuation, toAsset, toAnalysis } from './database';
+import { createGeocoder } from './geocoding';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -37,9 +39,16 @@ const idOf = (req: FastifyRequest) => z.uuid().parse((req.params as { id: string
 const missing = () => new HttpError(404, 'Eintrag nicht gefunden.');
 export async function createApp(
   pool: pg.Pool,
-  options: { origin?: string; production?: boolean; logging?: boolean } = {},
+  options: {
+    origin?: string;
+    production?: boolean;
+    logging?: boolean;
+    geocoder?: ReturnType<typeof createGeocoder>;
+    geocodingUrl?: string;
+  } = {},
 ) {
   const origin = options.origin ?? 'http://localhost:3000';
+  const geocode = options.geocoder ?? createGeocoder({ url: options.geocodingUrl });
   if (options.production && !origin.startsWith('https://'))
     throw new Error('Production WEB_ORIGIN must use HTTPS.');
   const app = Fastify({
@@ -171,6 +180,25 @@ export async function createApp(
     },
   );
   app.get('/auth/me', { preHandler: requireUser }, async (req) => req.user);
+  app.post(
+    '/geocoding/search',
+    {
+      preHandler: requireUser,
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    },
+    async (req, reply) => {
+      const { query } = geocodingQuerySchema.parse(req.body);
+      try {
+        return await geocode(query, req.user!.id);
+      } catch (error) {
+        const status = (error as { statusCode?: number }).statusCode;
+        if (status === 429) reply.header('Retry-After', '1');
+        // Service failures are expected and contain no confidential search text.
+        if (status === 503) return reply.code(503).send({ message: (error as Error).message });
+        throw error;
+      }
+    },
+  );
   app.post('/auth/logout', { preHandler: requireUser }, async (req, reply) => {
     await pool.query('DELETE FROM sessions WHERE token_hash=$1', [req.sessionHash]);
     reply.clearCookie('ea_session', {

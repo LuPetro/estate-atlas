@@ -4,6 +4,7 @@ node_modules/
 .env.*
 !.env.example
 .next/
+.next-e2e/
 dist/
 .expo/
 android/

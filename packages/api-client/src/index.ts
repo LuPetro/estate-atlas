@@ -5,6 +5,7 @@ import type {
   User,
   Asset,
   AnalysisJob,
+  GeocodingResult,
 } from '@estate-atlas/shared';
 export class ApiError extends Error {
   constructor(
@@ -62,6 +63,13 @@ export class ApiClient {
   }
   logout() {
     return this.request<void>('/auth/logout', { method: 'POST' });
+  }
+  searchAddress(query: string, signal?: AbortSignal) {
+    return this.request<GeocodingResult[]>('/geocoding/search', {
+      method: 'POST',
+      body: JSON.stringify({ query }),
+      signal,
+    });
   }
   properties() {
     return this.request<Property[]>('/properties');

@@ -17,7 +17,8 @@
     "typecheck": "pnpm -r --workspace-concurrency=1 typecheck",
     "build": "pnpm --filter @estate-atlas/api build && pnpm --filter @estate-atlas/web build",
     "test": "vitest run",
-    "test:e2e": "playwright test",
+    "build:e2e": "NEXT_DIST_DIR=.next-e2e NEXT_PUBLIC_API_URL=http://localhost:4001 pnpm --filter @estate-atlas/web exec next build --webpack",
+    "test:e2e": "pnpm build:e2e && playwright test --project=desktop && playwright test --project=mobile-web",
     "mobile:export": "pnpm --filter @estate-atlas/mobile export",
     "check": "pnpm typecheck && pnpm test && pnpm build"
   },

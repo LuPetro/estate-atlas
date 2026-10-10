@@ -67,6 +67,16 @@ export const credentialsSchema = z
   .strict();
 export const registerSchema = credentialsSchema.extend({ name: z.string().trim().min(2).max(80) });
 export const archiveSchema = z.object({ archived: z.boolean() }).strict();
+export const geocodingQuerySchema = z.object({ query: z.string().trim().min(4).max(300) }).strict();
+export const geocodingResultSchema = z.object({
+  label: z.string().min(1).max(400),
+  address: z.string().min(3).max(300),
+  country: z.string().regex(/^[A-Z]{2}$/),
+  latitude: z.number().finite().min(-90).max(90),
+  longitude: z.number().finite().min(-180).max(180),
+  precision: z.enum(['building', 'street', 'place']),
+});
+export type GeocodingResult = z.infer<typeof geocodingResultSchema>;
 export type PropertyType = (typeof propertyTypes)[number];
 export type Currency = (typeof currencies)[number];
 export type PropertyInput = z.infer<typeof propertyInputSchema>;

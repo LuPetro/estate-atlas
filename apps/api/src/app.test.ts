@@ -62,7 +62,24 @@ beforeAll(async () => {
   pool = database(`postgresql://estateatlas_test:${password}@127.0.0.1:55433/estateatlas_test`);
   await migrate(pool);
   await migrate(pool);
-  app = await createApp(pool);
+  app = await createApp(pool, {
+    geocoder: async (query) => {
+      if (query === 'Ausfalltest')
+        throw Object.assign(new Error('Adresssuche gerade nicht erreichbar.'), { statusCode: 503 });
+      if (query === 'Limitierungstest')
+        throw Object.assign(new Error('Bitte erneut suchen.'), { statusCode: 429 });
+      return [
+        {
+          label: 'Synthetische Testadresse',
+          address: 'Teststraße 1, Wien',
+          country: 'AT',
+          latitude: 48.2082,
+          longitude: 16.3738,
+          precision: 'building',
+        },
+      ];
+    },
+  });
   const first = await app.inject({
     method: 'POST',
     url: '/auth/register',
@@ -101,6 +118,62 @@ describe('real PostgreSQL persistence, authentication and resource authorization
   });
   it('rejects anonymous portfolio access', async () =>
     expect((await app.inject('/properties')).statusCode).toBe(401));
+  it('protects address search and validates bounded explicit search input', async () => {
+    expect(
+      (await app.inject({ method: 'POST', url: '/geocoding/search', payload: { query: 'Wien' } }))
+        .statusCode,
+    ).toBe(401);
+    for (const payload of [
+      { query: 'abc' },
+      { query: 'a'.repeat(301) },
+      { query: 'Wien', url: 'http://127.0.0.1/' },
+    ])
+      expect(
+        (await app.inject({ method: 'POST', url: '/geocoding/search', headers: owner, payload }))
+          .statusCode,
+      ).toBe(400);
+    const result = await app.inject({
+      method: 'POST',
+      url: '/geocoding/search',
+      headers: owner,
+      payload: { query: 'Wien' },
+    });
+    expect(result.statusCode).toBe(200);
+    expect(result.json()[0]).toMatchObject({
+      latitude: 48.2082,
+      longitude: 16.3738,
+      country: 'AT',
+    });
+    expect(result.headers['cache-control']).toBe('no-store');
+  });
+  it('preserves CSRF origin checks and reports geocoder failure without blocking the portfolio', async () => {
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/geocoding/search',
+          headers: { ...owner, origin: 'https://untrusted.test' },
+          payload: { query: 'Wien' },
+        })
+      ).statusCode,
+    ).toBe(403);
+    const unavailable = await app.inject({
+      method: 'POST',
+      url: '/geocoding/search',
+      headers: owner,
+      payload: { query: 'Ausfalltest' },
+    });
+    expect(unavailable.statusCode).toBe(503);
+    const limited = await app.inject({
+      method: 'POST',
+      url: '/geocoding/search',
+      headers: owner,
+      payload: { query: 'Limitierungstest' },
+    });
+    expect(limited.statusCode).toBe(429);
+    expect(limited.headers['retry-after']).toBe('1');
+    expect((await app.inject({ url: '/properties', headers: owner })).statusCode).toBe(200);
+  });
   it('stores salted password hashes and only hashes session tokens', async () => {
     const users = await pool.query('SELECT password_hash FROM users');
     expect(users.rows[0].password_hash).toMatch(/^scrypt:/);
