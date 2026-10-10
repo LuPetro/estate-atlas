@@ -659,7 +659,7 @@ export default function Dashboard() {
               act(async () => {
                 await api.delete(detail.id);
                 setDetail(null);
-              }, false);
+              });
           }}
         />
       )}

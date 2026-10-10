@@ -14,3 +14,6 @@ test-results/
 work/
 *.tsbuildinfo
 .DS_Store
+
+# Written by Next.js; preserve generated formatting.
+**/next-env.d.ts

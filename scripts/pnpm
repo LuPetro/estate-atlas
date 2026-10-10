@@ -4,6 +4,13 @@ TASK_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PATH="$TASK_ROOT/.local/node/bin:$TASK_ROOT/.local/tools/node_modules/.bin:$PATH"
 export npm_config_cache="$TASK_ROOT/.local/cache/npm"
 export XDG_CACHE_HOME="$TASK_ROOT/.local/cache"
+export XDG_CONFIG_HOME="$TASK_ROOT/.local/config"
+export XDG_DATA_HOME="$TASK_ROOT/.local/data"
+export XDG_STATE_HOME="$TASK_ROOT/.local/state"
+# The VPS has no desktop. Use Expo's headless middleware instead of GUI DevTools.
+if [ "$(uname -s)" = Linux ] && [ -z "${DISPLAY:-}" ]; then
+  export EXPO_UNSTABLE_HEADLESS=1
+fi
 export EXPO_NO_TELEMETRY=1
 export NEXT_TELEMETRY_DISABLED=1
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=640}"

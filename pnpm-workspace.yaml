@@ -7,3 +7,6 @@ onlyBuiltDependencies:
   - unrs-resolver
   - embedded-postgres
   - '@embedded-postgres/linux-x64'
+  - '@embedded-postgres/linux-arm64'
+  - '@embedded-postgres/darwin-x64'
+  - '@embedded-postgres/darwin-arm64'
