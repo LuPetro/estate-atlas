@@ -1,0 +1,29 @@
+# EstateAtlas architecture
+
+## Decisions
+
+TypeScript / pnpm monorepo: Next.js App Router web, Expo React Native for native Android/iOS, Fastify REST API, real PostgreSQL. Shared Zod 4 validation, property models and currency-aware statistics; shared fetch client used in both apps. Native stack + bottom tabs and react-native-maps; Leaflet + marker clustering in web. No service worker, PWA manifest or mobile web substitute.
+
+A single PostgreSQL database holds users, hashed sessions, owner-scoped properties, valuation history, private binary attachments, and future analysis jobs. SQL uses parameters and explicit owner predicates. Property mutation and history writes run transactionally. The development cluster is local to `.local/`, runs as codexdev, binds loopback, and authenticates with SCRAM. Production can supply DATABASE_URL to a managed/self-hosted PostgreSQL without changing the apps.
+
+## Identity and confidentiality
+
+Scrypt password hashes (N=32768, r=8, p=3; [OWASP memory/CPU-balanced configuration](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#scrypt)) with random salts and bounded inputs. Random 256-bit session tokens are hashed in the database, expire after seven days, and are revoked on logout. Web uses HttpOnly SameSite=Lax cookies; native uses bearer sessions persisted in Expo SecureStore. Production cookies require HTTPS. Cookie mutations require an exact allowlisted Origin; registration/login require it for the browser too. CORS grants only the configured WEB_ORIGIN. Rate limiting, request limits, security headers and error redaction apply. No public portfolio or attachment URLs. File content is checked (JPEG/PNG/WebP/PDF), limited, stored privately and served with nosniff. Password reset, email verification, MFA, malware scanning and production operations remain future work.
+
+## Property and portfolio rules
+
+GPS is entered explicitly; no address is silently sent to a geocoder. Addresses, type, price, currency, area, year, amenities, condition, notes and archival state share one validated model. Prices are user-entered estimates, labeled accordingly. Dashboard totals and changes are grouped by currency, without invented exchange rates. Histories are dated snapshots of user input, never generated past appreciation. Archive preserves data; deletion cascades histories, attachments and jobs. Test fixtures are explicitly labeled and opt-in per authenticated account.
+
+## Maps
+
+Web requests public OpenStreetMap raster tiles directly with attribution and standard browser caching, no prefetch/offline downloads, in accordance with [tile policy](https://operations.osmfoundation.org/policies/tiles/). The provider sees IP and viewed map area, not property records. Native Maps uses Apple Maps on iOS and Google Maps on Android. Development in Expo Go does not require creating a paid service. A standalone Android binary needs a reviewed Google Maps key and restrictions before distribution. GPS/filtering data is identical; implementations differ.
+
+## Analysis extension
+
+Analysis jobs will be persisted with owner/property, requested_at, status (blocked/queued/running/succeeded/failed), provider, errors and result JSON. Result validation includes comparable properties, dated real source URLs, evidence, uncertainty and justified ranges. Until approved APIs are configured, requests remain explicitly blocked with no fabricated valuation. Later add a PostgreSQL-backed worker (SKIP LOCKED, retries, idempotency), cancellation and freshness policies; no Redis requirement initially.
+
+## Environment and verification
+
+Dependencies are pinned in pnpm-lock.yaml. Node 22 is installed only within this project and verified against the upstream checksum. Builds and test artifacts stay ignored. API tests use an isolated real PostgreSQL database/cluster; browser tests cover real authentication and persisted property changes. Both native platforms get Metro exports; exports prove JS bundling, not a device install or an App Store/Play build.
+
+Official references consulted: [Next installation](https://nextjs.org/docs/app/getting-started/installation), [Expo SDK compatibility](https://docs.expo.dev/versions/latest/), [Expo monorepos](https://docs.expo.dev/guides/monorepos/), [Fastify validation](https://fastify.dev/docs/latest/Reference/Validation-and-Serialization/).

@@ -1,0 +1,16 @@
+node_modules/
+.local/
+.env
+.env.*
+!.env.example
+.next/
+dist/
+.expo/
+android/
+ios/
+coverage/
+playwright-report/
+test-results/
+work/
+*.tsbuildinfo
+.DS_Store

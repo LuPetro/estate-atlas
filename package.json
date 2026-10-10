@@ -1,0 +1,35 @@
+{
+  "name": "estate-atlas",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=22.13 <23"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "pnpm --filter @estate-atlas/web dev",
+    "dev:api": "pnpm --filter @estate-atlas/api dev",
+    "dev:mobile": "pnpm --filter @estate-atlas/mobile start",
+    "db:start": "node scripts/database.mjs",
+    "db:migrate": "pnpm --filter @estate-atlas/api migrate",
+    "typecheck": "pnpm -r --workspace-concurrency=1 typecheck",
+    "build": "pnpm --filter @estate-atlas/api build && pnpm --filter @estate-atlas/web build",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "mobile:export": "pnpm --filter @estate-atlas/mobile export",
+    "check": "pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^22.0.0",
+    "dotenv": "^17.0.0",
+    "embedded-postgres": "18.4.0-beta.17",
+    "esbuild": "0.25.12",
+    "prettier": "3.6.2",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  },
+  "type": "module"
+}

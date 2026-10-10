@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+TASK_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+export PATH="$TASK_ROOT/.local/node/bin:$TASK_ROOT/.local/tools/node_modules/.bin:$PATH"
+export npm_config_cache="$TASK_ROOT/.local/cache/npm"
+export XDG_CACHE_HOME="$TASK_ROOT/.local/cache"
+export EXPO_NO_TELEMETRY=1
+export NEXT_TELEMETRY_DISABLED=1
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=640}"
+export PLAYWRIGHT_BROWSERS_PATH="$TASK_ROOT/.local/browsers"
+export TMPDIR="$TASK_ROOT/.local/tmp"
+export __UNSAFE_EXPO_HOME_DIRECTORY="$TASK_ROOT/.local/expo"
+export LD_LIBRARY_PATH="$TASK_ROOT/.local/sysroot/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+mkdir -p "$TMPDIR"
+cd "$TASK_ROOT"
+exec node "$TASK_ROOT/.local/tools/node_modules/pnpm/bin/pnpm.cjs" "$@"
