@@ -52,6 +52,21 @@ ssh -N -L 3000:127.0.0.1:3000 -L 4000:127.0.0.1:4000 codexdev@DEIN_VPS
 
 Danach auf deinem Rechner `http://localhost:3000` öffnen. `DEIN_VPS` durch den vorhandenen Host ersetzen. Die Dienste sind bewusst nicht öffentlich an `0.0.0.0` gebunden. Keine private Adresse oder Dokumentdatei muss für diesen Test an einen Drittanbieter hochgeladen werden. Kartenkacheln kommen direkt von OpenStreetMap; der Anbieter sieht IP und Kartenausschnitt. Web-Schriftarten werden von Google Fonts geladen; Systemschriften dienen als Fallback.
 
+### Direkt auf dem VPS prüfen
+
+Während Datenbank und `dev` laufen, in einem weiteren Server-Terminal:
+
+```bash
+cd /home/codexdev/projects/estate-atlas
+./scripts/pnpm web:check
+```
+
+Der projektlokale Chromium startet ohne grafische Oberfläche. Die Prüfung lädt die tatsächliche laufende Web-App, prüft das Anmeldeformular und die API-Verbindung aus dem Browser inklusive CORS. Ohne Anmeldung ist `401` bei `/auth/me` korrekt; `/health` muss `200` liefern. Es werden keine Benutzer oder Immobilien angelegt. Dies ist eine Verbindungsprüfung, kein vollständiger Portfolio-Test.
+
+Für einen schnellen API-Test genügt `curl -sS http://localhost:4000/health`. Erwartet wird `{"status":"ok","service":"EstateAtlas API"}`.
+
+Wenn diese Server-Prüfung besteht, aber der eigene Browser „Keine Verbindung zur API“ meldet, im selben Browser `http://localhost:4000/health` öffnen. Der SSH-Tunnel muss **beide** Ports 3000 und 4000 weiterleiten und auf dem eigenen Rechner laufen. Die Web-App unter exakt `http://localhost:3000` öffnen. `localhost` im Browser bezeichnet den Rechner mit diesem Browser; die direkte VPS-IP ist mit der aktuellen Loopback-Konfiguration kein Web-Zugang.
+
 ## Native Mobile-App ausprobieren
 
 Die App rendert native React-Native-Komponenten und native Karten; ein Browser mit Smartphone-Bildschirmgröße ist nur ein Web-Responsivitätstest.

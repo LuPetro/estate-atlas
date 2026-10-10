@@ -30,6 +30,8 @@ Stand: 10. Oktober 2026 (Europe/Vienna). Projekt: `/home/codexdev/projects/estat
 
 Die Browserprüfung deckte fehlende CORS-Methoden für PUT/PATCH/DELETE auf; die Konfiguration wurde korrigiert und ein Regressionstest ergänzt. Die abschließenden Tests prüfen auch die aktualisierte Liste nach dem Löschen und die fehlerfreie Rückkehr zur Anmeldung nach Logout.
 
+Am 11. Oktober 2026 (Europe/Vienna) zusätzlich `./scripts/pnpm web:check` gegen die laufenden Entwicklungsdienste ausgeführt: API und Web HTTP 200, Anmeldeformular sichtbar, frischer Browser erhält erwartungsgemäß HTTP 401 bei `/auth/me`, Browserzugriff auf `/health` inklusive CORS erfolgreich. Keine Testbenutzer oder Immobilien in der normalen Datenbank erstellt.
+
 Getrennte Testcluster verwenden 55433/55434. Die normale PostgreSQL-18.4-Datenbank auf 55432 enthält keine von mir angelegten Benutzer oder Testimmobilien. Ihre `.env`-Zugangsdaten bleiben lokal und sind nicht in Git. Der vorbereitete GitHub-Workflow wird beim ersten Push ausgelöst; sein Ergebnis ist separat von den bereits bestandenen lokalen Prüfungen zu bewerten.
 
 ## Grenzen und nächste Schritte
