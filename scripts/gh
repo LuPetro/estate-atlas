@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+TASK_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+export GH_CONFIG_DIR="$TASK_ROOT/.local/github"
+export TMPDIR="$TASK_ROOT/.local/tmp"
+mkdir -p "$TMPDIR"
+cd "$TASK_ROOT"
+exec "$TASK_ROOT/.local/gh/bin/gh" "$@"
