@@ -689,6 +689,7 @@ main {
 }
 .search {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 10px;
   flex: 1;
@@ -707,6 +708,19 @@ main {
   min-width: 0;
   width: 100%;
   font-size: 11px;
+  height: 100%;
+  padding: 0;
+  line-height: normal;
+}
+.search > svg {
+  flex-shrink: 0;
+}
+.search:focus-within {
+  border-color: #72ab8f;
+  box-shadow: 0 0 0 3px #75ae8d14;
+}
+.search input:focus {
+  box-shadow: none;
 }
 .search input::placeholder {
   color: #a3aeab;
