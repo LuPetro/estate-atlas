@@ -23,8 +23,8 @@ export default defineConfig({
       timeout: 60000,
     },
     {
-      command: 'pnpm --filter @estate-atlas/web start --port 3001',
-      env: { NEXT_DIST_DIR: '.next-e2e', NEXT_PUBLIC_API_URL: 'http://localhost:4001' },
+      command: 'node scripts/e2e-web.mjs',
+      env: { PORT: '3001', HOSTNAME: '127.0.0.1' },
       url: 'http://localhost:3001',
       reuseExistingServer: false,
       gracefulShutdown: { signal: 'SIGTERM', timeout: 10000 },

@@ -17,27 +17,24 @@ Projekt auf diesem VPS: `/home/codexdev/projects/estate-atlas`.
 - Opt-in-Testdaten im angemeldeten Benutzerportfolio, überall als synthetisch gekennzeichnet.
 - Persistente, ausdrücklich **blockierte** Analyseaufträge als Grundlage für Meilenstein 4. Keine echte Recherche, kein KI-Anbieter, keine generierten Bewertungen.
 
-## Lokal auf dem VPS starten
+## Mit Docker auf dem VPS starten
 
-Die Werkzeuge sind bereits lokal installiert. Bei einem neuen Checkout zunächst `./scripts/bootstrap.sh` ausführen. Alle Werkzeuge, Caches, PostgreSQL-Dateien und Zugangsdaten bleiben in ignorierten Projektdateien; keine Installation als Root, keine Docker-Gruppe und keine globalen Konfigurationsänderungen erforderlich.
-
-**Terminal 1 – Datenbank:**
+Docker Compose ist der Standard für Web, API und PostgreSQL. Bei einem neuen Checkout zunächst `./scripts/bootstrap.sh` ausführen, falls die projektlokalen Prüfwerkzeuge benötigt werden. Docker und Compose müssen auf dem Host verfügbar und für den ausführenden Benutzer zugänglich sein.
 
 ```bash
 cd /home/codexdev/projects/estate-atlas
-./scripts/pnpm db:start
+./scripts/docker config --quiet
+./scripts/docker up -d --build --wait
+./scripts/docker ps
 ```
 
-Beim ersten Start erzeugt das Skript eine `.env` mit zufälligem Datenbankpasswort (Dateirechte 0600), initialisiert PostgreSQL und bindet ausschließlich `127.0.0.1:55432`. `Ctrl+C` stoppt den Server und erhält die Daten. Bei bereits laufender Projektdatenbank beendet sich das Skript mit einer entsprechenden Meldung. `.env` nicht durch die Beispieldatei überschreiben.
+Auch `./scripts/pnpm dev` startet diesen Stack. Die API führt beim Start Migrationen aus; Healthchecks warten auf Datenbank und API. Zugangsdaten entstehen einmalig unter `.local/docker/`; vorhandene `.env`-Dateien bleiben erhalten. PostgreSQL speichert seine Daten in einem benannten Volume. `./scripts/docker down` erhält dieses Volume.
 
-**Terminal 2 – API und Web:**
+**Bestehende Host-Daten zuerst übernehmen:** Vor dem ersten Start von API/Web die Anleitung in [docs/docker.md](docs/docker.md) verwenden. Sie erstellt ein konsistentes Backup, importiert in eine leere Docker-Datenbank und vergleicht die Tabellen. Die ursprüngliche Datenbank bleibt erhalten. Nicht einfach eine leere Container-App über das bestehende Portfolio starten.
 
-```bash
-cd /home/codexdev/projects/estate-atlas
-./scripts/pnpm dev
-```
+Auf diesem Server laufen Web, API und PostgreSQL jetzt als gesunde Docker-Container. Die bestehende Datenbank wurde nach einem privaten Backup übernommen; Zeilenzahlen und vollständige Zeilenfingerprints aller sieben Anwendungstabellen stimmen überein. Die bisherigen Host-Prozesse sind gestoppt. Die ursprüngliche Datenbank bleibt unverändert als Rückfallmöglichkeit erhalten.
 
-Das Skript führt Migrationen aus und startet API und Next.js. Auf demselben Rechner:
+Die Ports bleiben:
 
 - Web: [http://localhost:3000](http://localhost:3000)
 - Datenbank-Healthcheck: [http://localhost:4000/health](http://localhost:4000/health)
@@ -56,11 +53,11 @@ Browser-Origin ist exakt `http://localhost:3000`; nicht zwischen `localhost` und
 ssh -N -L 3000:127.0.0.1:3000 -L 4000:127.0.0.1:4000 codexdev@DEIN_VPS
 ```
 
-Danach auf deinem Rechner `http://localhost:3000` öffnen. `DEIN_VPS` durch den vorhandenen Host ersetzen. Die Dienste sind bewusst nicht öffentlich an `0.0.0.0` gebunden. Die Adresssuche sendet den eingegebenen Suchtext an Photon; du kannst stattdessen den Pin oder die GPS-Felder nutzen. Dokumentdateien bleiben in der privaten Projektdatenbank. Kartenkacheln kommen direkt von OpenStreetMap; der Anbieter sieht IP und Kartenausschnitt. Web-Schriftarten werden von Google Fonts geladen; Systemschriften dienen als Fallback.
+Danach auf deinem Rechner `http://localhost:3000` öffnen. `DEIN_VPS` durch den vorhandenen Host ersetzen. Die Dienste sind bewusst nicht öffentlich an `0.0.0.0` gebunden. Die Adresssuche sendet den eingegebenen Suchtext an Photon; du kannst stattdessen den Pin oder die GPS-Felder nutzen. Dokumentdateien bleiben in der privaten Projektdatenbank. Die vereinfachte Standardkarte lädt lokale Länderflächen. Erst „Details anzeigen“ lädt externe Kartenkacheln; der Anbieter sieht IP und Kartenausschnitt. Web-Schriftarten werden von Google Fonts geladen; Systemschriften dienen als Fallback.
 
 ### Direkt auf dem VPS prüfen
 
-Während Datenbank und `dev` laufen, in einem weiteren Server-Terminal:
+Während der Compose-Stack läuft, in einem weiteren Server-Terminal:
 
 ```bash
 cd /home/codexdev/projects/estate-atlas
@@ -125,13 +122,15 @@ Ein eigenständiger Android-Build benötigt vor Veröffentlichung einen freigege
 
 ## Kartenstil
 
-Die Webkarten verwenden ein helles EstateAtlas-Theme mit reduzierten OSM-Farben, petrolfarbenen Pins/Clustern, neuen Popups und Zoomtasten. „Übersicht“ passt die Karte wieder auf alle aktuell gefilterten Immobilien ein. Der gleiche Stil gilt für die Pin-Auswahl im Editor. Das funktioniert ohne zusätzliches Konto oder Karten-Abo.
+Web und native App zeigen standardmäßig eine vereinfachte Weltkarte: helle Flächen, reduzierte Ländergrenzen, eigene Pins und Cluster. Die generalisierten [Natural-Earth-Länderflächen](https://www.naturalearthdata.com/downloads/110m-cultural-vectors/110m-admin-0-countries/) liegen im Projekt, sind gemeinfrei und benötigen keinen Schlüssel oder externen Kacheldienst. Quellen und Verarbeitung stehen in `packages/shared/src/world-countries-source.md`. Diese Übersicht dient der Orientierung; auf Straßenebene wird bewusst in die Detailkarte gewechselt.
 
-Optional aktiviert `NEXT_PUBLIC_CARTO_MAPS_KEY` in der lokalen `.env` den CARTO-Positron-Hintergrund. Dafür einen **öffentlichen, auf die Website beschränkten Basemaps-Key** von [CARTO](https://www.carto.com/basemaps/) verwenden; keine privaten API-/Kontoschlüssel eintragen. Der Schlüssel ist im Browser sichtbar. Nach einer Änderung Entwicklung neu starten beziehungsweise Produktion neu bauen. Ohne Schlüssel bleiben OSM-Kacheln aktiv; bei einem CARTO-Kachelfehler wechseln beide Karten mit Hinweis und korrekter Attribution auf OSM. Es wurde kein Anbieter-Konto oder kostenpflichtiger Tarif eingerichtet.
+**„Details anzeigen“** aktiviert Straßenkarten. **„Vereinfacht anzeigen“** kehrt zur Übersicht zurück. Immobilien, Filter und GPS-Werte bleiben erhalten. Im Adresseditor fokussiert die Detailkarte den gewählten Pin; dort kann er präzise verschoben werden. Im Web passt „Übersicht“ die Karte auf alle gefilterten Immobilien ein. Native Übersichten unterstützen Verschieben, Pinch-Zoom und Zoomtasten; Geräteprüfung bleibt erforderlich.
 
-Native Karten bleiben bei Apple Maps (iOS, `mutedStandard`) und Google Maps (Android, lokaler heller JSON-Stil). Portfolio und Adresseditor verwenden jeweils denselben Stil; die Hintergründe sind wegen der unterschiedlichen Anbieter nicht pixelgleich. Geräteprüfung steht noch aus.
+Webdetails verwenden OpenStreetMap, optional CARTO Positron mit `NEXT_PUBLIC_CARTO_MAPS_KEY` in `.local/docker/compose.env`. Nur einen öffentlichen, auf die Website beschränkten Basemaps-Key von [CARTO](https://www.carto.com/basemaps/) verwenden und Web danach neu bauen. Bei CARTO-Ausfall erfolgt ein Hinweis und Wechsel auf OSM mit korrekter Attribution. Es ist kein Kartenkonto oder kostenpflichtiger Tarif eingerichtet.
 
-Die Browser-Testversion verwendet einen synthetischen CARTO-Key und abgefangene Kachelantworten; sie sendet keine Testanfragen an CARTO. Zusätzlich werden der Provider-Ausfall und der Wechsel auf OSM geprüft. Die lokale OSM-Variante wurde mit echten Kacheln auf Desktop-/Smartphone-Breite kontrolliert, ohne Konten oder Immobilien in der normalen Datenbank anzulegen.
+Native Details verwenden Apple Maps auf iOS (`mutedStandard`) und einen hellen Google-Maps-Stil auf Android. Der Standard ist auf beiden Plattformen dieselbe lokale SVG-Übersicht. Ein eigenständiger Android-Build benötigt weiterhin einen beschränkten Google-Maps-Key für die Detailkarte.
+
+Browserprüfungen verwenden synthetische CARTO-Kacheln und prüfen den OSM-Rückfall, die vereinfachte Ansicht ohne Kacheln sowie unveränderte Pins/GPS beim Umschalten. Testdaten bleiben in isolierten Testdatenbanken.
 
 ## Prüfungen
 

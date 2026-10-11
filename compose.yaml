@@ -1,0 +1,105 @@
+name: estate-atlas
+services:
+  db:
+    image: postgres:18.4-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: estateatlas
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      PGDATA: /var/lib/postgresql/18/docker
+    secrets:
+      - postgres_admin_password
+      - postgres_app_password
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./scripts/docker-init-db.sh:/docker-entrypoint-initdb.d/10-estate-atlas.sh:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U postgres -d estateatlas']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 256m
+    logging: &logging
+      driver: json-file
+      options: { max-size: 10m, max-file: '3' }
+
+  api:
+    image: estate-atlas-api:local
+    build: { context: ., target: api }
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 4000
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_NAME: estateatlas
+      DATABASE_USER: estateatlas
+      DATABASE_PASSWORD_FILE: /run/secrets/postgres_app_password
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      ALLOW_LOCAL_HTTP: ${ALLOW_LOCAL_HTTP:-true}
+      GEOCODING_URL: ${GEOCODING_URL:-https://photon.komoot.io/api/}
+    secrets: [postgres_app_password]
+    ports: ['127.0.0.1:${API_PORT:-4000}:4000']
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:4000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    logging: *logging
+
+  web:
+    image: estate-atlas-web:local
+    build:
+      context: .
+      target: web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+        NEXT_PUBLIC_CARTO_MAPS_KEY: ${NEXT_PUBLIC_CARTO_MAPS_KEY:-}
+    restart: unless-stopped
+    init: true
+    ports: ['127.0.0.1:${WEB_PORT:-3000}:3000']
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 384m
+    logging: *logging
+
+volumes:
+  postgres_data:
+
+secrets:
+  postgres_admin_password:
+    file: ./.local/docker/postgres-admin-password
+  postgres_app_password:
+    file: ./.local/docker/postgres-app-password

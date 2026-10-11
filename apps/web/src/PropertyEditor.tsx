@@ -148,8 +148,8 @@ export default function PropertyEditor({
                 <strong>Position auf der Karte</strong>
               </div>
               <p>
-                Adressvorschlag auswählen oder auf die Karte klicken. Ziehe den Pin, um die Position
-                genauer zu setzen.
+                Adressvorschlag auswählen oder auf die Karte klicken. Für eine genaue Position
+                „Details anzeigen“ wählen und den Pin verschieben.
               </p>
               <LocationMap
                 position={position}

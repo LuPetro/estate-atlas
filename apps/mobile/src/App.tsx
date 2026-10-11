@@ -34,6 +34,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ApiClient, ApiError } from '@estate-atlas/api-client';
 import AddressPicker from './AddressPicker';
 import { mapTheme } from './mapTheme';
+import SimpleMap, { MapModeControl } from './SimpleMap';
 import {
   portfolioStats,
   filterProperties,
@@ -579,16 +580,37 @@ function MapScreen({ navigation }: BottomTabScreenProps<Tabs, 'Map'>) {
   const [type, setType] = useState('');
   const [region, setRegion] = useState<Region>({
     latitude: 35,
-    longitude: 10,
+    longitude: 0,
     latitudeDelta: 100,
-    longitudeDelta: 150,
+    longitudeDelta: 360,
   });
   const map = React.useRef<MapView>(null);
+  const [detail, setDetail] = useState(false);
   const items = useMemo(
     () => filterProperties(properties, { query, country: country.trim().toUpperCase(), type }),
     [properties, query, country, type],
   );
   const clusters = clusterProperties(items, Math.log2(360 / Math.max(0.01, region.longitudeDelta)));
+  const selectCluster = (key: string) => {
+    const cluster = clusters.find((item) => item.key === key);
+    if (!cluster) return;
+    if (cluster.items.length === 1)
+      navigation.getParent()?.navigate('Detail', { id: cluster.items[0].id });
+    else {
+      const expandDetails = !detail && region.longitudeDelta <= 360 / 64;
+      if (expandDetails) setDetail(true);
+      const next = {
+        latitude: cluster.latitude,
+        longitude: cluster.longitude,
+        latitudeDelta: expandDetails ? 0.008 : region.latitudeDelta * 0.45,
+        longitudeDelta: expandDetails
+          ? 0.01
+          : Math.max(detail ? 0.01 : 360 / 64, region.longitudeDelta * 0.45),
+      };
+      setRegion(next);
+      map.current?.animateToRegion(next, 350);
+    }
+  };
   return (
     <SafeAreaView edges={['top']} style={styles.screen}>
       <View style={{ padding: 22, paddingBottom: 8 }}>
@@ -617,47 +639,62 @@ function MapScreen({ navigation }: BottomTabScreenProps<Tabs, 'Map'>) {
           labels={{ '': 'Alle', ...propertyTypeLabels }}
         />
       </View>
-      <MapView
-        {...mapTheme}
-        ref={map}
-        style={{ flex: 1 }}
-        initialRegion={region}
-        onRegionChangeComplete={setRegion}
-      >
-        {clusters.map((c) => (
-          <Marker
-            key={c.key}
-            coordinate={{ latitude: c.latitude, longitude: c.longitude }}
-            title={c.items.length === 1 ? c.items[0].title : `${c.items.length} Immobilien`}
-            description={
-              c.items.length === 1
-                ? formatMoney(c.items[0].marketValue, c.items[0].currency)
-                : 'Antippen zum Vergrößern'
-            }
-            pinColor="#14836f"
-            onPress={() => {
-              if (c.items.length === 1)
-                navigation.getParent()?.navigate('Detail', { id: c.items[0].id });
-              else
-                map.current?.animateToRegion(
-                  {
-                    latitude: c.latitude,
-                    longitude: c.longitude,
-                    latitudeDelta: region.latitudeDelta * 0.45,
-                    longitudeDelta: region.longitudeDelta * 0.45,
-                  },
-                  350,
-                );
-            }}
+      <View style={{ flex: 1 }}>
+        {!detail ? (
+          <SimpleMap
+            region={region}
+            onRegionChange={setRegion}
+            points={clusters.map((c) => ({
+              id: c.key,
+              title: c.items.length === 1 ? c.items[0].title : `${c.items.length} Immobilien`,
+              latitude: c.latitude,
+              longitude: c.longitude,
+              count: c.items.length,
+            }))}
+            onPressPoint={selectCluster}
+          />
+        ) : (
+          <MapView
+            {...mapTheme}
+            ref={map}
+            style={{ flex: 1 }}
+            initialRegion={region}
+            onRegionChangeComplete={setRegion}
           >
-            {c.items.length > 1 && (
-              <View style={styles.cluster}>
-                <Text style={{ color: 'white', fontWeight: '700' }}>{c.items.length}</Text>
-              </View>
-            )}
-          </Marker>
-        ))}
-      </MapView>
+            {clusters.map((c) => (
+              <Marker
+                key={c.key}
+                coordinate={{ latitude: c.latitude, longitude: c.longitude }}
+                title={c.items.length === 1 ? c.items[0].title : `${c.items.length} Immobilien`}
+                description={
+                  c.items.length === 1
+                    ? formatMoney(c.items[0].marketValue, c.items[0].currency)
+                    : 'Antippen zum Vergrößern'
+                }
+                pinColor="#14836f"
+                onPress={() => selectCluster(c.key)}
+              >
+                {c.items.length > 1 && (
+                  <View style={styles.cluster}>
+                    <Text style={{ color: 'white', fontWeight: '700' }}>{c.items.length}</Text>
+                  </View>
+                )}
+              </Marker>
+            ))}
+          </MapView>
+        )}
+        <MapModeControl
+          detail={detail}
+          onPress={() => {
+            if (detail)
+              setRegion((previous) => ({
+                ...previous,
+                longitudeDelta: Math.max(360 / 64, previous.longitudeDelta),
+              }));
+            setDetail(!detail);
+          }}
+        />
+      </View>
       <Text style={styles.mapCaption}>
         {items.length} aktive Immobilien · gleiche Daten wie im Web
       </Text>

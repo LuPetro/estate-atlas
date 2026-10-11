@@ -491,6 +491,37 @@ main {
   font: 12px var(--font);
   background: #eef2f0;
 }
+.atlas-map-simple.leaflet-container {
+  background: #f1f6f5;
+}
+.map-toolbar {
+  position: absolute;
+  z-index: 500;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: calc(100% - 72px);
+}
+.map-mode-button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 9px 12px;
+  border: 1px solid #dce5e1;
+  border-radius: 12px;
+  background: #ffffffed;
+  color: var(--green-dark);
+  font-size: 11px;
+  font-weight: 650;
+  box-shadow: 0 4px 16px #183b3020;
+}
+.map-mode-button[aria-pressed='true'] {
+  background: #e7f2ec;
+}
 .atlas-map-osm .leaflet-tile-pane {
   filter: grayscale(0.75) saturate(0.4) brightness(1.04);
 }
@@ -524,10 +555,6 @@ main {
   color: #276b5c;
 }
 .map-fit-button {
-  position: absolute;
-  z-index: 500;
-  top: 12px;
-  right: 12px;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -1507,8 +1534,12 @@ label select:focus {
   width: 100%;
   height: 260px;
   border-radius: 7px;
-  margin-top: 10px;
   z-index: 0;
+}
+.location-map-shell {
+  margin-top: 10px;
+  border-radius: 7px;
+  overflow: hidden;
 }
 .modal-footer {
   display: flex;

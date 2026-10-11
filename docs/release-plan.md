@@ -31,7 +31,7 @@ Abnahme: Ein normales Konto erreicht keine Adminfunktion; eine Sperre widerruft 
 ## 3. Dauerhafter Web-Betrieb und private Beta
 
 - Domain, HTTPS und Produktionskonfiguration festlegen.
-- Dauerhafte API-/Web-Prozesse und Neustartstrategie mit dem Betreiber abstimmen; SSH-Tunnel dient weiter nur der Entwicklung.
+- Docker Compose ist der Standard und läuft auf diesem VPS mit Neustartstrategie, Healthchecks und persistentem PostgreSQL-Volume. Öffentlichen HTTPS-Betrieb vorbereiten; SSH-Tunnel dient weiter nur der Entwicklung.
 - Produktionsdatenbank, begrenzte DB-Rolle und Migrationen; Backups einschließlich erfolgreichem Wiederherstellungstest.
 - Monitoring, Fehlererfassung ohne vertrauliche Inhalte, begrenzte Uploads und Abuse-Schutz.
 - Privater Dateispeicher und Quoten; ein Umzug aus `bytea` in privaten Objektspeicher ist bei Bedarf separat zu entscheiden.
@@ -42,11 +42,9 @@ System-, DNS- oder kostenpflichtige Änderungen werden erst im dafür ausdrückl
 
 ## 4. Einheitliches Kartendesign und native Betatests
 
-Leaflet bleibt im Web bestehen. Ein lokales helles Theme mit petrolfarbenen Markern/Clustern, überarbeiteten Popups/Bedienelementen und Portfolio-Einpassung ist umgesetzt, ebenso im Standorteditor. Optional ist CARTO Positron über einen öffentlichen, auf die Website beschränkten Basemaps-Key vorbereitet; ohne Key bleibt OSM aktiv. Bei CARTO-Kachelfehlern erfolgt ein sichtbarer Rückfall auf OSM mit aktualisierter Attribution. Vor Aktivierung Anbieter-Key und Nutzungstarif festlegen; es wurde kein Konto oder Abo eingerichtet.
+Web und native App verwenden standardmäßig dieselben generalisierten Natural-Earth-Länderflächen mit eigenen Pins/Clustern. „Details anzeigen“ aktiviert Straßenkarten, „Vereinfacht anzeigen“ kehrt zurück; Filter und GPS bleiben erhalten. Leaflet bleibt im Web bestehen. Webdetails verwenden OSM oder optional CARTO Positron mit beschränktem öffentlichem Schlüssel und OSM-Rückfall. Native Details verwenden Apple Maps beziehungsweise Google Maps; die Übersicht rendert lokale SVG-Geometrie. Es wurde kein Kartenkonto oder kostenpflichtiger Tarif eingerichtet.
 
-Native Karten verwenden einen gemeinsamen hellen Stil für Apple Maps (`mutedStandard`) beziehungsweise Google Maps (lokaler JSON-Stil). Identische Hintergrundkarten über alle Plattformen brauchen weiterhin eine gesonderte Provider-/Renderingentscheidung. Visuelle Abnahme auf echten Geräten steht aus.
-
-Aktuelle Anbieterquellen: <https://www.carto.com/basemaps/>, <https://www.carto.com/legal/basemap-terms/>, <https://docs.maptiler.com/leaflet/examples/map-style/>.
+Die Webumschaltung ist mit Browsertests und echten OSM-Kacheln geprüft. Native Android-/iOS-JS-Exporte sind erfolgreich; visuelle und Gestenabnahme auf Geräten bleibt offen.
 
 Native Abnahme umfasst reale Android-/iOS-Geräte, Anmeldung, Mail-Deep-Links, Uploads, Karten-/Pin-Gesten, langsame Netze und nachvollziehbare Offline-/Fehlermeldungen. Danach signierte Testbuilds, TestFlight und Android-Testverteilung. Hermes-Exporte allein sind keine Geräte-/Storefreigabe.
 

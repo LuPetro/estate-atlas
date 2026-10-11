@@ -1,0 +1,16 @@
+.git
+.local
+.env
+.env.*
+**/node_modules
+**/.next
+**/.next-e2e
+**/dist
+**/.expo
+**/*.tsbuildinfo
+work
+test-results
+playwright-report
+coverage
+apps/mobile/android
+apps/mobile/ios

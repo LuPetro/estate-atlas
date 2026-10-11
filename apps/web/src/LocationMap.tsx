@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { Map, Marker } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { addBasemap } from './basemap';
+import MapModeButton from './MapModeButton';
+import type { MapMode } from '@estate-atlas/shared/map';
 
 export default function LocationMap({
   position,
@@ -19,6 +21,8 @@ export default function LocationMap({
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
   const [fallback, setFallback] = useState(false);
+  const [mode, setMode] = useState<MapMode>('simple');
+  const basemap = useRef<ReturnType<typeof addBasemap> | null>(null);
   useEffect(() => {
     let cancelled = false;
     let dispose = () => {};
@@ -29,11 +33,12 @@ export default function LocationMap({
       const instance = L.map(container.current, {
         scrollWheelZoom: false,
         worldCopyJump: true,
-      }).setView(initial ? [initial.latitude, initial.longitude] : [35, 10], initial ? 17 : 2);
+      }).setView(initial ? [initial.latitude, initial.longitude] : [35, 10], initial ? 5 : 2);
       map.current = instance;
-      addBasemap(L, instance, () => {
+      const background = addBasemap(L, instance, () => {
         if (!cancelled) setFallback(true);
       });
+      basemap.current = background;
       const pin = L.marker(initial ? [initial.latitude, initial.longitude] : [0, 0], {
         draggable: true,
         title: 'Immobilienposition',
@@ -60,6 +65,8 @@ export default function LocationMap({
       observer.observe(container.current);
       dispose = () => {
         observer.disconnect();
+        background.dispose();
+        basemap.current = null;
         instance.remove();
         map.current = null;
         marker.current = null;
@@ -83,16 +90,30 @@ export default function LocationMap({
     marker.current.setLatLng([position.latitude, position.longitude]).addTo(map.current);
     map.current.setView(
       [position.latitude, position.longitude],
-      Math.max(map.current.getZoom(), 17),
+      mode === 'simple' ? 5 : Math.max(map.current.getZoom(), 17),
     );
-  }, [ready, position?.latitude, position?.longitude]);
+  }, [ready, mode, position?.latitude, position?.longitude]);
   return (
     <>
-      <div
-        ref={container}
-        className="location-map atlas-map"
-        aria-label="Immobilienposition auf der Karte wählen"
-      />
+      <div className="map-shell location-map-shell">
+        <div
+          ref={container}
+          className="location-map atlas-map"
+          aria-label="Immobilienposition auf der Karte wählen"
+        />
+        <div className="map-toolbar">
+          <MapModeButton
+            mode={mode}
+            disabled={!ready}
+            onToggle={() => {
+              const next = mode === 'simple' ? 'detail' : 'simple';
+              basemap.current?.setMode(next);
+              setMode(next);
+              setFallback(false);
+            }}
+          />
+        </div>
+      </div>
       {fallback && <p role="status">OpenStreetMap als Ersatzkarte geladen.</p>}
       {error && (
         <p role="alert" className="error">

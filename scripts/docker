@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+TASK_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+export PATH="$TASK_ROOT/.local/node/bin:$PATH"
+export DOCKER_CONFIG="$TASK_ROOT/.local/docker/cli"
+export COMPOSE_PARALLEL_LIMIT=1
+node "$TASK_ROOT/scripts/docker-init.mjs"
+cd "$TASK_ROOT"
+exec docker compose --project-directory "$TASK_ROOT" --env-file "$TASK_ROOT/.local/docker/compose.env" -f "$TASK_ROOT/compose.yaml" "$@"

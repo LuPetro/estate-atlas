@@ -83,6 +83,10 @@ test('registers, creates, edits, persists, archives, restores and deletes a prop
 test('labeled fixtures, filters, all views and interactive map use the same portfolio', async ({
   page,
 }) => {
+  let tileRequests = 0;
+  page.on('request', (request) => {
+    if (/basemaps\.cartocdn\.com|tile\.openstreetmap\.org/.test(request.url())) tileRequests++;
+  });
   await register(page);
   await page.getByRole('button', { name: 'Testdaten laden', exact: true }).click();
   await expect(page.locator('.property-card')).toHaveCount(4);
@@ -102,6 +106,15 @@ test('labeled fixtures, filters, all views and interactive map use the same port
   await nav(page, 'Weltkarte');
   await expect(page.getByLabel('Interaktive Immobilienkarte')).toBeVisible();
   await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible();
+  await expect(page.locator('.atlas-map')).toHaveClass(/atlas-map-simple/);
+  await expect(page.locator('.leaflet-control-attribution')).toContainText('Natural Earth');
+  await expect(page.locator('.leaflet-tile')).toHaveCount(0);
+  expect(tileRequests).toBe(0);
+  await page.screenshot({
+    path: `work/map-simple-${test.info().project.name}.png`,
+    fullPage: true,
+  });
+  await page.getByRole('button', { name: 'Details anzeigen', exact: true }).click();
   await expect(page.locator('.atlas-map')).toHaveClass(/atlas-map-carto/);
   await expect(page.locator('.leaflet-control-attribution')).toContainText('CARTO');
   const map = page.getByLabel('Interaktive Immobilienkarte');
@@ -125,6 +138,10 @@ test('labeled fixtures, filters, all views and interactive map use the same port
   await expect(map.locator('.leaflet-marker-icon')).toHaveCount(initialMarkers);
   await page.getByLabel('Land filtern', { exact: true }).selectOption('AT');
   await expect(page.locator('.leaflet-marker-icon')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Vereinfacht anzeigen', exact: true }).click();
+  await expect(page.locator('.atlas-map')).toHaveClass(/atlas-map-simple/);
+  await expect(page.locator('.leaflet-tile')).toHaveCount(0);
+  await expect(page.locator('.leaflet-marker-icon')).toHaveCount(1);
   await page.locator('.leaflet-marker-icon').click();
   await expect(page.locator('.map-popup')).toContainText('Wien');
   await expect(page.locator('.map-popup-action')).toHaveText('Details öffnen →');
@@ -138,12 +155,20 @@ test('keeps map selection usable when CARTO tiles fail and switches attribution 
 }) => {
   await page.route('https://basemaps.cartocdn.com/**', (route) => route.abort());
   await register(page);
+  await expect(page.locator('.property-map')).toHaveClass(/atlas-map-simple/);
+  await expect(page.locator('.leaflet-tile')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Details anzeigen', exact: true }).click();
   await expect(page.locator('.property-map')).toHaveClass(/atlas-map-osm/);
   await expect(page.locator('.leaflet-control-attribution')).toContainText('OpenStreetMap');
   await expect(page.locator('.leaflet-control-attribution')).not.toContainText('CARTO');
   await expect(page.getByRole('status')).toContainText('Ersatzkarte');
   await page.getByRole('button', { name: 'Immobilie hinzufügen', exact: true }).click();
   const map = page.locator('.location-map');
+  await expect(map).toHaveClass(/atlas-map-simple/);
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Details anzeigen', exact: true })
+    .click();
   await expect(map).toHaveClass(/atlas-map-osm/);
   const bounds = (await map.boundingBox())!;
   await map.click({ position: { x: bounds.width / 2, y: bounds.height / 2 } });
@@ -213,6 +238,13 @@ test('selects an address, fills GPS and country, adjusts the pin and persists th
   await expect(
     page.getByRole('listbox', { name: 'Adressvorschläge' }).getByRole('option'),
   ).toHaveCount(0);
+  await expect(page.locator('.location-map')).toHaveClass(/atlas-map-simple/);
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Details anzeigen', exact: true })
+    .click();
+  await expect(page.getByLabel('Breitengrad')).toHaveValue('52.532');
+  await expect(page.getByLabel('Längengrad')).toHaveValue('13.384');
   const marker = page.locator('.location-map .leaflet-marker-icon');
   await expect(marker).toBeVisible();
   await marker.scrollIntoViewIfNeeded();

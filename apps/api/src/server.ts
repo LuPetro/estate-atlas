@@ -1,13 +1,11 @@
 import dotenv from 'dotenv';
 import { database } from './database';
 import { createApp } from './app';
+import { browserSecurity, connectionString } from './runtime-config';
 dotenv.config({ path: new URL('../../../.env', import.meta.url), quiet: true });
-if (!process.env.DATABASE_URL)
-  throw new Error('DATABASE_URL fehlt. Zuerst ./scripts/pnpm db:start.');
-const pool = database(process.env.DATABASE_URL);
+const pool = database(await connectionString(process.env));
 const app = await createApp(pool, {
-  origin: process.env.WEB_ORIGIN,
-  production: process.env.NODE_ENV === 'production',
+  ...browserSecurity(process.env),
   logging: true,
   geocodingUrl: process.env.GEOCODING_URL,
 });

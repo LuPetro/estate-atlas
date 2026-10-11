@@ -6,6 +6,8 @@ import { formatMoney } from '@estate-atlas/shared';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import { addBasemap } from './basemap';
+import MapModeButton from './MapModeButton';
+import type { MapMode } from '@estate-atlas/shared/map';
 export default function PropertyMap({
   properties,
   onSelect,
@@ -17,6 +19,9 @@ export default function PropertyMap({
   const fitPortfolio = useRef<(() => void) | null>(null);
   const [ready, setReady] = useState(false);
   const [fallback, setFallback] = useState(false);
+  const basemap = useRef<ReturnType<typeof addBasemap> | null>(null);
+  const modeRef = useRef<MapMode>('simple');
+  const [mode, setMode] = useState<MapMode>('simple');
   useEffect(() => {
     setReady(false);
     setFallback(false);
@@ -30,9 +35,11 @@ export default function PropertyMap({
         [35, 10],
         2,
       );
-      addBasemap(L, map, () => {
+      const background = addBasemap(L, map, () => {
         if (!cancelled) setFallback(true);
       });
+      basemap.current = background;
+      background.setMode(modeRef.current);
       const cluster = L.markerClusterGroup({
         showCoverageOnHover: false,
         iconCreateFunction: (group) =>
@@ -72,7 +79,11 @@ export default function PropertyMap({
       map.addLayer(cluster);
       const fit = () => {
         if (properties.length)
-          map.fitBounds(cluster.getBounds(), { padding: [55, 55], maxZoom: 12, animate: false });
+          map.fitBounds(cluster.getBounds(), {
+            padding: [55, 55],
+            maxZoom: modeRef.current === 'simple' ? 5 : 12,
+            animate: false,
+          });
         else map.setView([35, 10], 2);
       };
       fitPortfolio.current = fit;
@@ -81,6 +92,8 @@ export default function PropertyMap({
       observer.observe(ref.current);
       dispose = () => {
         fitPortfolio.current = null;
+        background.dispose();
+        basemap.current = null;
         observer.disconnect();
         map.remove();
       };
@@ -97,17 +110,30 @@ export default function PropertyMap({
   return (
     <div className="map-shell">
       <div ref={ref} className="property-map atlas-map" aria-label="Interaktive Immobilienkarte" />
-      <button
-        type="button"
-        className="map-fit-button"
-        aria-label="Alle gefilterten Immobilien auf der Karte anzeigen"
-        title="Portfolio einpassen"
-        disabled={!ready}
-        onClick={() => fitPortfolio.current?.()}
-      >
-        <LocateFixed size={17} aria-hidden="true" />
-        <span>Übersicht</span>
-      </button>
+      <div className="map-toolbar">
+        <MapModeButton
+          mode={mode}
+          disabled={!ready}
+          onToggle={() => {
+            const next = mode === 'simple' ? 'detail' : 'simple';
+            modeRef.current = next;
+            basemap.current?.setMode(next);
+            setMode(next);
+            setFallback(false);
+          }}
+        />
+        <button
+          type="button"
+          className="map-fit-button"
+          aria-label="Alle gefilterten Immobilien auf der Karte anzeigen"
+          title="Portfolio einpassen"
+          disabled={!ready}
+          onClick={() => fitPortfolio.current?.()}
+        >
+          <LocateFixed size={17} aria-hidden="true" />
+          <span>Übersicht</span>
+        </button>
+      </div>
       {fallback && (
         <p role="status" className="map-notice">
           OpenStreetMap als Ersatzkarte geladen.

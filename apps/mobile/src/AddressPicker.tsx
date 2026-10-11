@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Linking } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, type Region } from 'react-native-maps';
 import { mapTheme } from './mapTheme';
+import SimpleMap, { MapModeControl } from './SimpleMap';
 import type { GeocodingResult } from '@estate-atlas/shared';
 import type { ApiClient } from '@estate-atlas/api-client';
 
@@ -27,6 +28,13 @@ export default function AddressPicker({
   const [loading, setLoading] = useState(false);
   const [retry, setRetry] = useState(0);
   const map = useRef<MapView>(null);
+  const [detail, setDetail] = useState(false);
+  const [region, setRegion] = useState<Region>({
+    latitude: position?.latitude ?? 35,
+    longitude: position?.longitude ?? 10,
+    latitudeDelta: position ? 10 : 100,
+    longitudeDelta: position ? 12 : 150,
+  });
   useEffect(() => {
     setResults([]);
     setStatus('');
@@ -53,13 +61,16 @@ export default function AddressPicker({
     };
   }, [query, api, retry]);
   const focusPosition = () => {
-    if (position)
-      map.current?.animateToRegion(
-        { ...position, latitudeDelta: 0.004, longitudeDelta: 0.004 },
-        250,
-      );
+    if (!position) return;
+    const next = {
+      ...position,
+      latitudeDelta: detail ? 0.004 : 10,
+      longitudeDelta: detail ? 0.004 : 12,
+    };
+    setRegion(next);
+    map.current?.animateToRegion(next, 250);
   };
-  useEffect(focusPosition, [position?.latitude, position?.longitude]);
+  useEffect(focusPosition, [position?.latitude, position?.longitude, detail]);
   const updatePosition = (point: Position) =>
     onPositionChange({
       latitude: Math.max(-90, Math.min(90, point.latitude)),
@@ -126,33 +137,47 @@ export default function AddressPicker({
       ))}
       <Text style={styles.label}>Position auf der Karte</Text>
       <Text style={styles.hint}>
-        Vorschlag auswählen oder auf die Karte tippen. Halte den Pin gedrückt und ziehe ihn für eine
-        genauere Position.
+        Vorschlag auswählen oder auf die Karte tippen. Für die genaue Position „Details anzeigen“
+        wählen, dann den Pin gedrückt halten und verschieben.
       </Text>
-      <MapView
-        {...mapTheme}
-        ref={map}
-        style={styles.map}
-        accessibilityLabel="Immobilienposition auf der Karte wählen"
-        initialRegion={
-          position
-            ? { ...position, latitudeDelta: 0.004, longitudeDelta: 0.004 }
-            : { latitude: 35, longitude: 10, latitudeDelta: 100, longitudeDelta: 150 }
-        }
-        onMapReady={focusPosition}
-        onPress={(event) => updatePosition(event.nativeEvent.coordinate)}
-        onLongPress={(event) => updatePosition(event.nativeEvent.coordinate)}
-      >
-        {position && (
-          <Marker
-            coordinate={position}
-            draggable
-            title="Immobilienposition"
-            pinColor="#14836f"
-            onDragEnd={(event) => updatePosition(event.nativeEvent.coordinate)}
+      <View style={styles.map}>
+        {!detail ? (
+          <SimpleMap
+            region={region}
+            onRegionChange={setRegion}
+            points={
+              position
+                ? [{ id: 'position', title: 'Immobilienposition genauer setzen', ...position }]
+                : []
+            }
+            onPressPoint={() => setDetail(true)}
+            onPressMap={updatePosition}
           />
+        ) : (
+          <MapView
+            {...mapTheme}
+            ref={map}
+            style={{ flex: 1 }}
+            accessibilityLabel="Immobilienposition auf der Karte wählen"
+            initialRegion={region}
+            onRegionChangeComplete={setRegion}
+            onMapReady={focusPosition}
+            onPress={(event) => updatePosition(event.nativeEvent.coordinate)}
+            onLongPress={(event) => updatePosition(event.nativeEvent.coordinate)}
+          >
+            {position && (
+              <Marker
+                coordinate={position}
+                draggable
+                title="Immobilienposition"
+                pinColor="#14836f"
+                onDragEnd={(event) => updatePosition(event.nativeEvent.coordinate)}
+              />
+            )}
+          </MapView>
         )}
-      </MapView>
+        <MapModeControl detail={detail} onPress={() => setDetail(!detail)} />
+      </View>
       <Text accessibilityLiveRegion="polite" style={styles.hint}>
         {position
           ? 'Position gesetzt. GPS-Felder wurden übernommen.'
@@ -182,5 +207,5 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 4,
   },
-  map: { height: 260, borderRadius: 7 },
+  map: { height: 260, borderRadius: 7, overflow: 'hidden' },
 });
