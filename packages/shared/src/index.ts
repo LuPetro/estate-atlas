@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { countryCodeSchema } from './countries';
+export { countryCodeSchema, countryCodes, countryNames, countryFromEvidence } from './countries';
 export const currencies = ['EUR', 'USD', 'GBP', 'CHF', 'AED', 'CAD', 'AUD', 'JPY'] as const;
 export const propertyTypes = ['apartment', 'house', 'commercial', 'land'] as const;
 export const conditions = ['new', 'good', 'renovation'] as const;
@@ -27,7 +29,7 @@ export const propertyInputSchema = z
       .trim()
       .length(2)
       .transform((v) => v.toUpperCase())
-      .refine((v) => /^[A-Z]{2}$/.test(v), 'ISO-Ländercode erforderlich'),
+      .pipe(countryCodeSchema),
     latitude: z.number().finite().min(-90).max(90),
     longitude: z.number().finite().min(-180).max(180),
     type: z.enum(propertyTypes),
@@ -71,7 +73,7 @@ export const geocodingQuerySchema = z.object({ query: z.string().trim().min(4).m
 export const geocodingResultSchema = z.object({
   label: z.string().min(1).max(400),
   address: z.string().min(3).max(300),
-  country: z.string().regex(/^[A-Z]{2}$/),
+  country: countryCodeSchema,
   latitude: z.number().finite().min(-90).max(90),
   longitude: z.number().finite().min(-180).max(180),
   precision: z.enum(['building', 'street', 'place']),

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { analysisInput } from '@estate-atlas/shared/analysis';
-import { sampleProperties } from '@estate-atlas/shared';
+import { sampleProperties, countryNames } from '@estate-atlas/shared';
 import { fixtureResearch } from '../../../../tests/fixtures/analysis';
-import { OpenAIProvider, analysisRuntime } from './provider';
+import { OpenAIProvider, analysisRuntime, validateResearchExtraction } from './provider';
 const input = analysisInput(sampleProperties[0]!);
 function responses() {
   const research = fixtureResearch(input);
@@ -17,7 +17,15 @@ function responses() {
         {
           type: 'message',
           content: [
-            { type: 'output_text', text: research.candidates.map((c) => c.evidence).join('\n') },
+            {
+              type: 'output_text',
+              text: research.candidates
+                .map(
+                  (c, i) =>
+                    `### Listing ${i + 1}\n${c.url}\nCountry: ${countryNames[c.country]![0]}\n${c.evidence}`,
+                )
+                .join('\n'),
+            },
           ],
         },
       ],
@@ -33,10 +41,11 @@ function responses() {
               type: 'output_text',
               text: JSON.stringify({
                 ...research,
-                candidates: research.candidates.map(({ evidence, ...c }) => ({
+                candidates: research.candidates.map(({ evidence, country, ...c }) => ({
                   ...c,
                   priceEvidence: evidence,
                   areaEvidence: evidence,
+                  countryEvidence: `Country: ${countryNames[country]![0]}`,
                 })),
               }),
             },
@@ -98,6 +107,12 @@ describe('OpenAI adapter with local fake HTTP responses', () => {
     expect(JSON.stringify(second.text.format.schema)).not.toContain('"format":"uri"');
     expect(JSON.stringify(second.text.format.schema)).not.toContain('"maxLength"');
     expect(second).not.toHaveProperty('tools');
+    expect(second.text.format.schema.properties.candidates.items.properties).not.toHaveProperty(
+      'country',
+    );
+    expect(second.text.format.schema.properties.candidates.items.required).toContain(
+      'countryEvidence',
+    );
   });
   it('drops a fabricated URL or excerpt', async () => {
     const data = responses();
@@ -135,7 +150,7 @@ describe('OpenAI adapter with local fake HTTP responses', () => {
         content: [
           {
             type: 'output_text',
-            text: `${raw.candidates[0].url}\nKaufpreis: € 219.000,00\nWeitere Angaben zur Wohnung und Ausstattung.\nWohnfläche: 47,96 m²`,
+            text: `### Listing 1\n${raw.candidates[0].url}\n${raw.candidates[0].countryEvidence}\nKaufpreis: € 219.000,00\nWeitere Angaben zur Wohnung und Ausstattung.\nWohnfläche: 47,96 m²`,
           },
         ],
       },
@@ -150,7 +165,7 @@ describe('OpenAI adapter with local fake HTTP responses', () => {
     );
     expect(result.research.candidates).toHaveLength(1);
     expect(result.research.candidates[0]!.evidence).toBe(
-      'Kaufpreis: € 219.000,00\nWohnfläche: 47,96 m²',
+      'Kaufpreis: € 219.000,00\nWohnfläche: 47,96 m²\nCountry: Austria',
     );
     expect(result.checks?.exclusions).toEqual({});
   });
@@ -171,6 +186,56 @@ describe('OpenAI adapter with local fake HTTP responses', () => {
     );
     expect(result.research.candidates).toHaveLength(0);
     expect(result.checks?.exclusions.evidence).toBe(1);
+  });
+  it('derives Austria from a listing on a German portal, never from its domain', async () => {
+    const data = responses();
+    const raw = JSON.parse((data[1]!.output[0]!.content![0] as { text: string }).text);
+    raw.candidates = raw.candidates.slice(0, 1);
+    raw.candidates[0].url = 'https://example.de/expose/1';
+    raw.candidates[0].countryEvidence = 'Art / Lage: Wohnung; Wien, Österreich';
+    const report = `### Listing 1\n${raw.candidates[0].url}\n${raw.candidates[0].countryEvidence}\n${raw.candidates[0].priceEvidence}`;
+    const validated = validateResearchExtraction(report, raw, [raw.candidates[0].url]);
+    expect(validated.research.candidates[0]!.country).toBe('AT');
+  });
+  it('rejects unknown countries and country evidence from another listing block', () => {
+    const data = responses();
+    const raw = JSON.parse((data[1]!.output[0]!.content![0] as { text: string }).text);
+    const report = (data[0]!.output[1]!.content![0] as { text: string }).text;
+    const urls = raw.candidates.map((c: { url: string }) => c.url);
+    raw.candidates[0].countryEvidence = 'Country: OZ';
+    raw.candidates[1].countryEvidence = 'Country: Germany';
+    const changedReport =
+      report.replace('Country: Austria', 'Country: OZ') +
+      '\n### Listing 99\nhttps://other.example/listing\nCountry: Germany';
+    const r = validateResearchExtraction(changedReport, raw, urls);
+    expect(r.research.candidates).toHaveLength(2);
+    expect(r.checks.exclusions).toEqual({ countryEvidence: 2 });
+  });
+  it('repairs a legacy invented code only from its own quoted location, without an HTTP call', () => {
+    const research = fixtureResearch(input);
+    const extracted = {
+      ...research,
+      candidates: research.candidates.map(({ evidence, ...c }) => ({
+        ...c,
+        country: 'OZ',
+        priceEvidence: evidence,
+        areaEvidence: evidence,
+      })),
+    };
+    const report = research.candidates
+      .map(
+        (c, i) =>
+          `**${i + 1}. TESTDATEN Vergleich**\n${c.url}\n- **Art / Lage:** Wohnung; Wien, Brigittenau, Österreich\n${c.evidence}`,
+      )
+      .join('\n');
+    const r = validateResearchExtraction(
+      report,
+      extracted,
+      research.candidates.map((c) => c.url),
+      true,
+    );
+    expect(r.research.candidates.map((c) => c.country)).toEqual(['AT', 'AT', 'AT', 'AT']);
+    expect(r.checks.exclusions).toEqual({});
   });
   it.each([401, 429, 503])('handles HTTP %s safely without paid retries', async (status) => {
     const f = vi

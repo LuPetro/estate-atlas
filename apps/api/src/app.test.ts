@@ -11,6 +11,12 @@ import { sampleProperties } from '@estate-atlas/shared';
 let app: FastifyInstance, pool: pg.Pool, server: EmbeddedPostgres;
 let owner: { authorization: string }, other: { authorization: string };
 let propertyId: string, assetId: string;
+let stopping = false;
+const testDatabaseError = (error: Error & { code?: string }) => {
+  if (stopping && error.code === '57P01') return;
+  // Never let Vitest serialize a pg Client containing temporary credentials.
+  throw new Error(`Isolated test database error: ${error.code ?? 'UNKNOWN'}`);
+};
 const root = resolve('.local');
 const password = randomBytes(24).toString('hex');
 const account = (email: string) => ({
@@ -60,6 +66,8 @@ beforeAll(async () => {
   await server.start();
   await server.createDatabase('estateatlas_test');
   pool = database(`postgresql://estateatlas_test:${password}@127.0.0.1:55433/estateatlas_test`);
+  pool.on('error', testDatabaseError);
+  pool.on('connect', (client) => client.on('error', testDatabaseError));
   await migrate(pool);
   await migrate(pool);
   app = await createApp(pool, {
@@ -96,6 +104,7 @@ beforeAll(async () => {
   other = { authorization: `Bearer ${second.json().token}` };
 });
 afterAll(async () => {
+  stopping = true;
   await app?.close();
   await pool?.end();
   await server?.stop();

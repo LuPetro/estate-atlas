@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { currencies, propertyTypes, conditions, type PropertyInput } from './index';
+import { countryCodeSchema } from './countries';
 
 // Only these object attributes may leave the server. No account, notes, files or own prices.
 export function analysisInput(p: PropertyInput) {
@@ -26,7 +27,8 @@ export const candidateSchema = z
     area: z.number().finite().positive().max(1e8),
     areaUnit: z.enum(['m2', 'sqft']),
     currency: z.enum(currencies),
-    country: z.string().regex(/^[A-Z]{2}$/),
+    country: countryCodeSchema,
+    countryEvidence: z.string().min(1).max(300).optional(),
     type: z.enum(propertyTypes),
     condition: z.enum(conditions).nullable(),
     localMarket: z.boolean(),
@@ -52,6 +54,7 @@ export const exclusionLabels = {
   duplicate: 'Doppelter Angebotslink',
   currency: 'Andere Währung',
   country: 'Anderes Land',
+  countryEvidence: 'Land im Angebotsbeleg fehlt oder ist nicht eindeutig',
   type: 'Andere Objektart',
   condition: 'Anderer bekannter Zustand',
   location: 'Lage nicht ausreichend vergleichbar',

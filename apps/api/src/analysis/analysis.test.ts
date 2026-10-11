@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, afterAll, it, expect, vi } from 'vitest';
 import EmbeddedPostgres from 'embedded-postgres';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { FastifyInstance } from 'fastify';
@@ -11,6 +11,7 @@ import { sampleProperties } from '@estate-atlas/shared';
 import { fixtureProvider } from '../../../../tests/fixtures/analysis';
 import type { AnalysisRuntime } from './provider';
 import { AnalysisRunner } from './runner';
+import { reprocessAnalysis } from './reprocess';
 let pool: pg.Pool, server: EmbeddedPostgres, app: FastifyInstance;
 let owner: { authorization: string }, other: { authorization: string };
 const runtime: AnalysisRuntime = {
@@ -300,6 +301,63 @@ it('disables daily quotas explicitly while retaining consent, reservations and d
     expect((await enqueue(p.id)).statusCode).toBe(429);
   } finally {
     [runtime.globalDailyLimit, runtime.userDailyLimit] = previous as [number, number];
+  }
+});
+it('repairs legacy country codes from stored evidence with owner checks and no new paid request', async () => {
+  const p = await create();
+  const a = (await enqueue(p.id)).json();
+  const original = runtime.provider!;
+  const researchCall = vi.fn(async (...args: Parameters<typeof original.research>) => {
+    const report = await original.research(...args);
+    report.research.candidates = report.research.candidates.map((c, i) => ({
+      ...c,
+      country: 'OZ',
+      condition: i === 1 || i === 2 ? 'new' : c.condition,
+    }));
+    const text = report.research.candidates
+      .map(
+        (c, i) =>
+          `**${i + 1}. TESTDATEN Vergleich**\n${c.url}\n- **Art / Lage:** Wohnung; Wien, Österreich\n${c.evidence}`,
+      )
+      .join('\n');
+    const extracted = {
+      ...report.research,
+      candidates: report.research.candidates.map(({ evidence, ...c }) => ({
+        ...c,
+        priceEvidence: evidence,
+        areaEvidence: evidence,
+      })),
+    };
+    return { ...report, artifact: { report: text, extracted } };
+  });
+  runtime.provider = { id: original.id, research: researchCall };
+  try {
+    await new AnalysisRunner(pool, runtime).tick();
+    expect((await get(a.id)).json().diagnostics.exclusions).toEqual({ country: 4 });
+    await expect(reprocessAnalysis(pool, a.id, randomUUID())).rejects.toThrow('nicht gefunden');
+    const repaired = await reprocessAnalysis(pool, a.id, p.ownerId);
+    expect(repaired.status).toBe('failed');
+    expect(repaired.diagnostics).toMatchObject({
+      accepted: 2,
+      websites: 2,
+      exclusions: { condition: 2 },
+    });
+    expect(repaired.result).toBeNull();
+    expect(researchCall).toHaveBeenCalledTimes(1);
+    expect(
+      (await pool.query('SELECT count(*)::int AS total FROM analysis_requests WHERE id=$1', [a.id]))
+        .rows[0].total,
+    ).toBe(1);
+    const saved = (await pool.query('SELECT research FROM analysis_jobs WHERE id=$1', [a.id]))
+      .rows[0].research;
+    expect(saved.extracted.candidates[0].country).toBe('OZ');
+    expect(saved.research.candidates[0].country).toBe('AT');
+    expect(saved.reprocessing.originalDiagnostics.exclusions).toEqual({ country: 4 });
+    expect(
+      (await app.inject({ url: `/properties/${p.id}`, headers: owner })).json().marketValue,
+    ).toBe(p.marketValue);
+  } finally {
+    runtime.provider = original;
   }
 });
 it('does not call an external provider after attributes change in the queue', async () => {
