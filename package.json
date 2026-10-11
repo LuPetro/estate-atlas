@@ -15,7 +15,7 @@
     "docker:import": "node scripts/docker-import.mjs",
     "dev:web": "./scripts/docker up -d --build --wait web",
     "dev:api": "./scripts/docker up -d --build --wait api",
-    "dev:mobile": "pnpm --filter @estate-atlas/mobile start",
+    "dev:mobile": "./scripts/mobile-preview",
     "web:check": "node scripts/check-web.mjs",
     "db:start": "./scripts/docker up -d --wait db",
     "db:migrate": "./scripts/docker exec api node dist/migrate.mjs",

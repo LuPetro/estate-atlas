@@ -323,6 +323,31 @@ describe('real PostgreSQL persistence, authentication and resource authorization
   });
   it('keeps other portfolios empty', async () =>
     expect((await app.inject({ url: '/properties', headers: other })).json()).toEqual([]));
+  it('returns only the authenticated portfolio history, including archived observations', async () => {
+    expect((await app.inject({ url: '/portfolio/valuations' })).statusCode).toBe(401);
+    expect((await app.inject({ url: '/portfolio/valuations', headers: other })).json()).toEqual([]);
+    const before = (await app.inject({ url: '/portfolio/valuations', headers: owner })).json();
+    const detail = (await app.inject({ url: `/properties/${propertyId}`, headers: owner })).json();
+    expect(before).toEqual(detail.valuations);
+    expect(Object.keys(before[0]).sort()).toEqual(
+      ['currency', 'id', 'marketValue', 'origin', 'propertyId', 'recordedAt'].sort(),
+    );
+    await app.inject({
+      method: 'PATCH',
+      url: `/properties/${propertyId}/archive`,
+      headers: owner,
+      payload: { archived: true },
+    });
+    expect((await app.inject({ url: '/portfolio/valuations', headers: owner })).json()).toEqual(
+      before,
+    );
+    await app.inject({
+      method: 'PATCH',
+      url: `/properties/${propertyId}/archive`,
+      headers: owner,
+      payload: { archived: false },
+    });
+  });
   it.each(['GET', 'PUT', 'PATCH', 'DELETE', 'POST'] as const)(
     'denies foreign resource access for %s',
     async (method) => {

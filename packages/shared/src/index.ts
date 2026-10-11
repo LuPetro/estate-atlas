@@ -13,6 +13,13 @@ export const propertyTypeLabels: Record<PropertyType, string> = {
 export const conditionLabels = { new: 'Neuwertig', good: 'Gut', renovation: 'Sanierungsbedarf' };
 export { rentalSchema, rentalSummary } from './rental';
 export { valuationSeries, valuationChart } from './valuation';
+export {
+  dashboardWidgets,
+  dashboardWidgetLabels,
+  dashboardPreferencesSchema,
+  valueRows,
+} from './portfolio';
+export type { DashboardWidget } from './portfolio';
 import { rentalSchema } from './rental';
 const money = z
   .number()
@@ -143,7 +150,15 @@ export function portfolioStats(properties: Property[]) {
 }
 export function filterProperties(
   properties: Property[],
-  filters: { query?: string; country?: string; type?: string; archived?: boolean },
+  filters: {
+    query?: string;
+    country?: string;
+    type?: string;
+    archived?: boolean;
+    currency?: string;
+    rental?: string;
+    propertyId?: string;
+  },
 ) {
   const query = filters.query?.trim().toLocaleLowerCase('de') ?? '';
   return properties.filter(
@@ -151,7 +166,10 @@ export function filterProperties(
       Boolean(p.archivedAt) === Boolean(filters.archived) &&
       (!query || `${p.title} ${p.address} ${p.country}`.toLocaleLowerCase('de').includes(query)) &&
       (!filters.country || p.country === filters.country) &&
-      (!filters.type || p.type === filters.type),
+      (!filters.type || p.type === filters.type) &&
+      (!filters.currency || p.currency === filters.currency) &&
+      (!filters.propertyId || p.id === filters.propertyId) &&
+      (!filters.rental || (p.rental?.status ?? 'unknown') === filters.rental),
   );
 }
 export function formatMoney(value: number, currency: Currency) {

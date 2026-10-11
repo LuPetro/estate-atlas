@@ -41,6 +41,9 @@ import {
   propertyTypes,
   conditionLabels,
   rentalSummary,
+  dashboardWidgets,
+  dashboardWidgetLabels,
+  dashboardPreferencesSchema,
   type Property,
   type PropertyDetail,
   type Currency,
@@ -49,12 +52,13 @@ import {
 import PropertyEditor from './PropertyEditor';
 import AnalysisPanel from './AnalysisPanel';
 import ValueHistory from './ValueHistory';
+import PortfolioValues from './PortfolioValues';
 const PropertyMap = dynamic(() => import('./Map'), {
   ssr: false,
   loading: () => <div className="map-loading">Karte wird geladen …</div>,
 });
 const api = new ApiClient(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000');
-type Section = 'dashboard' | 'properties' | 'map' | 'archive';
+type Section = 'dashboard' | 'properties' | 'map' | 'archive' | 'values';
 export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
@@ -63,6 +67,30 @@ export default function Dashboard() {
   const [query, setQuery] = useState('');
   const [country, setCountry] = useState('');
   const [type, setType] = useState('');
+  const [rental, setRental] = useState('');
+  const [filterCurrency, setFilterCurrency] = useState('');
+  const [storageError, setStorageError] = useState('');
+  const defaults = { metrics: true, map: true, insights: true, properties: true };
+  const [preferences, setPreferences] = useState<{
+    account: string;
+    values: typeof defaults;
+  } | null>(null);
+  const widgets = preferences && preferences.account === user?.id ? preferences.values : defaults;
+  useEffect(() => {
+    if (!user) {
+      setStorageError('');
+      setPreferences(null);
+      return;
+    }
+    try {
+      const saved = dashboardPreferencesSchema.safeParse(
+        JSON.parse(localStorage.getItem(`estateatlas-dashboard-${user.id}`) ?? 'null'),
+      );
+      setPreferences({ account: user.id, values: saved.success ? saved.data : defaults });
+    } catch {
+      setPreferences({ account: user.id, values: defaults });
+    }
+  }, [user?.id]);
   const [view, setView] = useState<'grid' | 'list' | 'table'>('grid');
   const [currency, setCurrency] = useState<Currency>('EUR');
   const [editor, setEditor] = useState<Property | 'new' | null>(null);
@@ -86,13 +114,23 @@ export default function Dashboard() {
       .finally(() => setReady(true));
   }, [reload]);
   const activeProperties = useMemo(() => properties.filter((p) => !p.archivedAt), [properties]);
-  const stats = useMemo(() => portfolioStats(properties), [properties]);
+  const filtered = useMemo(() => {
+    const filters = {
+      query,
+      country,
+      type,
+      rental,
+      currency: filterCurrency,
+      archived: section === 'archive',
+    };
+    const active = filterProperties(properties, filters);
+    return section === 'values'
+      ? [...active, ...filterProperties(properties, { ...filters, archived: true })]
+      : active;
+  }, [properties, query, country, type, section, rental, filterCurrency]);
+  const stats = useMemo(() => portfolioStats(filtered), [filtered]);
   const currencyStats =
     stats.byCurrency.find((s) => s.currency === currency) ?? stats.byCurrency[0];
-  const filtered = useMemo(
-    () => filterProperties(properties, { query, country, type, archived: section === 'archive' }),
-    [properties, query, country, type, section],
-  );
   const select = useCallback(async (id: string) => {
     try {
       setError('');
@@ -168,6 +206,7 @@ export default function Dashboard() {
     );
   const nav = [
     { key: 'dashboard', label: 'Übersicht', icon: LayoutDashboard },
+    { key: 'values', label: 'Wertentwicklung', icon: ChartNoAxesCombined },
     { key: 'properties', label: 'Immobilien', icon: Building2 },
     { key: 'map', label: 'Weltkarte', icon: Map },
     { key: 'archive', label: 'Archiv', icon: Archive },
@@ -177,6 +216,8 @@ export default function Dashboard() {
     setQuery('');
     setCountry('');
     setType('');
+    setRental('');
+    setFilterCurrency('');
     setMobileNav(false);
   };
   return (
@@ -198,7 +239,9 @@ export default function Dashboard() {
             >
               <n.icon size={19} />
               {n.label}
-              {n.key === 'properties' && <span className="nav-count">{stats.count}</span>}
+              {n.key === 'properties' && (
+                <span className="nav-count">{activeProperties.length}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -262,18 +305,22 @@ export default function Dashboard() {
               <h1>
                 {section === 'dashboard'
                   ? 'Alles im Blick.'
-                  : section === 'map'
-                    ? 'Ein Portfolio. Die ganze Welt.'
-                    : section === 'archive'
-                      ? 'Dein Immobilienarchiv.'
-                      : 'Raum für deine Werte.'}
+                  : section === 'values'
+                    ? 'Deine Werte. Im Zeitverlauf.'
+                    : section === 'map'
+                      ? 'Ein Portfolio. Die ganze Welt.'
+                      : section === 'archive'
+                        ? 'Dein Immobilienarchiv.'
+                        : 'Raum für deine Werte.'}
               </h1>
               <p>
                 {section === 'dashboard'
                   ? 'Deine Immobilien, ihre Werte und neue Perspektiven — an einem Ort.'
-                  : section === 'archive'
-                    ? 'Archivierte Immobilien bleiben erhalten und zählen nicht zu den Gesamtwerten.'
-                    : 'Verwalte deine Immobilien mit einer klaren Perspektive.'}
+                  : section === 'values'
+                    ? 'Vergleiche gespeicherte Werte und finde die Entwicklung deiner Immobilien.'
+                    : section === 'archive'
+                      ? 'Archivierte Immobilien bleiben erhalten und zählen nicht zu den Gesamtwerten.'
+                      : 'Verwalte deine Immobilien mit einer klaren Perspektive.'}
               </p>
             </div>
             <button className="button primary" onClick={() => setEditor('new')}>
@@ -298,342 +345,434 @@ export default function Dashboard() {
               sind gekennzeichnet. Keine recherchierten Bewertungen.
             </div>
           )}
+          <div className="filters">
+            <label className="search">
+              <Search size={17} />
+              <input
+                aria-label="Immobilien suchen"
+                placeholder="Immobilien oder Orte suchen …"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </label>
+            <select
+              aria-label="Land filtern"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+            >
+              <option value="">Alle Länder</option>
+              {[...new Set(properties.map((p) => p.country))].sort().map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+            <select
+              aria-label="Immobilienart filtern"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+            >
+              <option value="">Alle Immobilienarten</option>
+              {propertyTypes.map((t) => (
+                <option key={t} value={t}>
+                  {propertyTypeLabels[t]}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Währung filtern"
+              value={filterCurrency}
+              onChange={(e) => setFilterCurrency(e.target.value)}
+            >
+              <option value="">Alle Währungen</option>
+              {[...new Set(properties.map((p) => p.currency))].sort().map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+            <select
+              aria-label="Vermietung filtern"
+              value={rental}
+              onChange={(e) => setRental(e.target.value)}
+            >
+              <option value="">Alle Vermietungsangaben</option>
+              <option value="rented">Mietvertrag hinterlegt</option>
+              <option value="vacant">Nicht vermietet</option>
+              <option value="unknown">Nicht angegeben</option>
+            </select>
+            <button
+              className="text-button"
+              onClick={() => {
+                setQuery('');
+                setCountry('');
+                setType('');
+                setRental('');
+                setFilterCurrency('');
+              }}
+            >
+              Filter zurücksetzen
+            </button>
+            <button className="text-button" disabled={busy} onClick={() => act(reload)}>
+              <RotateCcw size={15} /> Aktualisieren
+            </button>
+          </div>
+          {section === 'values' && (
+            <PortfolioValues
+              properties={filtered}
+              revision={properties.map((p) => `${p.id}:${p.updatedAt}`).join('|')}
+              api={api}
+              onSelect={select}
+            />
+          )}
+          {section === 'dashboard' && (
+            <details className="dashboard-customize">
+              <summary>Dashboard anpassen</summary>
+              <div>
+                {dashboardWidgets.map((w) => (
+                  <label className="inline-check" key={w}>
+                    <input
+                      type="checkbox"
+                      checked={widgets[w]}
+                      onChange={(e) => {
+                        const values = { ...widgets, [w]: e.target.checked };
+                        setPreferences({ account: user.id, values });
+                        setStorageError('');
+                        try {
+                          localStorage.setItem(
+                            `estateatlas-dashboard-${user.id}`,
+                            JSON.stringify(values),
+                          );
+                        } catch {
+                          setStorageError(
+                            'Die Ansicht gilt für diese Sitzung; Speichern im Browser ist nicht verfügbar.',
+                          );
+                        }
+                      }}
+                    />
+                    {dashboardWidgetLabels[w]}
+                  </label>
+                ))}
+              </div>
+              {storageError && (
+                <p role="status" className="muted">
+                  {storageError}
+                </p>
+              )}
+              <p className="muted">
+                Deine Auswahl bleibt in diesem Browser für dein Konto gespeichert. Filter gelten für
+                alle sichtbaren Bereiche.
+              </p>
+            </details>
+          )}
           {section === 'dashboard' && (
             <>
-              <div className="stat-grid">
-                <article className="stat-card value-card">
-                  <div className="stat-label">
-                    Geschätzter Portfoliowert
-                    <Landmark size={18} />
-                  </div>
-                  <strong>
-                    {currencyStats
-                      ? formatMoney(currencyStats.marketValue, currencyStats.currency)
-                      : '—'}
-                  </strong>
-                  <div className="stat-bottom">
-                    <span>Eigene Marktwertangaben</span>
-                    {stats.byCurrency.length > 1 && (
-                      <select
-                        aria-label="Dashboard-Währung"
-                        value={currencyStats?.currency}
-                        onChange={(e) => setCurrency(e.target.value as Currency)}
-                      >
-                        {stats.byCurrency.map((s) => (
-                          <option key={s.currency}>{s.currency}</option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                </article>
-                <article className="stat-card">
-                  <div className="stat-label">
-                    Immobilien
-                    <Building2 size={18} />
-                  </div>
-                  <strong>{stats.count.toString().padStart(2, '0')}</strong>
-                  <p>{properties.filter((p) => p.archivedAt).length} im Archiv</p>
-                </article>
-                <article className="stat-card">
-                  <div className="stat-label">
-                    Länder
-                    <Globe2 size={18} />
-                  </div>
-                  <strong>{stats.countries.toString().padStart(2, '0')}</strong>
-                  <p>Dein Portfolio, international</p>
-                </article>
-                <article className="stat-card">
-                  <div className="stat-label">
-                    Gesamtfläche
-                    <Maximize2 size={18} />
-                  </div>
-                  <strong>
-                    {stats.area.toLocaleString('de-AT')}
-                    <small> m²</small>
-                  </strong>
-                  <p>Über alle aktiven Immobilien</p>
-                </article>
-              </div>
-              <div className="overview-grid">
-                <section className="panel map-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Dein Portfolio auf der Karte</h2>
-                      <p>Neue Perspektiven beginnen mit Überblick.</p>
+              {widgets.metrics && (
+                <div className="stat-grid">
+                  <article className="stat-card value-card">
+                    <div className="stat-label">
+                      Geschätzter Portfoliowert
+                      <Landmark size={18} />
                     </div>
-                    <button className="text-button" onClick={() => goto('map')}>
-                      Karte öffnen <ArrowUpRight size={16} />
-                    </button>
-                  </div>
-                  <PropertyMap properties={activeProperties} onSelect={select} />
-                  <div className="map-caption">
-                    <span className="status-dot" />
-                    {stats.count} Immobilien · {stats.countries} Länder<span>OpenStreetMap</span>
-                  </div>
-                </section>
-                <section className="panel insights">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Werte & Perspektiven</h2>
-                      <p>{currencyStats?.currency ?? 'EUR'} · eigene Angaben</p>
-                    </div>
-                    <ChartNoAxesCombined size={20} />
-                  </div>
-                  <div className="gain-value">
-                    {currencyStats ? formatMoney(currencyStats.gain, currencyStats.currency) : '—'}
-                    <span className={currencyStats && currencyStats.gain < 0 ? 'negative' : ''}>
-                      {currencyStats?.gainPercent != null ? (
-                        <>
-                          {currencyStats.gain >= 0 ? (
-                            <ArrowUpRight size={14} />
-                          ) : (
-                            <ArrowDownRight size={14} />
-                          )}{' '}
-                          {currencyStats.gainPercent.toFixed(1)} %
-                        </>
-                      ) : (
-                        'Noch keine Werte'
+                    <strong>
+                      {currencyStats
+                        ? formatMoney(currencyStats.marketValue, currencyStats.currency)
+                        : '—'}
+                    </strong>
+                    <div className="stat-bottom">
+                      <span>Eigene Marktwertangaben</span>
+                      {stats.byCurrency.length > 1 && (
+                        <select
+                          aria-label="Dashboard-Währung"
+                          value={currencyStats?.currency}
+                          onChange={(e) => setCurrency(e.target.value as Currency)}
+                        >
+                          {stats.byCurrency.map((s) => (
+                            <option key={s.currency}>{s.currency}</option>
+                          ))}
+                        </select>
                       )}
-                    </span>
-                  </div>
-                  <p className="muted">Differenz zu deinen Kaufpreisen</p>
-                  <div className="distribution">
-                    {propertyTypes.map((t) => {
-                      const total = properties
-                        .filter(
-                          (p) =>
-                            !p.archivedAt && p.type === t && p.currency === currencyStats?.currency,
-                        )
-                        .reduce((a, p) => a + p.marketValue, 0);
-                      return (
-                        <div key={t}>
-                          <div>
-                            <span>{propertyTypeLabels[t]}</span>
-                            <strong>
-                              {currencyStats ? formatMoney(total, currencyStats.currency) : '—'}
-                            </strong>
-                          </div>
-                          <div className="bar">
-                            <i
-                              style={{
-                                width: `${currencyStats?.marketValue ? (100 * total) / currencyStats.marketValue : 0}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="research-note">
-                    <Sparkles size={18} />
-                    <div>
-                      <strong>KI-Marktpreis recherchieren</strong>
-                      <p>
-                        Vergleichsangebote, nachvollziehbare Preisspannen und Quellen direkt bei
-                        deiner Immobilie.
-                      </p>
                     </div>
-                  </div>
-                </section>
+                  </article>
+                  <article className="stat-card">
+                    <div className="stat-label">
+                      Immobilien
+                      <Building2 size={18} />
+                    </div>
+                    <strong>{stats.count.toString().padStart(2, '0')}</strong>
+                    <p>{properties.filter((p) => p.archivedAt).length} im Archiv</p>
+                  </article>
+                  <article className="stat-card">
+                    <div className="stat-label">
+                      Länder
+                      <Globe2 size={18} />
+                    </div>
+                    <strong>{stats.countries.toString().padStart(2, '0')}</strong>
+                    <p>Dein Portfolio, international</p>
+                  </article>
+                  <article className="stat-card">
+                    <div className="stat-label">
+                      Gesamtfläche
+                      <Maximize2 size={18} />
+                    </div>
+                    <strong>
+                      {stats.area.toLocaleString('de-AT')}
+                      <small> m²</small>
+                    </strong>
+                    <p>Über die gefilterten aktiven Immobilien</p>
+                  </article>
+                </div>
+              )}
+              <div className="overview-grid">
+                {widgets.map && (
+                  <section className="panel map-panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>Dein Portfolio auf der Karte</h2>
+                        <p>Neue Perspektiven beginnen mit Überblick.</p>
+                      </div>
+                      <button className="text-button" onClick={() => goto('map')}>
+                        Karte öffnen <ArrowUpRight size={16} />
+                      </button>
+                    </div>
+                    <PropertyMap properties={filtered} onSelect={select} />
+                    <div className="map-caption">
+                      <span className="status-dot" />
+                      {stats.count} Immobilien · {stats.countries} Länder<span>OpenStreetMap</span>
+                    </div>
+                  </section>
+                )}
+                {widgets.insights && (
+                  <section className="panel insights">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>Werte & Perspektiven</h2>
+                        <p>{currencyStats?.currency ?? 'EUR'} · eigene Angaben</p>
+                      </div>
+                      <ChartNoAxesCombined size={20} />
+                    </div>
+                    <div className="gain-value">
+                      {currencyStats
+                        ? formatMoney(currencyStats.gain, currencyStats.currency)
+                        : '—'}
+                      <span className={currencyStats && currencyStats.gain < 0 ? 'negative' : ''}>
+                        {currencyStats?.gainPercent != null ? (
+                          <>
+                            {currencyStats.gain >= 0 ? (
+                              <ArrowUpRight size={14} />
+                            ) : (
+                              <ArrowDownRight size={14} />
+                            )}{' '}
+                            {currencyStats.gainPercent.toFixed(1)} %
+                          </>
+                        ) : (
+                          'Noch keine Werte'
+                        )}
+                      </span>
+                    </div>
+                    <p className="muted">Differenz zu deinen Kaufpreisen</p>
+                    <div className="distribution">
+                      {propertyTypes.map((t) => {
+                        const total = filtered
+                          .filter(
+                            (p) =>
+                              !p.archivedAt &&
+                              p.type === t &&
+                              p.currency === currencyStats?.currency,
+                          )
+                          .reduce((a, p) => a + p.marketValue, 0);
+                        return (
+                          <div key={t}>
+                            <div>
+                              <span>{propertyTypeLabels[t]}</span>
+                              <strong>
+                                {currencyStats ? formatMoney(total, currencyStats.currency) : '—'}
+                              </strong>
+                            </div>
+                            <div className="bar">
+                              <i
+                                style={{
+                                  width: `${currencyStats?.marketValue ? (100 * total) / currencyStats.marketValue : 0}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="research-note">
+                      <Sparkles size={18} />
+                      <div>
+                        <strong>KI-Marktpreis recherchieren</strong>
+                        <p>
+                          Vergleichsangebote, nachvollziehbare Preisspannen und Quellen direkt bei
+                          deiner Immobilie.
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+                )}
               </div>
             </>
           )}
-          <section className={`property-section ${section === 'map' ? 'map-section' : ''}`}>
-            <div className="section-heading">
-              <div>
-                <h2>
-                  {section === 'archive'
-                    ? 'Archivierte Immobilien'
-                    : section === 'map'
-                      ? 'Immobilien weltweit'
-                      : 'Deine Immobilien'}{' '}
-                  <span className="counter">{filtered.length}</span>
-                </h2>
-                <p>
-                  {section === 'dashboard'
-                    ? 'Jede Immobilie hat ihren Platz.'
-                    : 'Suchen, filtern und direkt verwalten.'}
-                </p>
+          {section !== 'values' && (section !== 'dashboard' || widgets.properties) && (
+            <section className={`property-section ${section === 'map' ? 'map-section' : ''}`}>
+              <div className="section-heading">
+                <div>
+                  <h2>
+                    {section === 'archive'
+                      ? 'Archivierte Immobilien'
+                      : section === 'map'
+                        ? 'Immobilien weltweit'
+                        : 'Deine Immobilien'}{' '}
+                    <span className="counter">{filtered.length}</span>
+                  </h2>
+                  <p>
+                    {section === 'dashboard'
+                      ? 'Jede Immobilie hat ihren Platz.'
+                      : 'Suchen, filtern und direkt verwalten.'}
+                  </p>
+                </div>
+                {section !== 'map' && (
+                  <div className="view-switch" aria-label="Ansicht wählen">
+                    {(
+                      [
+                        { value: 'grid', icon: Grid2X2, label: 'Kachelansicht' },
+                        { value: 'list', icon: List, label: 'Listenansicht' },
+                        { value: 'table', icon: Table2, label: 'Tabellenansicht' },
+                      ] as const
+                    ).map((v) => (
+                      <button
+                        key={v.value}
+                        aria-label={v.label}
+                        aria-pressed={view === v.value}
+                        className={view === v.value ? 'selected' : ''}
+                        onClick={() => setView(v.value)}
+                      >
+                        <v.icon size={17} />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              {section !== 'map' && (
-                <div className="view-switch" aria-label="Ansicht wählen">
-                  {(
-                    [
-                      { value: 'grid', icon: Grid2X2, label: 'Kachelansicht' },
-                      { value: 'list', icon: List, label: 'Listenansicht' },
-                      { value: 'table', icon: Table2, label: 'Tabellenansicht' },
-                    ] as const
-                  ).map((v) => (
-                    <button
-                      key={v.value}
-                      aria-label={v.label}
-                      aria-pressed={view === v.value}
-                      className={view === v.value ? 'selected' : ''}
-                      onClick={() => setView(v.value)}
-                    >
-                      <v.icon size={17} />
+              {section === 'map' ? (
+                <section className="panel full-map">
+                  <PropertyMap properties={filtered} onSelect={select} />
+                  <p className="map-caption">
+                    Filter gelten auch für die Kartenmarker. Klicke einen Marker für Details.
+                  </p>
+                </section>
+              ) : filtered.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-icon">
+                    <FolderOpen size={28} />
+                  </div>
+                  <h3>
+                    {properties.length ? 'Hier ist noch Platz.' : 'Dein Portfolio beginnt hier.'}
+                  </h3>
+                  <p>
+                    {properties.length
+                      ? 'Keine Immobilien passen zu dieser Auswahl.'
+                      : 'Füge deine erste Immobilie hinzu oder erkunde EstateAtlas mit klar gekennzeichneten Testdaten.'}
+                  </p>
+                  <div className="empty-actions">
+                    <button className="button primary" onClick={() => setEditor('new')}>
+                      <Plus size={16} /> Erste Immobilie hinzufügen
+                    </button>
+                    {!properties.length && (
+                      <button
+                        className="button secondary"
+                        disabled={busy}
+                        onClick={() => act(() => api.seed())}
+                      >
+                        Testdaten laden
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : view === 'table' ? (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Immobilie</th>
+                        <th>Land</th>
+                        <th>Art</th>
+                        <th>Fläche</th>
+                        <th>Kaufpreis</th>
+                        <th>Marktwert¹</th>
+                        <th>Vermietung</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((p) => (
+                        <tr key={p.id}>
+                          <td>
+                            <button className="table-title" onClick={() => select(p.id)}>
+                              {p.title}
+                            </button>
+                            {p.isTestData && <span className="test-tag">TEST</span>}
+                            <small>{p.address}</small>
+                          </td>
+                          <td>{p.country}</td>
+                          <td>{propertyTypeLabels[p.type]}</td>
+                          <td>{p.area} m²</td>
+                          <td>{formatMoney(p.purchasePrice, p.currency)}</td>
+                          <td>{formatMoney(p.marketValue, p.currency)}</td>
+                          <td>
+                            {rentalSummary(p.rental).label}
+                            <small>{rentalSummary(p.rental).period}</small>
+                          </td>
+                          <td>
+                            <button
+                              aria-label={`${p.title} öffnen`}
+                              className="icon-button"
+                              onClick={() => select(p.id)}
+                            >
+                              <ArrowUpRight size={17} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className={`property-cards ${view === 'list' ? 'as-list' : ''}`}>
+                  {filtered.map((p) => (
+                    <button className="property-card" key={p.id} onClick={() => select(p.id)}>
+                      <div className={`property-art art-${p.type}`}>
+                        <Building2 size={52} strokeWidth={1} />
+                        <span className="location-badge">{p.country}</span>
+                        {p.isTestData && <span className="sample-badge">TESTDATEN</span>}
+                        <span className="art-lines" />
+                      </div>
+                      <div className="property-content">
+                        <div className="property-type">
+                          {propertyTypeLabels[p.type]}
+                          <ArrowUpRight size={17} />
+                        </div>
+                        <h3>{p.title}</h3>
+                        <p>{p.address}</p>
+                        <div className="property-meta">
+                          <span>{p.area} m²</span>
+                          <span>{p.yearBuilt ?? 'Baujahr offen'}</span>
+                          <span>{conditionLabels[p.condition]}</span>
+                        </div>
+                        <div className="rental-badge">
+                          {rentalSummary(p.rental).label}
+                          {rentalSummary(p.rental).period && (
+                            <small>{rentalSummary(p.rental).period}</small>
+                          )}
+                        </div>
+                        <div className="property-price">
+                          <strong>{formatMoney(p.marketValue, p.currency)}</strong>
+                          <span>Eigener Marktwert</span>
+                        </div>
+                      </div>
                     </button>
                   ))}
                 </div>
               )}
-            </div>
-            <div className="filters">
-              <label className="search">
-                <Search size={17} />
-                <input
-                  aria-label="Immobilien suchen"
-                  placeholder="Immobilien oder Orte suchen …"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-              </label>
-              <select
-                aria-label="Land filtern"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-              >
-                <option value="">Alle Länder</option>
-                {[...new Set(properties.map((p) => p.country))].sort().map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-              <select
-                aria-label="Immobilienart filtern"
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-              >
-                <option value="">Alle Immobilienarten</option>
-                {propertyTypes.map((t) => (
-                  <option key={t} value={t}>
-                    {propertyTypeLabels[t]}
-                  </option>
-                ))}
-              </select>
-              <button className="text-button" disabled={busy} onClick={() => act(reload)}>
-                <RotateCcw size={15} /> Aktualisieren
-              </button>
-            </div>
-            {section === 'map' ? (
-              <section className="panel full-map">
-                <PropertyMap properties={filtered} onSelect={select} />
-                <p className="map-caption">
-                  Filter gelten auch für die Kartenmarker. Klicke einen Marker für Details.
-                </p>
-              </section>
-            ) : filtered.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">
-                  <FolderOpen size={28} />
-                </div>
-                <h3>
-                  {properties.length ? 'Hier ist noch Platz.' : 'Dein Portfolio beginnt hier.'}
-                </h3>
-                <p>
-                  {properties.length
-                    ? 'Keine Immobilien passen zu dieser Auswahl.'
-                    : 'Füge deine erste Immobilie hinzu oder erkunde EstateAtlas mit klar gekennzeichneten Testdaten.'}
-                </p>
-                <div className="empty-actions">
-                  <button className="button primary" onClick={() => setEditor('new')}>
-                    <Plus size={16} /> Erste Immobilie hinzufügen
-                  </button>
-                  {!properties.length && (
-                    <button
-                      className="button secondary"
-                      disabled={busy}
-                      onClick={() => act(() => api.seed())}
-                    >
-                      Testdaten laden
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : view === 'table' ? (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Immobilie</th>
-                      <th>Land</th>
-                      <th>Art</th>
-                      <th>Fläche</th>
-                      <th>Kaufpreis</th>
-                      <th>Marktwert¹</th>
-                      <th>Vermietung</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((p) => (
-                      <tr key={p.id}>
-                        <td>
-                          <button className="table-title" onClick={() => select(p.id)}>
-                            {p.title}
-                          </button>
-                          {p.isTestData && <span className="test-tag">TEST</span>}
-                          <small>{p.address}</small>
-                        </td>
-                        <td>{p.country}</td>
-                        <td>{propertyTypeLabels[p.type]}</td>
-                        <td>{p.area} m²</td>
-                        <td>{formatMoney(p.purchasePrice, p.currency)}</td>
-                        <td>{formatMoney(p.marketValue, p.currency)}</td>
-                        <td>
-                          {rentalSummary(p.rental).label}
-                          <small>{rentalSummary(p.rental).period}</small>
-                        </td>
-                        <td>
-                          <button
-                            aria-label={`${p.title} öffnen`}
-                            className="icon-button"
-                            onClick={() => select(p.id)}
-                          >
-                            <ArrowUpRight size={17} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className={`property-cards ${view === 'list' ? 'as-list' : ''}`}>
-                {filtered.map((p) => (
-                  <button className="property-card" key={p.id} onClick={() => select(p.id)}>
-                    <div className={`property-art art-${p.type}`}>
-                      <Building2 size={52} strokeWidth={1} />
-                      <span className="location-badge">{p.country}</span>
-                      {p.isTestData && <span className="sample-badge">TESTDATEN</span>}
-                      <span className="art-lines" />
-                    </div>
-                    <div className="property-content">
-                      <div className="property-type">
-                        {propertyTypeLabels[p.type]}
-                        <ArrowUpRight size={17} />
-                      </div>
-                      <h3>{p.title}</h3>
-                      <p>{p.address}</p>
-                      <div className="property-meta">
-                        <span>{p.area} m²</span>
-                        <span>{p.yearBuilt ?? 'Baujahr offen'}</span>
-                        <span>{conditionLabels[p.condition]}</span>
-                      </div>
-                      <div className="rental-badge">
-                        {rentalSummary(p.rental).label}
-                        {rentalSummary(p.rental).period && (
-                          <small>{rentalSummary(p.rental).period}</small>
-                        )}
-                      </div>
-                      <div className="property-price">
-                        <strong>{formatMoney(p.marketValue, p.currency)}</strong>
-                        <span>Eigener Marktwert</span>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
+            </section>
+          )}
           <footer className="page-footer">
             <span>EstateAtlas · Klarheit für deine Immobilien.</span>
             <span>¹ Marktwerte sind deine Angaben, keine KI-Bewertung.</span>
@@ -897,6 +1036,7 @@ function Detail({
               <strong>{p.area} m²</strong>
             </div>
           </div>
+          <AnalysisPanel key={p.id} property={p} api={api} onApplied={onRefresh} />
           <dl>
             <dt>Vermietung</dt>
             <dd>
@@ -962,7 +1102,6 @@ function Detail({
               </div>
             ))}
           </div>
-          <AnalysisPanel key={p.id} property={p} api={api} onApplied={onRefresh} />
           {error && (
             <p role="alert" className="error">
               {error}

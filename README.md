@@ -10,7 +10,8 @@ Projekt auf diesem VPS: `/home/codexdev/projects/estate-atlas`.
 - Private Benutzerportfolios mit geprüften Eigentümerrechten für Immobilien, Fotos, Dokumente und Analyseaufträge.
 - Anlegen, Bearbeiten, Archivieren, Wiederherstellen und endgültiges Löschen.
 - Adresse, ISO-Land, GPS, Art, Kaufpreis, eigener Marktwert, Währung, Fläche, Baujahr, Zustand, Ausstattung und Notizen.
-- Dashboard mit Statistiken und getrennten Währungssummen. Datierte Wertänderungen in der Detailansicht; keine erfundenen historischen Entwicklungen oder Wechselkurse.
+- Filterbares Dashboard mit pro Konto auf dem Gerät gespeicherten, einzeln ausblendbaren Bereichen. Eigener Portfolio-Werte-Tab mit Objektverläufen, Zeitraum, Sortierung und Archivfilter; Summen je Währung. Keine erfundenen historischen Entwicklungen oder Wechselkurse.
+- Vermietungsstatus, Mietbeginn und Mietende oder unbefristeter Vertrag in Web und nativer App.
 - Web: responsive Übersicht, Kachel-, Listen- und Tabellenansicht, Suche und Filter, Leaflet-Weltkarte mit Clustering.
 - Native Apps: Stack- und Tab-Navigation, Übersicht, Liste, Details, Formular und native Weltkarte mit Clustering und Filtern.
 - Private Foto-/PDF-Uploads (JPEG, PNG, WebP, PDF; 10 MB; bis 30 Anhänge pro Immobilie).
@@ -70,55 +71,21 @@ Für einen schnellen API-Test genügt `curl -sS http://localhost:4000/health`. E
 
 Wenn diese Server-Prüfung besteht, aber der eigene Browser „Keine Verbindung zur API“ meldet, im selben Browser `http://localhost:4000/health` öffnen. Der SSH-Tunnel muss **beide** Ports 3000 und 4000 weiterleiten und auf dem eigenen Rechner laufen. Die Web-App unter exakt `http://localhost:3000` öffnen. `localhost` im Browser bezeichnet den Rechner mit diesem Browser; die direkte VPS-IP ist mit der aktuellen Loopback-Konfiguration kein Web-Zugang.
 
-## Native Mobile-App ausprobieren
+## Auf dem iPhone und nativ testen
 
-Die App rendert native React-Native-Komponenten und native Karten; ein Browser mit Smartphone-Bildschirmgröße ist nur ein Web-Responsivitätstest.
+Die private Web-Version benötigt auf dem iPhone dieselben zwei SSH-Weiterleitungen wie am PC: lokale Ports 3000 und 4000 auf `127.0.0.1:3000` / `127.0.0.1:4000` des VPS. Danach Safari unter `http://localhost:3000` öffnen. Der vollständige Ablauf und die Voraussetzungen für eine signierte native App stehen in [docs/mobile-testing.md](docs/mobile-testing.md).
 
-### Android mit Expo Go und USB (VPS ohne Android SDK)
+Die native React-Native-App ist ein eigenes Deliverable. Der JavaScript-Export erzeugt keine installierbare IPA/APK. Für iPhone-TestFlight fehlen derzeit Apple-/Expo-Signierung und eine erreichbare HTTPS-API. Expo-Go-Kompatibilität mit dem eingesetzten SDK 57 muss vor einem Gerätetest geprüft werden.
 
-1. Eine zu Expo SDK 57 passende Expo-Go-Version auf einem Android-Gerät installieren. USB-Debugging aktivieren und das Gerät am eigenen Rechner anschließen; `adb` dort bereitstellen.
-2. Auf dem VPS in Terminal 3:
-
-   ```bash
-   cd /home/codexdev/projects/estate-atlas
-   ./scripts/pnpm dev:mobile
-   ```
-
-3. Auf dem eigenen Rechner API und Metro über den bestehenden SSH-Zugang weiterleiten:
-
-   ```bash
-   ssh -N -L 4000:127.0.0.1:4000 -L 8081:127.0.0.1:8081 codexdev@DEIN_VPS
-   ```
-
-   Wenn bereits ein Tunnel für Port 4000 besteht, nur Port 8081 zusätzlich weiterleiten.
-
-4. Auf dem eigenen Rechner:
-
-   ```bash
-   adb reverse tcp:4000 tcp:4000
-   adb reverse tcp:8081 tcp:8081
-   adb shell am start -a android.intent.action.VIEW -d exp://127.0.0.1:8081
-   ```
-
-5. In der nativen App mit demselben Konto wie im Web anmelden. Das Gerät erreicht die API unter dem Standardwert `http://localhost:4000`; Bearbeitungen landen in derselben VPS-Datenbank.
-
-### iOS oder lokaler Android-Entwicklungsrechner
-
-Den Quellcode auf den eigenen Rechner übernehmen, z. B. über das lokale Git-Bundle in `work/estate-atlas.bundle` (ohne `.env`, Datenbank oder Tokens). macOS/Linux benötigen Node 22.13+ und pnpm 10.34.6; das Bootstrap-Skript installiert beide projektlokal. Für einen iOS-Simulator muss Xcode auf einem Mac bereits vorhanden sein.
+Eine optionale Metro-Vorschau läuft ebenfalls in Docker, nicht auf dem Host:
 
 ```bash
-# Auf dem eigenen Rechner; Host anpassen:
-scp codexdev@DEIN_VPS:/home/codexdev/projects/estate-atlas/work/estate-atlas.bundle ./estate-atlas.bundle
-git clone estate-atlas.bundle estate-atlas
-cd estate-atlas
-./scripts/bootstrap.sh
+./scripts/pnpm dev:mobile
+./scripts/docker --profile mobile logs --tail=50 mobile
+./scripts/docker --profile mobile stop mobile
 ```
 
-Eine eigene lokale `.env` mit `EXPO_PUBLIC_API_URL=http://localhost:4000` anlegen und die VPS-API per SSH-Port 4000 weiterleiten. Dann `./scripts/pnpm dev:mobile` und in der Expo-Konsole `i` für den iOS-Simulator verwenden. Der Simulator nutzt denselben API-Tunnel; es muss keine zweite Datenbank angelegt werden.
-
-Ein **physisches iPhone** braucht eine API-Adresse, die vom Telefon erreichbar ist. Dafür vor dem Gerätetest einen privaten HTTPS-/VPN-Zugang abstimmen und `EXPO_PUBLIC_API_URL` entsprechend setzen; `localhost` des Telefons bezeichnet nicht den VPS. Es wurden keine Firewall-/SSH-Änderungen oder öffentlichen Tunnel eingerichtet.
-
-Ein eigenständiger Android-Build benötigt vor Veröffentlichung einen freigegebenen Google-Maps-Key mit App-/API-Beschränkungen. iOS verwendet Apple Maps. Store-Signierung, Entwicklerkonten und ggf. notwendige Dienste werden erst nach Freigabe eingerichtet. Die konkrete Expo-/Native-Kompatibilität ist über `expo install --check` geprüft. Auf einem Linux-VPS ohne Desktop nutzt der Wrapper Expo im Headless-Modus, damit keine grafischen React-Native-DevTools installiert oder gestartet werden. Das native App-Bundling bleibt aktiv.
+Der Metro-Port bleibt unter `127.0.0.1:8081` privat. Das Profil wird beim normalen Start nicht gestartet. Nach Quellcodeänderungen `dev:mobile` erneut aufrufen; das Vorschaubild enthält den Stand beim Build. Keine bezahlten Cloud-Builds oder öffentlichen Tunnel werden dabei angelegt.
 
 ## Kartenstil
 
@@ -167,4 +134,6 @@ scripts                Projektlokale Tools, Datenbank, Builds und Testserver
 
 Architekturentscheidungen: `docs/architecture.md`. Arbeitsregeln: `AGENTS.md`. Konkreter Prüfstatus: `docs/status.md`.
 
-Als Nächstes: Android-/iOS-Gerätetests und native Build-Konfiguration, bestätigter privater HTTPS-Betrieb mit Backups sowie E-Mail-Verifizierung/Passwort-Reset. Für Meilenstein 4 zulässige Marktquellen auswählen und notwendige API-Zugänge freigeben; danach Worker, reale Vergleichsobjekte, Quellen, Unsicherheiten und begründete Preisspannen implementieren.
+Portfolio-Werte und anpassbare Dashboard-Bereiche: [docs/portfolio-workspace.md](docs/portfolio-workspace.md).
+
+Als Nächstes: Android-/iOS-Gerätetests und native Build-Konfiguration, bestätigter privater HTTPS-Betrieb mit Backups sowie E-Mail-Verifizierung/Passwort-Reset. Recherchequalität weiter anhand überprüfbarer Vergleichsangebote absichern. Anschließend Mieteinnahmen, Kosten/Cashflow und Erinnerungen ergänzen.

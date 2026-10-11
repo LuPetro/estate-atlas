@@ -11,14 +11,16 @@ import {
 export default function ValueHistory({
   values,
   currency: currentCurrency,
+  period,
 }: {
   values: Valuation[];
   currency: Currency;
+  period?: 30 | 365 | null;
 }) {
   const [currency, setCurrency] = useState(currentCurrency);
   const [days, setDays] = useState<30 | 365 | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const series = valuationSeries(values, currency, days);
+  const series = valuationSeries(values, currency, period === undefined ? days : period);
   const chart = valuationChart(series.points);
   const point = series.points.find((v) => v.id === selected) ?? series.last;
   const currencyOptions = [...new Set([currentCurrency, ...values.map((v) => v.currency)])];
@@ -42,27 +44,29 @@ export default function ValueHistory({
           ))}
         </select>
       </div>
-      <div className="history-periods" aria-label="Zeitraum der Wertentwicklung">
-        {(
-          [
-            { label: 'Gesamt', days: null },
-            { label: '12 Monate', days: 365 },
-            { label: '30 Tage', days: 30 },
-          ] as const
-        ).map((period) => (
-          <button
-            key={period.label}
-            type="button"
-            aria-pressed={days === period.days}
-            onClick={() => {
-              setDays(period.days);
-              setSelected(null);
-            }}
-          >
-            {period.label}
-          </button>
-        ))}
-      </div>
+      {period === undefined && (
+        <div className="history-periods" aria-label="Zeitraum der Wertentwicklung">
+          {(
+            [
+              { label: 'Gesamt', days: null },
+              { label: '12 Monate', days: 365 },
+              { label: '30 Tage', days: 30 },
+            ] as const
+          ).map((period) => (
+            <button
+              key={period.label}
+              type="button"
+              aria-pressed={days === period.days}
+              onClick={() => {
+                setDays(period.days);
+                setSelected(null);
+              }}
+            >
+              {period.label}
+            </button>
+          ))}
+        </div>
+      )}
       {!point ? (
         <p className="history-empty">
           In diesem Zeitraum wurden keine Werte in {currency} erfasst.

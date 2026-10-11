@@ -129,6 +129,35 @@ services:
     mem_limit: 384m
     logging: *logging
 
+  mobile:
+    profiles: [mobile]
+    image: estate-atlas-mobile-preview:local
+    build: { context: ., target: mobile-preview }
+    init: true
+    environment:
+      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://localhost:4000}
+      REACT_NATIVE_PACKAGER_HOSTNAME: localhost
+      CI: '1'
+    ports: ['127.0.0.1:8081:8081']
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:8081/status').then(async r=>{if(!r.ok||!((await r.text()).includes('packager-status:running')))process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 384m
+    logging: *logging
+
 volumes:
   postgres_data:
 

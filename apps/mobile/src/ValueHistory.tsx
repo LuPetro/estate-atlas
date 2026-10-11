@@ -12,15 +12,17 @@ import {
 export default function ValueHistory({
   values,
   currency: currentCurrency,
+  period,
 }: {
   values: Valuation[];
   currency: Currency;
+  period?: 30 | 365 | null;
 }) {
   const [currency, setCurrency] = useState(currentCurrency);
   const [days, setDays] = useState<30 | 365 | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [showRecords, setShowRecords] = useState(false);
-  const series = valuationSeries(values, currency, days);
+  const series = valuationSeries(values, currency, period === undefined ? days : period);
   const chart = valuationChart(series.points);
   const point = series.points.find((v) => v.id === selected) ?? series.last;
   const choices = [...new Set([currentCurrency, ...values.map((v) => v.currency)])];
@@ -47,28 +49,30 @@ export default function ValueHistory({
           ))}
         </ScrollView>
       )}
-      <View style={s.choices}>
-        {(
-          [
-            { label: 'Gesamt', days: null },
-            { label: '12 Monate', days: 365 },
-            { label: '30 Tage', days: 30 },
-          ] as const
-        ).map((p) => (
-          <Pressable
-            key={p.label}
-            accessibilityRole="button"
-            accessibilityState={{ selected: days === p.days }}
-            style={[s.chip, days === p.days && s.active]}
-            onPress={() => {
-              setDays(p.days);
-              setSelected(null);
-            }}
-          >
-            <Text style={days === p.days ? s.activeText : s.text}>{p.label}</Text>
-          </Pressable>
-        ))}
-      </View>
+      {period === undefined && (
+        <View style={s.choices}>
+          {(
+            [
+              { label: 'Gesamt', days: null },
+              { label: '12 Monate', days: 365 },
+              { label: '30 Tage', days: 30 },
+            ] as const
+          ).map((p) => (
+            <Pressable
+              key={p.label}
+              accessibilityRole="button"
+              accessibilityState={{ selected: days === p.days }}
+              style={[s.chip, days === p.days && s.active]}
+              onPress={() => {
+                setDays(p.days);
+                setSelected(null);
+              }}
+            >
+              <Text style={days === p.days ? s.activeText : s.text}>{p.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
       {!point ? (
         <Text style={s.note}>In diesem Zeitraum wurden keine Werte in {currency} erfasst.</Text>
       ) : (

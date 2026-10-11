@@ -35,6 +35,14 @@ import { ApiClient, ApiError } from '@estate-atlas/api-client';
 import AddressPicker from './AddressPicker';
 import AnalysisPanel from './AnalysisPanel';
 import ValueHistory from './ValueHistory';
+import PortfolioValues from './PortfolioValues';
+import {
+  PortfolioFilters,
+  DashboardCustomize,
+  useDashboardWidgets,
+  emptyFilters,
+  filteredPortfolio,
+} from './PortfolioTools';
 import { mapTheme } from './mapTheme';
 import SimpleMap, { MapModeControl } from './SimpleMap';
 import {
@@ -57,7 +65,7 @@ import {
 } from '@estate-atlas/shared';
 let token: string | null = null;
 const api = new ApiClient(process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000', () => token);
-type Tabs = { Overview: undefined; Properties: undefined; Map: undefined };
+type Tabs = { Overview: undefined; Properties: undefined; Map: undefined; Values: undefined };
 type Stack = {
   Home: NavigatorScreenParams<Tabs> | undefined;
   Detail: { id: string };
@@ -364,6 +372,14 @@ function Home() {
         }}
       />
       <Tab.Screen
+        name="Values"
+        component={ValuesScreen}
+        options={{
+          title: 'Werte',
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 21 }}>↗</Text>,
+        }}
+      />
+      <Tab.Screen
         name="Map"
         component={MapScreen}
         options={{
@@ -372,6 +388,17 @@ function Home() {
         }}
       />
     </Tab.Navigator>
+  );
+}
+function ValuesScreen({ navigation }: BottomTabScreenProps<Tabs, 'Values'>) {
+  const { properties, reload } = usePortfolio();
+  return (
+    <PortfolioValues
+      properties={properties}
+      api={api}
+      reload={reload}
+      onSelect={(id) => navigation.getParent()?.navigate('Detail', { id })}
+    />
   );
 }
 function PropertyCard({ property: p, onPress }: { property: Property; onPress: () => void }) {
@@ -400,7 +427,16 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
   const { user, properties, reload, logout } = usePortfolio();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const stats = portfolioStats(properties);
+  const [filters, setFilters] = useState(emptyFilters);
+  const { widgets, toggle, storageError } = useDashboardWidgets(user.id);
+  const [dashboardRegion, setDashboardRegion] = useState<Region>({
+    latitude: 35,
+    longitude: 0,
+    latitudeDelta: 100,
+    longitudeDelta: 360,
+  });
+  const filtered = filteredPortfolio(properties, filters);
+  const stats = portfolioStats(filtered);
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
     setError('');
@@ -434,36 +470,79 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
             TESTDATEN · Synthetische Objekte und Werte. Keine Marktanalyse.
           </Text>
         )}
-        {stats.byCurrency.map((s) => (
-          <View style={styles.valueCard} key={s.currency}>
-            <Text style={styles.cardCategory}>GESCHÄTZTER PORTFOLIOWERT · {s.currency}</Text>
-            <Text
-              style={styles.largeValue}
-              adjustsFontSizeToFit
-              numberOfLines={1}
-              minimumFontScale={0.6}
-            >
-              {formatMoney(s.marketValue, s.currency)}
-            </Text>
-            <Text style={styles.subtitle}>Eigene Marktwertangaben · {s.count} Immobilien</Text>
-            <Text style={[styles.gain, s.gain < 0 && { color: '#ad5a51' }]}>
-              {formatMoney(s.gain, s.currency)} gegenüber Kaufpreis{' '}
-              {s.gainPercent === null ? '' : `(${s.gainPercent.toFixed(1)} %)`}
-            </Text>
-          </View>
-        ))}
-        <View style={styles.statsRow}>
-          {[
-            { label: 'Immobilien', value: stats.count },
-            { label: 'Länder', value: stats.countries },
-            { label: 'Fläche m²', value: stats.area },
-          ].map((s) => (
-            <View key={s.label} style={styles.smallStat}>
-              <Text style={styles.statNumber}>{s.value}</Text>
-              <Text style={styles.statLabel}>{s.label}</Text>
+        <PortfolioFilters properties={properties} filters={filters} onChange={setFilters} />
+        <DashboardCustomize widgets={widgets} toggle={toggle} />
+        {!!storageError && <Text style={styles.subtitle}>{storageError}</Text>}
+        {widgets.metrics &&
+          stats.byCurrency.map((s) => (
+            <View style={styles.valueCard} key={s.currency}>
+              <Text style={styles.cardCategory}>GESCHÄTZTER PORTFOLIOWERT · {s.currency}</Text>
+              <Text
+                style={styles.largeValue}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+                minimumFontScale={0.6}
+              >
+                {formatMoney(s.marketValue, s.currency)}
+              </Text>
+              <Text style={styles.subtitle}>Eigene Marktwertangaben · {s.count} Immobilien</Text>
+              <Text style={[styles.gain, s.gain < 0 && { color: '#ad5a51' }]}>
+                {formatMoney(s.gain, s.currency)} gegenüber Kaufpreis{' '}
+                {s.gainPercent === null ? '' : `(${s.gainPercent.toFixed(1)} %)`}
+              </Text>
             </View>
           ))}
-        </View>
+        {widgets.metrics && (
+          <View style={styles.statsRow}>
+            {[
+              { label: 'Immobilien', value: stats.count },
+              { label: 'Länder', value: stats.countries },
+              { label: 'Fläche m²', value: stats.area },
+            ].map((s) => (
+              <View key={s.label} style={styles.smallStat}>
+                <Text style={styles.statNumber}>{s.value}</Text>
+                <Text style={styles.statLabel}>{s.label}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+        {widgets.map && (
+          <View style={styles.research}>
+            <Text style={styles.sectionTitle}>Dein Portfolio auf der Karte</Text>
+            <View style={{ height: 240 }}>
+              <SimpleMap
+                region={dashboardRegion}
+                onRegionChange={setDashboardRegion}
+                points={filtered.map((p) => ({
+                  id: p.id,
+                  title: p.title,
+                  latitude: p.latitude,
+                  longitude: p.longitude,
+                }))}
+                onPressPoint={(id) => root?.navigate('Detail', { id })}
+              />
+            </View>
+          </View>
+        )}
+        {widgets.insights && (
+          <View style={styles.research}>
+            <Text style={styles.sectionTitle}>Werte & Verteilung</Text>
+            {stats.byCurrency.map((c) => (
+              <View key={c.currency}>
+                <Text style={styles.cardTitle}>
+                  {c.currency}: {formatMoney(c.gain, c.currency)} gegenüber Kaufpreis
+                </Text>
+                {propertyTypes.map((t) => (
+                  <Text key={t} style={styles.subtitle}>
+                    {propertyTypeLabels[t]} ·{' '}
+                    {filtered.filter((p) => p.currency === c.currency && p.type === t).length}{' '}
+                    Immobilien
+                  </Text>
+                ))}
+              </View>
+            ))}
+          </View>
+        )}
         <Button onPress={() => root?.navigate('Editor')}>+ Immobilie hinzufügen</Button>
         {!properties.length && (
           <View style={styles.empty}>
@@ -485,21 +564,28 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
             </Button>
           </View>
         )}
-        <Text style={styles.sectionTitle}>Deine Immobilien</Text>
-        {properties
-          .filter((p) => !p.archivedAt)
-          .slice(0, 5)
-          .map((p) => (
-            <PropertyCard
-              key={p.id}
-              property={p}
-              onPress={() => root?.navigate('Detail', { id: p.id })}
-            />
-          ))}
+        {widgets.properties && (
+          <>
+            <Text style={styles.sectionTitle}>Deine Immobilien</Text>
+            {filtered
+              .filter((p) => !p.archivedAt)
+              .slice(0, 5)
+              .map((p) => (
+                <PropertyCard
+                  key={p.id}
+                  property={p}
+                  onPress={() => root?.navigate('Detail', { id: p.id })}
+                />
+              ))}
+            {!filtered.length && (
+              <Text style={styles.subtitle}>Keine Immobilien passen zu dieser Auswahl.</Text>
+            )}
+          </>
+        )}
         <View style={styles.research}>
-          <Text style={styles.cardTitle}>Neue Perspektiven mit KI</Text>
+          <Text style={styles.cardTitle}>Marktpreis recherchieren</Text>
           <Text style={styles.subtitle}>
-            Echte Recherche wartet auf freigegebene Datenquellen. Keine erfundenen Bewertungen.
+            Öffne eine Immobilie, um Vergleichsangebote und Quellen zu recherchieren.
           </Text>
         </View>
       </ScrollView>
@@ -807,6 +893,15 @@ function Detail({ route, navigation }: NativeStackScreenProps<Stack, 'Detail'>) 
         </Text>
         <Text style={styles.subtitle}>Kaufpreis: {formatMoney(p.purchasePrice, p.currency)}</Text>
       </View>
+      <AnalysisPanel
+        key={p.id}
+        property={p}
+        api={api}
+        onApplied={async () => {
+          await load();
+          await reload();
+        }}
+      />
       <Text style={styles.detailText}>
         {p.area} m² · {conditionLabels[p.condition]} · Baujahr {p.yearBuilt ?? 'offen'}
       </Text>
@@ -874,15 +969,6 @@ function Detail({ route, navigation }: NativeStackScreenProps<Stack, 'Detail'>) 
           </Button>
         </View>
       ))}
-      <AnalysisPanel
-        key={p.id}
-        property={p}
-        api={api}
-        onApplied={async () => {
-          await load();
-          await reload();
-        }}
-      />
       <Button secondary disabled={busy} onPress={() => act(() => api.archive(p.id, !p.archivedAt))}>
         {p.archivedAt ? 'Aus Archiv wiederherstellen' : 'Immobilie archivieren'}
       </Button>

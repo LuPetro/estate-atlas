@@ -41,3 +41,11 @@ COPY --from=web-build --chown=node:node /app/apps/web/.next/static/ ./apps/web/.
 USER node
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
+
+# Optional Metro preview, isolated from the normal production stack.
+FROM source AS mobile-preview
+RUN mkdir -p apps/mobile/.expo && chown -R node:node apps/mobile
+ENV CI=1 REACT_NATIVE_PACKAGER_HOSTNAME=localhost EXPO_PUBLIC_API_URL=http://localhost:4000
+USER node
+EXPOSE 8081
+CMD ["pnpm", "--filter", "@estate-atlas/mobile", "exec", "expo", "start", "--host", "lan", "--port", "8081", "--max-workers", "1"]

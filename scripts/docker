@@ -15,7 +15,7 @@ if [[ "${1:-}" == build ]]; then
   TASK_TARGETS=()
   for TASK_ARG in "$@"; do
     case "$TASK_ARG" in
-      api|web) TASK_TARGETS+=("$TASK_ARG") ;;
+      api|web|mobile) TASK_TARGETS+=("$TASK_ARG") ;;
       *) TASK_FLAGS+=("$TASK_ARG") ;;
     esac
   done

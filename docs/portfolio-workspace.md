@@ -1,0 +1,13 @@
+# Portfolio-Arbeitsbereiche
+
+Web und native App besitzen einen eigenen Werte-Tab. Er zeigt aktuelle Bestandssummen je Währung und gespeicherte Verläufe je Immobilie. Suche, Land, Immobilienart, aktuelle Objektwährung und hinterlegter Vermietungsstatus lassen sich kombinieren. Zusätzlich sind einzelne Immobilien, Gesamtverlauf/12 Monate/30 Tage, Sortierung nach Name/Veränderung in Prozent/letzter Wertangabe und Archivobjekte auswählbar.
+
+Der Vermietungsfilter „Mietvertrag hinterlegt“ umfasst geplante, laufende und beendete Verträge. Der jeweilige Zustand wird an der Immobilie angezeigt. „Nicht angegeben“ ist ein eigener Zustand für Bestandsdaten.
+
+Historien kommen über `GET /portfolio/valuations` aus einem SQL-Join mit den Immobilien des angemeldeten Nutzers. Der Endpunkt liefert ausschließlich Wertangaben; keine Anhänge oder Recherche-Rohberichte. Archivierte Beobachtungen bleiben abrufbar, archivierte Immobilien zählen aber niemals zur aktuellen Summe. Löschen entfernt sie weiterhin über die bestehenden Datenbankregeln.
+
+Aktuelle Summen verwenden die aktuellen Objektwerte; der Zeitfilter gilt für die historischen Verläufe. Es gibt keine rückwirkend erfundene Portfolio-Gesamtkurve. Die Einzelverläufe haben eigene Skalen und sind kein Vergleich auf einer gemeinsamen Achse. Prozentänderungen beziehen sich auf den ersten und letzten tatsächlich gespeicherten Wert derselben Währung im Zeitraum; bei weniger als zwei Werten oder Null-Basis gibt es keine Prozent-Rendite. Auswahl nach Objektwährung bedeutet die aktuell hinterlegte Währung; vergangene Währungen bleiben im jeweiligen Verlauf separat auswählbar. Für eine saubere Gesamtentwicklung müssten Zu-/Abgänge und Währungswechsel ausdrücklich modelliert werden.
+
+Dashboard-Filter gelten gleichzeitig für Kennzahlen, Karte, Verteilung und Immobilienliste. Kennzahlen, Karte, Werte/Verteilung und Liste sind einzeln ausblendbar. Diese Bereichsauswahl wird pro Nutzer im Browser-LocalStorage bzw. im nativen SecureStore gespeichert, validiert und bei Abmeldung vom nächsten Konto getrennt. Sie wird nicht zwischen Geräten synchronisiert. Filter sind Sitzungszustand; die Web-Navigation setzt sie zurück. Dies ist eine anpassbare Übersicht mit festen Bereichen, kein Drag-and-drop-Berichtsbaukasten.
+
+Die kompakte KI-Recherche befindet sich direkt unter dem Marktwert in den Immobiliendetails. „Recherche vorbereiten“ öffnet Einstellungen und Zustimmung. Laufender Status, Fehlerdiagnose und Ergebnisse bleiben sichtbar. Der Vorbereitungsbutton löst keine Analyse aus. Modellwahl, ausdrückliche Kosten-/Datenzustimmung, Nutzereigentum und vorhandene Anfragegrenzen bleiben wirksam. Die Entwicklung und Tests dieser Änderung verwenden keine bezahlten OpenAI-Aufrufe.

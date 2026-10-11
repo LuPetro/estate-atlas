@@ -68,6 +68,11 @@ test('registers, creates, edits, persists, archives, restores and deletes a prop
   await page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }).click();
   await expect(page.locator('.history>div')).toHaveCount(2);
   await page.getByRole('button', { name: 'Archivieren', exact: true }).click();
+  await nav(page, 'Wertentwicklung');
+  await expect(page.locator('.portfolio-history-card')).toHaveCount(0);
+  await page.getByLabel('Archiv einblenden', { exact: true }).check();
+  await expect(page.locator('.portfolio-history-card')).toHaveCount(1);
+  await expect(page.locator('.portfolio-totals article')).toHaveCount(0);
   await nav(page, 'Archiv');
   await page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }).click();
   await page.getByRole('button', { name: 'Wiederherstellen', exact: true }).click();
@@ -100,6 +105,30 @@ test('labeled fixtures, filters, all views and interactive map use the same port
   await page.getByLabel('Immobilien suchen').fill('Berlin');
   await expect(page.locator('.property-card')).toHaveCount(1);
   await page.getByLabel('Immobilien suchen').fill('');
+  await page.getByLabel('Land filtern', { exact: true }).selectOption('AT');
+  await expect(page.locator('.stat-grid')).toContainText('01');
+  await expect(page.locator('.map-caption')).toContainText('1 Immobilien');
+  await page.getByText('Dashboard anpassen', { exact: true }).click();
+  await page.getByLabel('Karte', { exact: true }).uncheck();
+  await expect(page.locator('.map-panel')).toHaveCount(0);
+  await page.reload();
+  await page.getByText('Dashboard anpassen', { exact: true }).click();
+  await expect(page.getByLabel('Karte', { exact: true })).not.toBeChecked();
+  await page.getByLabel('Karte', { exact: true }).check();
+  await nav(page, 'Wertentwicklung');
+  await expect(page.locator('.portfolio-history-card')).toHaveCount(4);
+  await expect(page.locator('.portfolio-totals')).toContainText('USD');
+  await page.getByLabel('Währung filtern', { exact: true }).selectOption('EUR');
+  await expect(page.locator('.portfolio-history-card')).toHaveCount(3);
+  await expect(page.locator('.portfolio-totals')).not.toContainText('USD');
+  await page.getByLabel('Land filtern', { exact: true }).selectOption('AT');
+  await expect(page.locator('.portfolio-history-card')).toHaveCount(1);
+  await page.getByLabel('Zeitraum für alle Immobilien').selectOption('30');
+  await expect(page.locator('.portfolio-history-card')).toContainText('Ein erster Wert');
+  await page.screenshot({ path: `work/values-${test.info().project.name}.png`, fullPage: true });
+  await page.getByLabel('Vermietung filtern').selectOption('vacant');
+  await expect(page.locator('.portfolio-history-card')).toHaveCount(0);
+  await nav(page, 'Übersicht');
   await page.getByRole('button', { name: 'Listenansicht' }).click();
   await expect(page.locator('.as-list')).toBeVisible();
   await page.getByRole('button', { name: 'Tabellenansicht' }).click();
@@ -248,6 +277,14 @@ test('uploads a private photo, researches labeled fixtures and adopts a result',
     ),
   });
   await expect(page.getByRole('link', { name: 'private.png' })).toBeVisible();
+  let startedResearch = 0;
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && /\/properties\/[^/]+\/analyses$/.test(new URL(r.url()).pathname))
+      startedResearch++;
+  });
+  await page.getByRole('button', { name: 'Recherche vorbereiten', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Marktpreis recherchieren' })).toBeDisabled();
+  expect(startedResearch).toBe(0);
   await page.getByLabel('Ich stimme zu').check();
   await page.getByRole('button', { name: 'Marktpreis recherchieren' }).click();
   await expect(page.getByRole('button', { name: 'Recherche abbrechen' })).toBeVisible();
@@ -406,6 +443,7 @@ test('can cancel research and explains insufficient comparisons without changing
   await register(page);
   await create(page);
   await page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }).click();
+  await page.getByRole('button', { name: 'Recherche vorbereiten', exact: true }).click();
   await page.getByLabel('Ich stimme zu').check();
   await page.getByRole('button', { name: 'Marktpreis recherchieren' }).click();
   await page.getByRole('button', { name: 'Recherche abbrechen' }).click();
@@ -418,6 +456,7 @@ test('can cancel research and explains insufficient comparisons without changing
   await page.getByRole('button', { name: 'Immobilie speichern' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }).click();
+  await page.getByRole('button', { name: 'Recherche vorbereiten', exact: true }).click();
   await page.getByLabel('Ich stimme zu').check();
   await page.getByRole('button', { name: 'Marktpreis recherchieren' }).click();
   await expect(page.locator('.analysis-status')).toContainText('0 aus 0 Websites');

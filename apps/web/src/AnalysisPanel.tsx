@@ -22,6 +22,7 @@ export default function AnalysisPanel({
   const [config, setConfig] = useState<AnalysisConfig | null>(null);
   const [job, setJob] = useState<AnalysisJob | null>(property.analyses[0] ?? null);
   const [model, setModel] = useState('');
+  const [setupOpen, setSetupOpen] = useState(false);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -98,14 +99,28 @@ export default function AnalysisPanel({
     <section className={`ai-panel ${running ? 'ai-active' : ''}`} aria-labelledby="ai-heading">
       <div className="ai-header">
         <div className="ai-orb" aria-hidden="true">
-          <Sparkles size={25} />
+          <Sparkles size={18} />
         </div>
         <div>
           <p className="eyebrow">ESTATEATLAS RESEARCH</p>
-          <h3 id="ai-heading">Deine Immobilie. Der aktuelle Markt.</h3>
+          <h3 id="ai-heading">Marktpreis recherchieren</h3>
           <p>Webquellen recherchieren, Vergleichsangebote prüfen und eine Preisspanne ableiten.</p>
         </div>
       </div>
+      {!running && config?.enabled && (
+        <button
+          type="button"
+          className="button secondary ai-prepare"
+          aria-expanded={setupOpen}
+          onClick={() => setSetupOpen(!setupOpen)}
+        >
+          {setupOpen
+            ? 'Einstellungen schließen'
+            : result
+              ? 'Neue Recherche vorbereiten'
+              : 'Recherche vorbereiten'}
+        </button>
+      )}
       {running ? (
         <>
           <div className="ai-live" role="status">
@@ -141,66 +156,70 @@ export default function AnalysisPanel({
           </button>
         </>
       ) : (
-        <>
-          <div className="ai-controls">
-            <label>
-              Recherchemodell
-              <select
-                aria-label="Recherchemodell"
-                value={model}
-                disabled={!config?.enabled || busy}
-                onChange={(e) => setModel(e.target.value)}
-              >
-                {(config?.models ?? ['gpt-6-luna']).map((m) => (
-                  <option key={m} value={m}>
-                    {m === 'gpt-6-luna' ? 'GPT-6 Luna · Sparsam' : m}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <span>
-              Quellen statt Bauchgefühl
-              <br />
-              Berechnung in EstateAtlas
-            </span>
-          </div>
-          {!config?.enabled && (
-            <p className="ai-notice">{config?.reason ?? 'Recherchekonfiguration wird geladen …'}</p>
-          )}
-          {(property.isTestData || property.archivedAt) && (
-            <p className="ai-notice">Recherche ist nur für aktive, reale Immobilien verfügbar.</p>
-          )}
-          {config?.enabled && (
-            <label className="ai-consent">
-              <input
-                type="checkbox"
-                checked={consent}
-                onChange={(e) => setConsent(e.target.checked)}
-              />
-              Ich stimme zu, dass Adresse, Position und Objektmerkmale für diese Recherche an OpenAI
-              und dessen Suchdienste übermittelt werden. API-Kosten fallen an.
-            </label>
-          )}
-          <button
-            className="button primary ai-start"
-            disabled={
-              busy ||
-              !config?.enabled ||
-              !consent ||
-              property.isTestData ||
-              Boolean(property.archivedAt)
-            }
-            onClick={() =>
-              action(async () => {
-                setJob(await api.analyse(property.id, { model, consent: true }));
-              })
-            }
-          >
-            <Search size={17} />
-            {busy ? 'Bitte warten …' : result ? 'Erneut recherchieren' : 'Marktpreis recherchieren'}
-            <ArrowUpRight size={18} />
-          </button>
-        </>
+        (setupOpen || !config?.enabled) && (
+          <>
+            <div className="ai-controls">
+              <label>
+                Recherchemodell
+                <select
+                  aria-label="Recherchemodell"
+                  value={model}
+                  disabled={!config?.enabled || busy}
+                  onChange={(e) => setModel(e.target.value)}
+                >
+                  {(config?.models ?? ['gpt-6-luna']).map((m) => (
+                    <option key={m} value={m}>
+                      {m === 'gpt-6-luna' ? 'GPT-6 Luna · Sparsam' : m}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {!config?.enabled && (
+              <p className="ai-notice">
+                {config?.reason ?? 'Recherchekonfiguration wird geladen …'}
+              </p>
+            )}
+            {(property.isTestData || property.archivedAt) && (
+              <p className="ai-notice">Recherche ist nur für aktive, reale Immobilien verfügbar.</p>
+            )}
+            {config?.enabled && (
+              <label className="ai-consent">
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(e) => setConsent(e.target.checked)}
+                />
+                Ich stimme zu, dass Adresse, Position und Objektmerkmale für diese Recherche an
+                OpenAI und dessen Suchdienste übermittelt werden. API-Kosten fallen an.
+              </label>
+            )}
+            <button
+              className="button primary ai-start"
+              disabled={
+                busy ||
+                !config?.enabled ||
+                !consent ||
+                property.isTestData ||
+                Boolean(property.archivedAt)
+              }
+              onClick={() =>
+                action(async () => {
+                  setJob(await api.analyse(property.id, { model, consent: true }));
+                  setSetupOpen(false);
+                })
+              }
+            >
+              <Search size={17} />
+              {busy
+                ? 'Bitte warten …'
+                : result
+                  ? 'Erneut recherchieren'
+                  : 'Marktpreis recherchieren'}
+              <ArrowUpRight size={18} />
+            </button>
+          </>
+        )
       )}
       {!running && job?.reason && (
         <p className="analysis-status ai-note" role="status">

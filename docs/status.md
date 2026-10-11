@@ -83,3 +83,19 @@ Typprüfung und 112 Tests bestanden. Alle 18 Browserfälle bestanden, einschlie�
 Die vorherige GitHub-Pipeline [38090741418](https://github.com/LuPetro/estate-atlas/actions/runs/38090741418) scheiterte trotz bestandener Tests an einem unbehandelten PostgreSQL-Shutdownfehler `57P01` aus `app.test.ts`. Die bereits lokal implementierte, eng auf Shutdown begrenzte und bereinigte Fehlerbehandlung wird mit diesem ausdrücklich freigegebenen Push veröffentlicht. CI-Schritte haben nun Namen; Chromium-Abhängigkeiten werden auf dem isolierten GitHub-Runner installiert und native Exporte laufen wie auf dem VPS ohne GUI. Der zusätzliche Miet-/Diagrammablauf nutzt denselben isolierten CRUD-Testaccount; Registrierungsschutz bleibt auch in E2E aktiviert. Keine kostenpflichtigen KI-Recherchen in diesem Update.
 
 API- und Next-Produktionsimages wurden nacheinander erfolgreich gebaut und in Docker eingespielt. DB/API/Web/Worker sind gesund; vor dem Neustart waren keine Rechercheaufträge aktiv. Der Server-Browsercheck bestätigt Web/API/CORS. Zeilenzahlen und vollständige Zeilenfingerprints aller sieben Datentabellen sind vor/nach dem Update identisch; keine bestehenden Objekt-, Wert-, Anhangs-, Konto-, Sitzungs- oder Recherchedaten verändert.
+
+## Portfolio-Arbeitsbereiche und kompakte Recherche (11.10.2026)
+
+Neu in Web und nativer App: eigener Werte-Tab mit Suche, Länder-/Art-/Währungs-/Vermietungsfiltern, Auswahl einzelner Immobilien, gemeinsamen Zeiträumen, Sortierung und Archivsicht. Aktuelle Bestandssummen bleiben je Währung getrennt; Verläufe enthalten echte gespeicherte Beobachtungen je Immobilie. Der private Sammelendpunkt prüft Eigentum im SQL-Join. Filter wirken im Dashboard auf alle sichtbaren Bereiche; Kennzahlen, Karte, Verteilung und Immobilienliste lassen sich pro Nutzer auf dem jeweiligen Gerät speichern und ein-/ausblenden. Die KI-Vorbereitung ist kompakter direkt unter dem Marktwert platziert. Ein eigener Browsercheck prüft, dass Vorbereiten ohne Zustimmung keinen Rechercheauftrag startet.
+
+Prüfungen dieses Standes:
+
+- Typprüfung für alle fünf Workspaces erfolgreich.
+- 116 Logik-/API-Tests erfolgreich, mit echten isolierten PostgreSQL-Clustern. Neuer Endpunkt prüft Anmeldung, fremde Portfolios und Archivhistorien.
+- 18 Browserfälle erfolgreich: neun Desktop, neun iPhone-Bildschirmgröße. Enthalten Filter, persistierte Dashboard-Bereiche, Archivwerte und expliziten Recherche-Start. Beim ersten Durchlauf war Abmelden durch überlaufende mobile Navigation unerreichbar; die Sidebar wurde korrigiert und der gesamte Lauf anschließend erfolgreich wiederholt.
+- API-Produktionsbild und Next.js-Produktionsbild erfolgreich in Docker gebaut. Alle vier laufenden Produktionsdienste gesund. Server-Browser erreicht Web/API inklusive CORS; private Portfolio-Historie ohne Sitzung liefert 401.
+- Android- und iOS-Hermes-Export erfolgreich, jeweils ca. 3,3 MB. Kein echter Gerätetest und keine signierte IPA/APK.
+- Optionales Docker-Mobile-Profil erfolgreich gebaut und gestartet; `/status` und iOS-Manifest (SDK 57, localhost-Bundle-Adresse) geprüft, danach gestoppt. `dev:mobile` startet jetzt Docker statt eines Host-Prozesses. Keine bestätigte Expo-Go-Kompatibilität auf dem iPhone. Expo nutzte beim Start die DevTools-Fallback-Version, weil deren Aktualisierung nicht geladen werden konnte; Metro und Manifest waren erreichbar.
+- Private PostgreSQL-Sicherung vor Aktualisierung erstellt. Vollständige Fingerprints aller sieben Anwendungstabellen vor/nach der Aktualisierung identisch. Keine produktiven Daten verändert, keine bezahlten Rechercheaufrufe für die Entwicklung.
+
+Anleitungen: `docs/portfolio-workspace.md`, `docs/mobile-testing.md`. Öffentliche HTTPS-Adresse, Apple-/Expo-Signierung und TestFlight bleiben offen. Dieser Funktionsstand ist lokal committed; kein neuer GitHub-Push oder CI-Lauf wurde für ihn gestartet. Der zuvor bestätigte GitHub-Lauf gehört zum Vermietungsstand `be06088`.

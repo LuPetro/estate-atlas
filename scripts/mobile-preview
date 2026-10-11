@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+TASK_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+"$TASK_ROOT/scripts/docker" build mobile
+"$TASK_ROOT/scripts/docker" --profile mobile up -d --wait mobile

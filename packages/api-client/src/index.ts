@@ -7,6 +7,7 @@ import type {
   Asset,
   AnalysisJob,
   GeocodingResult,
+  Valuation,
 } from '@estate-atlas/shared';
 export class ApiError extends Error {
   constructor(
@@ -74,6 +75,9 @@ export class ApiClient {
   }
   properties() {
     return this.request<Property[]>('/properties');
+  }
+  valuations(signal?: AbortSignal) {
+    return this.request<Valuation[]>('/portfolio/valuations', { signal });
   }
   detail(id: string) {
     return this.request<PropertyDetail>(`/properties/${id}`);

@@ -29,6 +29,7 @@ export default function AnalysisPanel({
 }) {
   const [config, setConfig] = useState<AnalysisConfig | null>(null);
   const [model, setModel] = useState('');
+  const [setupOpen, setSetupOpen] = useState(false);
   const [consent, setConsent] = useState(false);
   const [job, setJob] = useState<AnalysisJob | null>(property.analyses[0] ?? null);
   const [busy, setBusy] = useState(false);
@@ -141,12 +142,28 @@ export default function AnalysisPanel({
         </Animated.View>
         <View style={s.headerText}>
           <Text style={s.eyebrow}>ESTATEATLAS RESEARCH</Text>
-          <Text style={s.title}>Deine Immobilie. Der aktuelle Markt.</Text>
+          <Text style={s.title}>Marktpreis recherchieren</Text>
         </View>
       </View>
       <Text style={s.note}>
         Webquellen recherchieren, Vergleichsangebote prüfen und eine Preisspanne ableiten.
       </Text>
+      {!running && config?.enabled && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: setupOpen }}
+          onPress={() => setSetupOpen(!setupOpen)}
+          style={s.model}
+        >
+          <Text style={s.link}>
+            {setupOpen
+              ? 'Einstellungen schließen'
+              : result
+                ? 'Neue Recherche vorbereiten'
+                : 'Recherche vorbereiten'}
+          </Text>
+        </Pressable>
+      )}
       {running ? (
         <>
           <Text style={s.live} accessibilityLiveRegion="polite">
@@ -176,65 +193,70 @@ export default function AnalysisPanel({
           </Pressable>
         </>
       ) : (
-        <>
-          <Text style={s.label}>Recherchemodell</Text>
-          <View style={s.models}>
-            {(config?.models ?? ['gpt-6-luna']).map((m) => (
+        (setupOpen || !config?.enabled) && (
+          <>
+            <Text style={s.label}>Recherchemodell</Text>
+            <View style={s.models}>
+              {(config?.models ?? ['gpt-6-luna']).map((m) => (
+                <Pressable
+                  key={m}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: model === m, disabled: !config?.enabled || busy }}
+                  disabled={!config?.enabled || busy}
+                  onPress={() => setModel(m)}
+                  style={[s.model, model === m && s.modelSelected]}
+                >
+                  <Text style={s.link}>{m === 'gpt-6-luna' ? 'GPT-6 Luna · Sparsam' : m}</Text>
+                </Pressable>
+              ))}
+            </View>
+            {!config?.enabled && (
+              <Text style={s.notice}>
+                {config?.reason ?? 'Recherchekonfiguration wird geladen …'}
+              </Text>
+            )}
+            {(property.isTestData || property.archivedAt) && (
+              <Text style={s.notice}>
+                Recherche ist nur für aktive, reale Immobilien verfügbar.
+              </Text>
+            )}
+            {config?.enabled && (
               <Pressable
-                key={m}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: model === m, disabled: !config?.enabled || busy }}
-                disabled={!config?.enabled || busy}
-                onPress={() => setModel(m)}
-                style={[s.model, model === m && s.modelSelected]}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: consent }}
+                onPress={() => setConsent(!consent)}
+                style={s.consent}
               >
-                <Text style={s.link}>{m === 'gpt-6-luna' ? 'GPT-6 Luna · Sparsam' : m}</Text>
+                <Text style={s.check}>{consent ? '☑' : '□'}</Text>
+                <Text style={s.consentText}>
+                  Ich stimme zu, dass Adresse, Position und Objektmerkmale an OpenAI und dessen
+                  Suchdienste übermittelt werden. API-Kosten fallen an.
+                </Text>
               </Pressable>
-            ))}
-          </View>
-          {!config?.enabled && (
-            <Text style={s.notice}>
-              {config?.reason ?? 'Recherchekonfiguration wird geladen …'}
-            </Text>
-          )}
-          {(property.isTestData || property.archivedAt) && (
-            <Text style={s.notice}>Recherche ist nur für aktive, reale Immobilien verfügbar.</Text>
-          )}
-          {config?.enabled && (
+            )}
             <Pressable
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: consent }}
-              onPress={() => setConsent(!consent)}
-              style={s.consent}
+              accessibilityRole="button"
+              accessibilityState={{ disabled }}
+              style={[s.button, disabled && s.disabled]}
+              disabled={disabled}
+              onPress={() =>
+                action(async () => {
+                  setJob(await api.analyse(property.id, { model, consent: true }));
+                  setSetupOpen(false);
+                })
+              }
             >
-              <Text style={s.check}>{consent ? '☑' : '□'}</Text>
-              <Text style={s.consentText}>
-                Ich stimme zu, dass Adresse, Position und Objektmerkmale an OpenAI und dessen
-                Suchdienste übermittelt werden. API-Kosten fallen an.
+              <Text style={s.buttonText}>
+                {busy
+                  ? 'Bitte warten …'
+                  : result
+                    ? 'Erneut recherchieren'
+                    : 'Marktpreis recherchieren'}{' '}
+                ↗
               </Text>
             </Pressable>
-          )}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled }}
-            style={[s.button, disabled && s.disabled]}
-            disabled={disabled}
-            onPress={() =>
-              action(async () => {
-                setJob(await api.analyse(property.id, { model, consent: true }));
-              })
-            }
-          >
-            <Text style={s.buttonText}>
-              {busy
-                ? 'Bitte warten …'
-                : result
-                  ? 'Erneut recherchieren'
-                  : 'Marktpreis recherchieren'}{' '}
-              ↗
-            </Text>
-          </Pressable>
-        </>
+          </>
+        )
       )}
       {!running && job?.reason && <Text style={s.notice}>{job.reason}</Text>}
       {!running && job?.diagnostics && job.status === 'failed' && (
@@ -364,7 +386,7 @@ export default function AnalysisPanel({
 }
 const s = StyleSheet.create({
   panel: {
-    padding: 21,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#d8e8df',
     borderRadius: 22,
@@ -375,16 +397,16 @@ const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   headerText: { flex: 1, gap: 5 },
   orb: {
-    width: 49,
-    height: 49,
+    width: 36,
+    height: 36,
     borderRadius: 16,
     backgroundColor: '#dcefe2',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  star: { fontSize: 29, color: '#297a52' },
+  star: { fontSize: 22, color: '#297a52' },
   eyebrow: { fontSize: 9, fontWeight: '700', letterSpacing: 1.3, color: '#62836e' },
-  title: { fontSize: 20, fontWeight: '600', letterSpacing: -0.5, color: '#244d35' },
+  title: { fontSize: 17, fontWeight: '600', letterSpacing: -0.5, color: '#244d35' },
   note: { fontSize: 12, lineHeight: 19, color: '#687d6e' },
   label: { fontSize: 12, fontWeight: '600', color: '#567160' },
   models: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -410,7 +432,9 @@ const s = StyleSheet.create({
   button: {
     backgroundColor: '#2b7450',
     borderRadius: 12,
-    paddingVertical: 15,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    alignSelf: 'flex-start',
     alignItems: 'center',
   },
   buttonText: { color: 'white', fontSize: 14, fontWeight: '600' },

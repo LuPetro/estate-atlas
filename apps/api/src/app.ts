@@ -220,6 +220,13 @@ export async function createApp(
     );
     return rows.map(toProperty);
   });
+  app.get('/portfolio/valuations', { preHandler: requireUser }, async (req) => {
+    const { rows } = await pool.query(
+      'SELECT v.* FROM valuations v JOIN properties p ON p.id=v.property_id WHERE p.owner_id=$1 ORDER BY v.recorded_at,v.id',
+      [req.user!.id],
+    );
+    return rows.map(toValuation);
+  });
   const insert = async (client: pg.PoolClient, owner: string, input: PropertyInput) => {
     const id = randomUUID();
     const { rows } = await client.query(
