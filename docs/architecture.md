@@ -22,7 +22,11 @@ Requests require the same authentication and browser CSRF checks as other privat
 
 ## Maps
 
-Web requests public OpenStreetMap raster tiles directly with attribution and standard browser caching, no prefetch/offline downloads, in accordance with [tile policy](https://operations.osmfoundation.org/policies/tiles/). The provider sees IP and viewed map area, not property records. Native Maps uses Apple Maps on iOS and Google Maps on Android. Development in Expo Go does not require creating a paid service. A standalone Android binary needs a reviewed Google Maps key and restrictions before distribution. GPS/filtering data is identical; implementations differ.
+Web defaults to public OpenStreetMap raster tiles with a local light theme, branded pins/clusters, popups, accessible zoom controls and a fit-filtered-portfolio button. Portfolio and editor maps share the same basemap helper. Attribution and standard browser caching remain intact, with no prefetch/offline downloads, in accordance with [tile policy](https://operations.osmfoundation.org/policies/tiles/). The provider sees IP and viewed map area, not property records.
+
+An optional public, website-restricted `NEXT_PUBLIC_CARTO_MAPS_KEY` selects CARTO Positron raster tiles using the current [documented URLs](https://www.carto.com/basemaps/). Public Next.js variables are bundled at build time; rebuilding is required after changing the key. No provider account or paid plan was created. A CARTO tile error switches once to OSM, updates attribution, removes the CARTO layer and announces the fallback. Provider choice does not affect private property data or pin selection.
+
+Native maps use Apple Maps on iOS with `mutedStandard`, and Google Maps on Android with a local light JSON style, shared by portfolio and editor. These do not use CARTO or pretend to be pixel-identical. Development in Expo Go does not require creating a paid service. A standalone Android binary needs a reviewed Google Maps key and restrictions before distribution. GPS/filtering data is identical; implementations differ. Both native styles still need real-device visual and gesture checks.
 
 ## Analysis extension
 

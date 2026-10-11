@@ -483,12 +483,79 @@ main {
   color: #82948a;
   font-size: 12px;
 }
-.leaflet-container {
-  font: 12px var(--font);
-  background: #e4eeeb;
+.map-shell {
+  position: relative;
+  isolation: isolate;
 }
-.leaflet-tile-pane {
-  filter: saturate(0.45);
+.atlas-map.leaflet-container {
+  font: 12px var(--font);
+  background: #eef2f0;
+}
+.atlas-map-osm .leaflet-tile-pane {
+  filter: grayscale(0.75) saturate(0.4) brightness(1.04);
+}
+.atlas-map.leaflet-container .leaflet-control-zoom {
+  border: 1px solid #dce5e1;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px #183b3020;
+}
+.atlas-map.leaflet-container .leaflet-control-zoom a {
+  width: 38px;
+  height: 38px;
+  line-height: 38px;
+  color: var(--green-dark);
+  background: #ffffffed;
+  border-color: #e7ece9;
+  font-size: 21px;
+  font-weight: 400;
+}
+.atlas-map.leaflet-container .leaflet-control-zoom a:hover {
+  background: #edf5f1;
+}
+.atlas-map.leaflet-container .leaflet-control-attribution {
+  padding: 3px 7px;
+  background: #fffffff0;
+  color: #4c6058;
+  font-size: 9px;
+  border-top-left-radius: 7px;
+}
+.atlas-map.leaflet-container .leaflet-control-attribution a {
+  color: #276b5c;
+}
+.map-fit-button {
+  position: absolute;
+  z-index: 500;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 9px 12px;
+  border: 1px solid #dce5e1;
+  border-radius: 12px;
+  background: #ffffffed;
+  color: var(--green-dark);
+  font-size: 11px;
+  font-weight: 650;
+  box-shadow: 0 4px 16px #183b3020;
+}
+.map-fit-button:hover {
+  background: #edf5f1;
+}
+.map-notice {
+  position: absolute;
+  z-index: 500;
+  left: 12px;
+  bottom: 28px;
+  max-width: calc(100% - 24px);
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #fffffff0;
+  color: #38584b;
+  font-size: 10px;
+  pointer-events: none;
 }
 .map-caption {
   height: 44px;
@@ -506,38 +573,87 @@ main {
   color: #a1adaa;
 }
 .map-pin {
-  width: 25px;
-  height: 25px;
+  width: 30px;
+  height: 30px;
+  margin: 3px 1px;
   border-radius: 50% 50% 50% 0;
-  background: #168570;
+  background: var(--green);
   display: block;
   border: 3px solid #fff;
-  box-shadow: 0 2px 8px #163e4250;
+  box-shadow: 0 3px 10px #163e4240;
   transform: rotate(-45deg);
 }
 .map-pin:after {
   content: '';
-  width: 5px;
-  height: 5px;
+  width: 8px;
+  height: 8px;
   background: white;
   border-radius: 100%;
   position: absolute;
-  top: 7px;
-  left: 7px;
+  top: 8px;
+  left: 8px;
+}
+.atlas-map .atlas-marker:focus-visible .map-pin {
+  outline: 3px solid var(--green-dark);
+  outline-offset: 4px;
+}
+.atlas-map.leaflet-container .leaflet-popup-content-wrapper {
+  border: 1px solid #e3ebe6;
+  border-radius: 14px;
+  box-shadow: 0 8px 28px #183b3026;
+}
+.atlas-map.leaflet-container .leaflet-popup-content {
+  margin: 14px 18px;
+  min-width: 160px;
+}
+.atlas-map.leaflet-container .leaflet-popup-close-button {
+  color: #6e8379;
+  top: 4px;
+  right: 4px;
 }
 .map-popup {
+  display: grid;
+  gap: 7px;
+  text-align: left;
   border: 0;
-  background: white;
-  color: var(--green);
-  font-weight: 600;
-  padding: 6px;
+  background: transparent;
+  color: var(--ink);
+  padding: 3px 0;
+  max-width: 240px;
+  overflow-wrap: anywhere;
 }
-.marker-cluster-small {
-  background: #3ca88944;
+.map-popup strong {
+  font-size: 12px;
+  font-weight: 650;
 }
-.marker-cluster-small div {
-  background: #278a6f;
-  color: white;
+.map-popup-value {
+  color: #547065;
+  font-size: 12px;
+}
+.map-popup-action {
+  color: var(--green-dark);
+  font-size: 10px;
+  font-weight: 650;
+}
+.atlas-map .atlas-cluster {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #14836f24;
+  border: 1px solid #14836f38;
+  box-shadow: 0 3px 10px #183b3020;
+}
+.atlas-cluster span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: var(--green-dark);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
 }
 .insights .panel-heading {
   color: #7d9a8b;

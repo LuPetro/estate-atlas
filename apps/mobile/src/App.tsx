@@ -33,6 +33,7 @@ import { File, Paths } from 'expo-file-system';
 import { StatusBar } from 'expo-status-bar';
 import { ApiClient, ApiError } from '@estate-atlas/api-client';
 import AddressPicker from './AddressPicker';
+import { mapTheme } from './mapTheme';
 import {
   portfolioStats,
   filterProperties,
@@ -617,6 +618,7 @@ function MapScreen({ navigation }: BottomTabScreenProps<Tabs, 'Map'>) {
         />
       </View>
       <MapView
+        {...mapTheme}
         ref={map}
         style={{ flex: 1 }}
         initialRegion={region}
@@ -1185,10 +1187,10 @@ const styles = StyleSheet.create({
   activeChip: { backgroundColor: '#14836f', borderColor: '#14836f' },
   chipText: { fontSize: 11, color: '#8b9e7b' },
   cluster: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#14836f',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#126555',
     borderWidth: 3,
     borderColor: '#fff',
     justifyContent: 'center',

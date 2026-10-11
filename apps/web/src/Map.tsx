@@ -1,10 +1,11 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { LocateFixed } from 'lucide-react';
 import type { Property } from '@estate-atlas/shared';
 import { formatMoney } from '@estate-atlas/shared';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import { addBasemap } from './basemap';
 export default function PropertyMap({
   properties,
   onSelect,
@@ -13,7 +14,12 @@ export default function PropertyMap({
   onSelect: (id: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const fitPortfolio = useRef<(() => void) | null>(null);
+  const [ready, setReady] = useState(false);
+  const [fallback, setFallback] = useState(false);
   useEffect(() => {
+    setReady(false);
+    setFallback(false);
     let dispose = () => {};
     let cancelled = false;
     (async () => {
@@ -24,17 +30,25 @@ export default function PropertyMap({
         [35, 10],
         2,
       );
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 19,
-      }).addTo(map);
-      const cluster = L.markerClusterGroup({ showCoverageOnHover: false });
+      addBasemap(L, map, () => {
+        if (!cancelled) setFallback(true);
+      });
+      const cluster = L.markerClusterGroup({
+        showCoverageOnHover: false,
+        iconCreateFunction: (group) =>
+          L.divIcon({
+            html: `<span>${group.getChildCount()}</span>`,
+            className: 'atlas-cluster',
+            iconSize: [44, 44],
+          }),
+      });
       for (const property of properties) {
         const icon = L.divIcon({
           html: '<span class="map-pin"></span>',
           className: 'atlas-marker',
-          iconSize: [28, 34],
-          iconAnchor: [14, 34],
+          iconSize: [32, 40],
+          iconAnchor: [16, 38],
+          popupAnchor: [0, -34],
         });
         const marker = L.marker([property.latitude, property.longitude], {
           icon,
@@ -42,19 +56,35 @@ export default function PropertyMap({
         });
         const popup = document.createElement('button');
         popup.className = 'map-popup';
-        popup.textContent = `${property.title} · ${formatMoney(property.marketValue, property.currency)}`;
+        const title = document.createElement('strong');
+        title.textContent = property.title;
+        const value = document.createElement('span');
+        value.className = 'map-popup-value';
+        value.textContent = formatMoney(property.marketValue, property.currency);
+        const action = document.createElement('span');
+        action.className = 'map-popup-action';
+        action.textContent = 'Details öffnen →';
+        popup.append(title, value, action);
         popup.onclick = () => onSelect(property.id);
         marker.bindPopup(popup);
         cluster.addLayer(marker);
       }
       map.addLayer(cluster);
-      if (properties.length) map.fitBounds(cluster.getBounds(), { padding: [45, 45], maxZoom: 12 });
+      const fit = () => {
+        if (properties.length)
+          map.fitBounds(cluster.getBounds(), { padding: [55, 55], maxZoom: 12, animate: false });
+        else map.setView([35, 10], 2);
+      };
+      fitPortfolio.current = fit;
+      fit();
       const observer = new ResizeObserver(() => map.invalidateSize());
       observer.observe(ref.current);
       dispose = () => {
+        fitPortfolio.current = null;
         observer.disconnect();
         map.remove();
       };
+      setReady(true);
     })().catch(() => {
       if (ref.current)
         ref.current.textContent = 'Karte konnte nicht geladen werden. Bitte neu laden.';
@@ -64,5 +94,25 @@ export default function PropertyMap({
       dispose();
     };
   }, [properties, onSelect]);
-  return <div ref={ref} className="property-map" aria-label="Interaktive Immobilienkarte" />;
+  return (
+    <div className="map-shell">
+      <div ref={ref} className="property-map atlas-map" aria-label="Interaktive Immobilienkarte" />
+      <button
+        type="button"
+        className="map-fit-button"
+        aria-label="Alle gefilterten Immobilien auf der Karte anzeigen"
+        title="Portfolio einpassen"
+        disabled={!ready}
+        onClick={() => fitPortfolio.current?.()}
+      >
+        <LocateFixed size={17} aria-hidden="true" />
+        <span>Übersicht</span>
+      </button>
+      {fallback && (
+        <p role="status" className="map-notice">
+          OpenStreetMap als Ersatzkarte geladen.
+        </p>
+      )}
+    </div>
+  );
 }

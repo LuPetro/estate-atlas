@@ -42,7 +42,9 @@ System-, DNS- oder kostenpflichtige Änderungen werden erst im dafür ausdrückl
 
 ## 4. Einheitliches Kartendesign und native Betatests
 
-Im Web kann Leaflet bestehen bleiben. Ein ruhiger heller Hintergrund, reduzierte Beschriftung und petrolfarbene Marker/Cluster passen zum bestehenden Design. CARTO Positron und MapTiler Light/Pastel sind Kandidaten. Vor der Integration API-Key, Nutzungstarif und Attribution festlegen. Native Karten verwenden bislang Apple/Google Maps; identische Hintergrundkarten über alle Plattformen brauchen eine gesonderte Provider-/Renderingentscheidung.
+Leaflet bleibt im Web bestehen. Ein lokales helles Theme mit petrolfarbenen Markern/Clustern, überarbeiteten Popups/Bedienelementen und Portfolio-Einpassung ist umgesetzt, ebenso im Standorteditor. Optional ist CARTO Positron über einen öffentlichen, auf die Website beschränkten Basemaps-Key vorbereitet; ohne Key bleibt OSM aktiv. Bei CARTO-Kachelfehlern erfolgt ein sichtbarer Rückfall auf OSM mit aktualisierter Attribution. Vor Aktivierung Anbieter-Key und Nutzungstarif festlegen; es wurde kein Konto oder Abo eingerichtet.
+
+Native Karten verwenden einen gemeinsamen hellen Stil für Apple Maps (`mutedStandard`) beziehungsweise Google Maps (lokaler JSON-Stil). Identische Hintergrundkarten über alle Plattformen brauchen weiterhin eine gesonderte Provider-/Renderingentscheidung. Visuelle Abnahme auf echten Geräten steht aus.
 
 Aktuelle Anbieterquellen: <https://www.carto.com/basemaps/>, <https://www.carto.com/legal/basemap-terms/>, <https://docs.maptiler.com/leaflet/examples/map-style/>.
 

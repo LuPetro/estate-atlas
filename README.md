@@ -123,6 +123,16 @@ Ein **physisches iPhone** braucht eine API-Adresse, die vom Telefon erreichbar i
 
 Ein eigenständiger Android-Build benötigt vor Veröffentlichung einen freigegebenen Google-Maps-Key mit App-/API-Beschränkungen. iOS verwendet Apple Maps. Store-Signierung, Entwicklerkonten und ggf. notwendige Dienste werden erst nach Freigabe eingerichtet. Die konkrete Expo-/Native-Kompatibilität ist über `expo install --check` geprüft. Auf einem Linux-VPS ohne Desktop nutzt der Wrapper Expo im Headless-Modus, damit keine grafischen React-Native-DevTools installiert oder gestartet werden. Das native App-Bundling bleibt aktiv.
 
+## Kartenstil
+
+Die Webkarten verwenden ein helles EstateAtlas-Theme mit reduzierten OSM-Farben, petrolfarbenen Pins/Clustern, neuen Popups und Zoomtasten. „Übersicht“ passt die Karte wieder auf alle aktuell gefilterten Immobilien ein. Der gleiche Stil gilt für die Pin-Auswahl im Editor. Das funktioniert ohne zusätzliches Konto oder Karten-Abo.
+
+Optional aktiviert `NEXT_PUBLIC_CARTO_MAPS_KEY` in der lokalen `.env` den CARTO-Positron-Hintergrund. Dafür einen **öffentlichen, auf die Website beschränkten Basemaps-Key** von [CARTO](https://www.carto.com/basemaps/) verwenden; keine privaten API-/Kontoschlüssel eintragen. Der Schlüssel ist im Browser sichtbar. Nach einer Änderung Entwicklung neu starten beziehungsweise Produktion neu bauen. Ohne Schlüssel bleiben OSM-Kacheln aktiv; bei einem CARTO-Kachelfehler wechseln beide Karten mit Hinweis und korrekter Attribution auf OSM. Es wurde kein Anbieter-Konto oder kostenpflichtiger Tarif eingerichtet.
+
+Native Karten bleiben bei Apple Maps (iOS, `mutedStandard`) und Google Maps (Android, lokaler heller JSON-Stil). Portfolio und Adresseditor verwenden jeweils denselben Stil; die Hintergründe sind wegen der unterschiedlichen Anbieter nicht pixelgleich. Geräteprüfung steht noch aus.
+
+Die Browser-Testversion verwendet einen synthetischen CARTO-Key und abgefangene Kachelantworten; sie sendet keine Testanfragen an CARTO. Zusätzlich werden der Provider-Ausfall und der Wechsel auf OSM geprüft. Die lokale OSM-Variante wurde mit echten Kacheln auf Desktop-/Smartphone-Breite kontrolliert, ohne Konten oder Immobilien in der normalen Datenbank anzulegen.
+
 ## Prüfungen
 
 ```bash

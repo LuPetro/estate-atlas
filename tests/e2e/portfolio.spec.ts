@@ -1,5 +1,18 @@
 import { test, expect, type Page } from '@playwright/test';
 const password = 'EstateAtlas browser test password 42';
+// The isolated build uses a synthetic CARTO key. Tile fixtures never contact
+// CARTO or use a real key; provider failure is exercised separately below.
+test.beforeEach(async ({ page }) => {
+  await page.route('https://basemaps.cartocdn.com/**', (route) =>
+    route.fulfill({
+      contentType: 'image/png',
+      body: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jF6cAAAAASUVORK5CYII=',
+        'base64',
+      ),
+    }),
+  );
+});
 async function register(page: Page) {
   const email = `browser-${Date.now()}-${Math.random().toString(16).slice(2)}@example.test`;
   await page.goto('/');
@@ -89,12 +102,54 @@ test('labeled fixtures, filters, all views and interactive map use the same port
   await nav(page, 'Weltkarte');
   await expect(page.getByLabel('Interaktive Immobilienkarte')).toBeVisible();
   await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible();
+  await expect(page.locator('.atlas-map')).toHaveClass(/atlas-map-carto/);
+  await expect(page.locator('.leaflet-control-attribution')).toContainText('CARTO');
+  const map = page.getByLabel('Interaktive Immobilienkarte');
+  const initialMarkers = await map.locator('.leaflet-marker-icon').count();
+  // Grouping and recentering remain usable after zooming out and panning.
+  await map.locator('.leaflet-control-zoom-out').click();
+  await expect.poll(() => map.locator('.leaflet-marker-icon').count()).toBeLessThan(initialMarkers);
+  await expect(map).not.toHaveClass(/leaflet-zoom-anim/);
+  await expect(map.locator('.leaflet-map-pane')).not.toHaveClass(/leaflet-cluster-anim/);
+  await expect(map.locator('.atlas-cluster')).not.toHaveCount(0);
+  const bounds = (await map.boundingBox())!;
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + bounds.width / 2 + 100, bounds.y + bounds.height / 2 + 50, {
+    steps: 10,
+  });
+  await page.mouse.up();
+  await page
+    .getByRole('button', { name: 'Alle gefilterten Immobilien auf der Karte anzeigen' })
+    .click();
+  await expect(map.locator('.leaflet-marker-icon')).toHaveCount(initialMarkers);
   await page.getByLabel('Land filtern', { exact: true }).selectOption('AT');
   await expect(page.locator('.leaflet-marker-icon')).toHaveCount(1);
   await page.locator('.leaflet-marker-icon').click();
   await expect(page.locator('.map-popup')).toContainText('Wien');
+  await expect(page.locator('.map-popup-action')).toHaveText('Details öffnen →');
+  await page.screenshot({ path: `work/map-theme-${test.info().project.name}.png`, fullPage: true });
   await page.locator('.map-popup').click();
   await expect(page.getByRole('heading', { name: 'Stadtwohnung · Wien' })).toBeVisible();
+});
+
+test('keeps map selection usable when CARTO tiles fail and switches attribution to OSM', async ({
+  page,
+}) => {
+  await page.route('https://basemaps.cartocdn.com/**', (route) => route.abort());
+  await register(page);
+  await expect(page.locator('.property-map')).toHaveClass(/atlas-map-osm/);
+  await expect(page.locator('.leaflet-control-attribution')).toContainText('OpenStreetMap');
+  await expect(page.locator('.leaflet-control-attribution')).not.toContainText('CARTO');
+  await expect(page.getByRole('status')).toContainText('Ersatzkarte');
+  await page.getByRole('button', { name: 'Immobilie hinzufügen', exact: true }).click();
+  const map = page.locator('.location-map');
+  await expect(map).toHaveClass(/atlas-map-osm/);
+  const bounds = (await map.boundingBox())!;
+  await map.click({ position: { x: bounds.width / 2, y: bounds.height / 2 } });
+  await expect(map.locator('.atlas-marker')).toBeVisible();
+  await expect(page.getByLabel('Breitengrad')).not.toHaveValue('');
+  await expect(page.getByLabel('Längengrad')).not.toHaveValue('');
 });
 test('uploads a private photo and records a blocked analysis without inventing a result', async ({
   page,

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Map, Marker } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { addBasemap } from './basemap';
 
 export default function LocationMap({
   position,
@@ -17,6 +18,7 @@ export default function LocationMap({
   latest.current = { position, onChange };
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
+  const [fallback, setFallback] = useState(false);
   useEffect(() => {
     let cancelled = false;
     let dispose = () => {};
@@ -29,18 +31,17 @@ export default function LocationMap({
         worldCopyJump: true,
       }).setView(initial ? [initial.latitude, initial.longitude] : [35, 10], initial ? 17 : 2);
       map.current = instance;
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 19,
-      }).addTo(instance);
+      addBasemap(L, instance, () => {
+        if (!cancelled) setFallback(true);
+      });
       const pin = L.marker(initial ? [initial.latitude, initial.longitude] : [0, 0], {
         draggable: true,
         title: 'Immobilienposition',
         icon: L.divIcon({
           html: '<span class="map-pin"></span>',
           className: 'atlas-marker',
-          iconSize: [28, 34],
-          iconAnchor: [14, 34],
+          iconSize: [32, 40],
+          iconAnchor: [16, 38],
         }),
       });
       marker.current = pin;
@@ -89,9 +90,10 @@ export default function LocationMap({
     <>
       <div
         ref={container}
-        className="location-map"
+        className="location-map atlas-map"
         aria-label="Immobilienposition auf der Karte wählen"
       />
+      {fallback && <p role="status">OpenStreetMap als Ersatzkarte geladen.</p>}
       {error && (
         <p role="alert" className="error">
           {error}

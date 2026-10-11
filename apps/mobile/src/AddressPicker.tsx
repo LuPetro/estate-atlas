@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Linking } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
+import { mapTheme } from './mapTheme';
 import type { GeocodingResult } from '@estate-atlas/shared';
 import type { ApiClient } from '@estate-atlas/api-client';
 
@@ -129,6 +130,7 @@ export default function AddressPicker({
         genauere Position.
       </Text>
       <MapView
+        {...mapTheme}
         ref={map}
         style={styles.map}
         accessibilityLabel="Immobilienposition auf der Karte wählen"
@@ -146,7 +148,7 @@ export default function AddressPicker({
             coordinate={position}
             draggable
             title="Immobilienposition"
-            pinColor="#26715b"
+            pinColor="#14836f"
             onDragEnd={(event) => updatePosition(event.nativeEvent.coordinate)}
           />
         )}
