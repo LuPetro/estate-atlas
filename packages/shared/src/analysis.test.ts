@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { analysisInput, calculateAnalysis, sourceKey } from './analysis';
+import { analysisInput, calculateAnalysis, selectComparables, sourceKey } from './analysis';
 import { sampleProperties } from './index';
 import { fixtureResearch } from '../../../tests/fixtures/analysis';
 const input = analysisInput(sampleProperties[0]!);
@@ -52,7 +52,14 @@ describe('evidence-based comparison rules (synthetic fixtures)', () => {
   it('requires two distinct websites', () => {
     const r = fixtureResearch(input);
     r.candidates = r.candidates.map((c, i) => ({ ...c, url: `https://example.org/item-${i}` }));
-    expect(() => calculate(r)).toThrow();
+    expect(
+      selectComparables(
+        input,
+        r,
+        r.candidates.map((c) => c.url),
+      ),
+    ).toMatchObject({ websites: 1, exclusions: {} });
+    expect(() => calculate(r)).toThrow('4 aus 1 Websites');
   });
   it('does not combine asking prices and transactions to reach the minimum', () => {
     const r = fixtureResearch(input);

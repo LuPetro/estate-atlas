@@ -13,7 +13,7 @@ export async function migrate(pool: pg.Pool) {
     await client.query(
       'CREATE TABLE IF NOT EXISTS schema_migrations (version text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())',
     );
-    for (const version of ['001_initial', '002_analysis']) {
+    for (const version of ['001_initial', '002_analysis', '003_analysis_diagnostics']) {
       const previous = await client.query('SELECT 1 FROM schema_migrations WHERE version=$1', [
         version,
       ]);
@@ -71,6 +71,7 @@ export function toAnalysis(r: Record<string, any>): AnalysisJob {
     requestedAt: iso(r.requested_at),
     reason: r.reason,
     result: r.result,
+    diagnostics: r.diagnostics ?? null,
     phase: r.phase ?? 'queued',
     model: r.model ?? null,
     provider: r.provider ?? null,

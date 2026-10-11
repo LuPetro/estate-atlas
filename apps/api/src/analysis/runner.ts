@@ -2,6 +2,8 @@ import type pg from 'pg';
 import {
   analysisInput,
   calculateAnalysis,
+  selectComparables,
+  sourceKey,
   EvidenceError,
   type AnalysisJob,
 } from '@estate-atlas/shared/analysis';
@@ -77,6 +79,32 @@ export class AnalysisRunner {
         phase,
       );
       await phase('calculating');
+      const selection = selectComparables(job.input, report.research, report.consultedUrls);
+      const exclusions = { ...report.checks?.exclusions };
+      for (const [key, count] of Object.entries(selection.exclusions)) {
+        const reason = key as keyof typeof exclusions;
+        exclusions[reason] = (exclusions[reason] ?? 0) + count!;
+      }
+      const diagnostics = {
+        extracted: report.checks?.extracted ?? report.research.candidates.length,
+        verified: report.research.candidates.length,
+        accepted: selection.comparables.length,
+        websites: selection.websites,
+        sources: report.consultedUrls.filter((url) => sourceKey(url)).slice(0, 80),
+        exclusions,
+        notes: report.research.uncertainties,
+      };
+      // Save evidence and usage before calculation, including insufficient samples.
+      controller.signal.throwIfAborted();
+      await this.pool.query(
+        "UPDATE analysis_jobs SET diagnostics=$2,research=$3,usage=$4,updated_at=now() WHERE id=$1 AND status='running'",
+        [
+          job.id,
+          diagnostics,
+          { ...report.artifact, research: report.research, consultedUrls: report.consultedUrls },
+          report.usage,
+        ],
+      );
       const result = calculateAnalysis(job.input, report.research, report.consultedUrls);
       controller.signal.throwIfAborted();
       await this.pool.query(

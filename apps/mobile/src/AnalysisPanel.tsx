@@ -10,7 +10,12 @@ import {
   Linking,
 } from 'react-native';
 import { formatMoney, type PropertyDetail, type AnalysisJob } from '@estate-atlas/shared';
-import { analysisPhases, type AnalysisConfig } from '@estate-atlas/shared/analysis';
+import {
+  analysisPhases,
+  exclusionLabels,
+  type Exclusions,
+  type AnalysisConfig,
+} from '@estate-atlas/shared/analysis';
 import type { ApiClient } from '@estate-atlas/api-client';
 const active = (j: AnalysisJob | null) => j?.status === 'queued' || j?.status === 'running';
 export default function AnalysisPanel({
@@ -232,6 +237,53 @@ export default function AnalysisPanel({
         </>
       )}
       {!running && job?.reason && <Text style={s.notice}>{job.reason}</Text>}
+      {!running && job?.diagnostics && job.status === 'failed' && (
+        <View style={s.comparable}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded }}
+            onPress={() => setExpanded(!expanded)}
+          >
+            <Text style={s.link}>Was hat die Recherche gefunden? {expanded ? '−' : '+'}</Text>
+          </Pressable>
+          {expanded && (
+            <>
+              <Text style={s.note}>
+                {job.diagnostics.extracted} Angebote ausgelesen · {job.diagnostics.verified} mit
+                Preis- und Flächenbeleg · {job.diagnostics.accepted} passend aus{' '}
+                {job.diagnostics.websites} Websites
+              </Text>
+              {Object.entries(job.diagnostics.exclusions).map(([reason, count]) => (
+                <Text style={s.note} key={reason}>
+                  {count} × {exclusionLabels[reason as keyof Exclusions]}
+                </Text>
+              ))}
+              {job.diagnostics.notes.map((note, i) => (
+                <Text style={s.note} key={i}>
+                  {note}
+                </Text>
+              ))}
+              <Text style={s.note}>
+                Recherchierte Quellen; darunter können Übersichtsseiten und unpassende Angebote
+                sein:
+              </Text>
+              {job.diagnostics.sources.map((url) => (
+                <Pressable
+                  key={url}
+                  accessibilityRole="link"
+                  onPress={() =>
+                    Linking.openURL(url).catch(() =>
+                      setError('Quelle konnte nicht geöffnet werden.'),
+                    )
+                  }
+                >
+                  <Text style={s.link}>{new URL(url).hostname} · Quelle öffnen ↗</Text>
+                </Pressable>
+              ))}
+            </>
+          )}
+        </View>
+      )}
       {result && (
         <View style={s.result}>
           <Text style={s.label}>Recherchierte Preisindikation</Text>

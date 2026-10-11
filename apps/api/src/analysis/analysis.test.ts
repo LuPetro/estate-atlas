@@ -193,7 +193,49 @@ it('fails on insufficient evidence without creating a price or retrying', async 
     const done = (await get(a.id)).json();
     expect(done.status).toBe('failed');
     expect(done.result).toBeNull();
+    expect(done.diagnostics).toMatchObject({ extracted: 0, verified: 0, accepted: 0, websites: 0 });
+    expect(done).not.toHaveProperty('research');
+    expect(done).not.toHaveProperty('usage');
+    const saved = (await pool.query('SELECT usage,research FROM analysis_jobs WHERE id=$1', [a.id]))
+      .rows[0];
+    expect(saved.usage).toEqual({ inputTokens: 0, outputTokens: 0, searchCalls: 0 });
+    expect(saved.research.research.candidates).toEqual([]);
     expect(await runner.tick()).toBe(false);
+  } finally {
+    runtime.provider = original;
+  }
+});
+it('preserves failed research evidence and explains comparison exclusions only to its owner', async () => {
+  const p = await create();
+  const a = (await enqueue(p.id)).json();
+  const original = runtime.provider!;
+  runtime.provider = {
+    id: original.id,
+    async research(...args) {
+      const report = await original.research(...args);
+      report.research.candidates[0]!.condition = 'renovation';
+      report.research.candidates[1]!.currency = 'JPY';
+      report.research.candidates[2]!.active = false;
+      return { ...report, artifact: { report: 'TESTDATEN private report', extracted: {} } };
+    },
+  };
+  try {
+    await new AnalysisRunner(pool, runtime).tick();
+    const done = (await get(a.id)).json();
+    expect(done.status).toBe('failed');
+    expect(done.diagnostics).toMatchObject({
+      extracted: 4,
+      accepted: 1,
+      websites: 1,
+      exclusions: { condition: 1, currency: 1, inactive: 1 },
+    });
+    expect(done.result).toBeNull();
+    expect(JSON.stringify(done)).not.toContain('private report');
+    expect((await app.inject({ url: `/analyses/${a.id}`, headers: other })).statusCode).toBe(404);
+    expect(
+      (await pool.query('SELECT research FROM analysis_jobs WHERE id=$1', [a.id])).rows[0].research
+        .report,
+    ).toBe('TESTDATEN private report');
   } finally {
     runtime.provider = original;
   }

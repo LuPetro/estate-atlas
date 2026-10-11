@@ -2,7 +2,12 @@
 import { useEffect, useState } from 'react';
 import { Sparkles, Search, Check, ExternalLink, ArrowUpRight } from 'lucide-react';
 import { formatMoney, type PropertyDetail, type AnalysisJob } from '@estate-atlas/shared';
-import { analysisPhases, type AnalysisConfig } from '@estate-atlas/shared/analysis';
+import {
+  analysisPhases,
+  exclusionLabels,
+  type Exclusions,
+  type AnalysisConfig,
+} from '@estate-atlas/shared/analysis';
 import type { ApiClient } from '@estate-atlas/api-client';
 const active = (j: AnalysisJob | null) => j?.status === 'queued' || j?.status === 'running';
 export default function AnalysisPanel({
@@ -201,6 +206,36 @@ export default function AnalysisPanel({
         <p className="analysis-status ai-note" role="status">
           {job.reason}
         </p>
+      )}
+      {!running && job?.diagnostics && job.status === 'failed' && (
+        <details className="ai-evidence">
+          <summary>Was hat die Recherche gefunden?</summary>
+          <p className="ai-note">
+            {job.diagnostics.extracted} Angebote ausgelesen · {job.diagnostics.verified} mit Preis-
+            und Flächenbeleg · {job.diagnostics.accepted} passend aus {job.diagnostics.websites}{' '}
+            Websites
+          </p>
+          {Object.entries(job.diagnostics.exclusions).map(([reason, count]) => (
+            <p className="ai-note" key={reason}>
+              {count} × {exclusionLabels[reason as keyof Exclusions]}
+            </p>
+          ))}
+          {job.diagnostics.notes.map((note, i) => (
+            <p className="ai-note" key={i}>
+              {note}
+            </p>
+          ))}
+          <p className="ai-note">
+            Recherchierte Quellen; darunter können Übersichtsseiten und unpassende Angebote sein:
+          </p>
+          {job.diagnostics.sources.map((url) => (
+            <p key={url}>
+              <a href={url} target="_blank" rel="noopener noreferrer">
+                {new URL(url).hostname} · Quelle öffnen ↗
+              </a>
+            </p>
+          ))}
+        </details>
       )}
       {result && (
         <div className="ai-result">

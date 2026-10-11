@@ -9,7 +9,20 @@ import { fixtureProvider } from '../tests/fixtures/analysis';
 import { AnalysisRunner } from '../apps/api/src/analysis/runner';
 const analysis = {
   config: { enabled: true, reason: null, models: ['fixture-model'], defaultModel: 'fixture-model' },
-  provider: fixtureProvider(2500),
+  provider: {
+    id: 'test-fixture',
+    async research(...args: Parameters<ReturnType<typeof fixtureProvider>['research']>) {
+      const report = await fixtureProvider(2500).research(...args);
+      // Labeled scenario only in this isolated test server, never production.
+      if (args[0].address.includes('TESTDATEN Diagnose')) {
+        report.research.candidates = report.research.candidates.map((c) => ({
+          ...c,
+          currency: 'JPY',
+        }));
+      }
+      return report;
+    },
+  },
   userDailyLimit: 5,
   globalDailyLimit: 100,
 };

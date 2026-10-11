@@ -26,7 +26,22 @@ function responses() {
     {
       status: 'completed',
       output: [
-        { type: 'message', content: [{ type: 'output_text', text: JSON.stringify(research) }] },
+        {
+          type: 'message',
+          content: [
+            {
+              type: 'output_text',
+              text: JSON.stringify({
+                ...research,
+                candidates: research.candidates.map(({ evidence, ...c }) => ({
+                  ...c,
+                  priceEvidence: evidence,
+                  areaEvidence: evidence,
+                })),
+              }),
+            },
+          ],
+        },
       ],
       usage: { input_tokens: 10, output_tokens: 15 },
     },
@@ -74,7 +89,7 @@ describe('OpenAI adapter with local fake HTTP responses', () => {
     const data = responses();
     const raw = JSON.parse((data[1]!.output[0]!.content![0] as { text: string }).text);
     raw.candidates[0].url = 'https://invented.example/listing';
-    raw.candidates[1].evidence = 'No such facts in the report';
+    raw.candidates[1].priceEvidence = 'No such facts in the report';
     raw.candidates[2].price += 123;
     (data[1]!.output[0]!.content![0] as { text: string }).text = JSON.stringify(raw);
     const fetcher = vi
@@ -87,6 +102,61 @@ describe('OpenAI adapter with local fake HTTP responses', () => {
       async () => {},
     );
     expect(r.research.candidates).toHaveLength(1);
+    expect(r.checks).toEqual({ extracted: 4, exclusions: { source: 1, evidence: 2 } });
+  });
+  it('accepts separate price/area quotes with Austrian separators and an opened page source', async () => {
+    const data = responses();
+    const raw = JSON.parse((data[1]!.output[0]!.content![0] as { text: string }).text);
+    raw.candidates = raw.candidates.slice(0, 1);
+    Object.assign(raw.candidates[0], {
+      price: 219000,
+      area: 47.96,
+      priceEvidence: 'Kaufpreis: € 219.000,00',
+      areaEvidence: 'Wohnfläche: 47,96 m²',
+    });
+    data[0]!.output = [
+      { type: 'web_search_call', action: { type: 'open_page', url: raw.candidates[0].url } } as any,
+      {
+        type: 'message',
+        content: [
+          {
+            type: 'output_text',
+            text: `${raw.candidates[0].url}\nKaufpreis: € 219.000,00\nWeitere Angaben zur Wohnung und Ausstattung.\nWohnfläche: 47,96 m²`,
+          },
+        ],
+      },
+    ];
+    (data[1]!.output[0]!.content![0] as { text: string }).text = JSON.stringify(raw);
+    const f = vi.fn<typeof fetch>().mockImplementation(async () => Response.json(data.shift()));
+    const result = await new OpenAIProvider('synthetic-key', f).research(
+      input,
+      'gpt-6-luna',
+      new AbortController().signal,
+      async () => {},
+    );
+    expect(result.research.candidates).toHaveLength(1);
+    expect(result.research.candidates[0]!.evidence).toBe(
+      'Kaufpreis: € 219.000,00\nWohnfläche: 47,96 m²',
+    );
+    expect(result.checks?.exclusions).toEqual({});
+  });
+  it('does not treat a decimal area as a ten-times larger area', async () => {
+    const data = responses();
+    const raw = JSON.parse((data[1]!.output[0]!.content![0] as { text: string }).text);
+    raw.candidates = raw.candidates.slice(0, 1);
+    raw.candidates[0].area = 987;
+    raw.candidates[0].areaEvidence = 'Wohnfläche: 98,7 m²';
+    (data[0]!.output[1]!.content![0] as { text: string }).text += '\nWohnfläche: 98,7 m²';
+    (data[1]!.output[0]!.content![0] as { text: string }).text = JSON.stringify(raw);
+    const f = vi.fn<typeof fetch>().mockImplementation(async () => Response.json(data.shift()));
+    const result = await new OpenAIProvider('synthetic-key', f).research(
+      input,
+      'gpt-6-luna',
+      new AbortController().signal,
+      async () => {},
+    );
+    expect(result.research.candidates).toHaveLength(0);
+    expect(result.checks?.exclusions.evidence).toBe(1);
   });
   it.each([401, 429, 503])('handles HTTP %s safely without paid retries', async (status) => {
     const f = vi

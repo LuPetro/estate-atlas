@@ -46,6 +46,31 @@ export const researchSchema = z
   .strict();
 export type Candidate = z.infer<typeof candidateSchema>;
 export type Research = z.infer<typeof researchSchema>;
+export const exclusionLabels = {
+  source: 'Quelle nicht durch die Recherche belegt',
+  evidence: 'Preis oder Fläche im Text nicht ausreichend belegt',
+  duplicate: 'Doppelter Angebotslink',
+  currency: 'Andere Währung',
+  country: 'Anderes Land',
+  type: 'Andere Objektart',
+  condition: 'Anderer bekannter Zustand',
+  location: 'Lage nicht ausreichend vergleichbar',
+  area: 'Fläche außerhalb des Vergleichsbereichs',
+  inactive: 'Angebot nicht mehr aktiv',
+  date: 'Datum zu alt, ungültig oder bei Transaktion unbekannt',
+  basis: 'Andere Preisbasis (Angebot/Transaktion)',
+  outlier: 'Stark abweichender Quadratmeterpreis',
+} as const;
+export type Exclusions = Partial<Record<keyof typeof exclusionLabels, number>>;
+export type AnalysisDiagnostics = {
+  extracted: number;
+  verified: number;
+  accepted: number;
+  websites: number;
+  sources: string[];
+  exclusions: Exclusions;
+  notes: string[];
+};
 export type AnalysisResult = {
   low: number;
   mid: number;
@@ -74,6 +99,7 @@ export type AnalysisJob = {
   provider: string | null;
   reason: string | null;
   result: AnalysisResult | null;
+  diagnostics?: AnalysisDiagnostics | null;
 };
 export type AnalysisConfig = {
   enabled: boolean;
@@ -115,53 +141,68 @@ const median = (v: number[]) => {
   const s = [...v].sort((a, b) => a - b);
   return (s[Math.floor((s.length - 1) / 2)]! + s[Math.floor(s.length / 2)]!) / 2;
 };
-export function calculateAnalysis(
+export function selectComparables(
   input: AnalysisInput,
   research: Research,
   consultedUrls: string[],
   now = new Date(),
-): AnalysisResult {
+) {
   const known = new Set(consultedUrls.map(sourceKey).filter(Boolean));
   const seen = new Set<string>();
+  const exclusions: Exclusions = {};
+  const reject = (reason: keyof Exclusions) => {
+    exclusions[reason] = (exclusions[reason] ?? 0) + 1;
+    return false;
+  };
   const eligible = research.candidates
     .map((c) => ({ ...c, normalizedArea: c.areaUnit === 'sqft' ? c.area * 0.09290304 : c.area }))
     .filter((c) => {
       const key = sourceKey(c.url);
       const age =
         c.publishedAt === null ? null : (now.getTime() - Date.parse(c.publishedAt)) / 86400000;
+      if (!key || !known.has(key)) return reject('source');
+      if (seen.has(key)) return reject('duplicate');
+      if (c.currency !== input.currency) return reject('currency');
+      if (c.country !== input.country) return reject('country');
+      if (c.type !== input.type) return reject('type');
+      if (input.type !== 'land' && c.condition !== null && c.condition !== input.condition)
+        return reject('condition');
+      if (!c.localMarket) return reject('location');
+      if (c.normalizedArea / input.area < 0.5 || c.normalizedArea / input.area > 2)
+        return reject('area');
+      if (c.basis === 'asking' && !c.active) return reject('inactive');
       if (
-        !key ||
-        !known.has(key) ||
-        seen.has(key) ||
-        c.currency !== input.currency ||
-        c.country !== input.country ||
-        c.type !== input.type ||
-        (input.type !== 'land' && c.condition !== null && c.condition !== input.condition) ||
-        !c.localMarket ||
-        c.normalizedArea / input.area < 0.5 ||
-        c.normalizedArea / input.area > 2 ||
-        (c.basis === 'asking' && !c.active) ||
         (age !== null && (!Number.isFinite(age) || age < -1 || age > 180)) ||
         (c.basis === 'transaction' && age === null)
       )
-        return false;
+        return reject('date');
       seen.add(key);
       return true;
     });
   // Do not mix advertised prices with completed transactions.
   const transactions = eligible.filter((c) => c.basis === 'transaction');
-  const basis = transactions.length >= 3 ? 'transaction' : 'asking';
+  const basis: Candidate['basis'] = transactions.length >= 3 ? 'transaction' : 'asking';
   const group = eligible.filter((c) => c.basis === basis);
+  if (eligible.length > group.length) exclusions.basis = eligible.length - group.length;
   const center = group.length ? median(group.map((c) => c.price / c.normalizedArea)) : 0;
   const comparables = group.filter(
     (c) => c.price / c.normalizedArea >= center / 2 && c.price / c.normalizedArea <= center * 2,
   );
-  if (
-    comparables.length < 3 ||
-    new Set(comparables.map((c) => new URL(c.url).hostname.replace(/^www\./, ''))).size < 2
-  )
+  if (group.length > comparables.length) exclusions.outlier = group.length - comparables.length;
+  const websites = new Set(comparables.map((c) => new URL(c.url).hostname.replace(/^www\./, '')))
+    .size;
+  return { comparables, basis, websites, exclusions };
+}
+export function calculateAnalysis(
+  input: AnalysisInput,
+  research: Research,
+  consultedUrls: string[],
+  now = new Date(),
+): AnalysisResult {
+  const { comparables, basis, websites } = selectComparables(input, research, consultedUrls, now);
+  if (comparables.length < 3 || websites < 2)
     throw new EvidenceError(
-      'Zu wenige passende Vergleichsobjekte: mindestens drei aus zwei unterschiedlichen Websites in derselben Lage, Objektart und Währung sind erforderlich. Es wurde kein Wert geschätzt.',
+      `Zu wenige passende Vergleichsobjekte: Nach der Prüfung bleiben ${comparables.length} aus ${websites} Websites. Erforderlich sind mindestens drei aus zwei Websites in derselben Lage, Objektart und Währung. Es wurde kein Wert geschätzt.`,
     );
   const prices = comparables.map((c) => c.price / c.normalizedArea).sort((a, b) => a - b);
   const pricePerSqm = median(prices);

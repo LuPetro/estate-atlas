@@ -343,7 +343,9 @@ test('shows disabled setup without research or fabricated results', async ({ pag
   await expect(page.locator('.ai-panel')).toContainText('OpenAI-Key und Freigabe fehlen');
   await expect(page.locator('.ai-result')).toHaveCount(0);
 });
-test('can cancel research while it is running', async ({ page }) => {
+test('can cancel research and explains insufficient comparisons without changing the value', async ({
+  page,
+}) => {
   await register(page);
   await create(page);
   await page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }).click();
@@ -352,4 +354,27 @@ test('can cancel research while it is running', async ({ page }) => {
   await page.getByRole('button', { name: 'Recherche abbrechen' }).click();
   await expect(page.locator('.analysis-status')).toContainText('Recherche abgebrochen');
   await expect(page.locator('.ai-result')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
+  await page.getByLabel('Adresse', { exact: true }).fill('TESTDATEN Diagnose Teststraße 1, Wien');
+  await page.getByLabel('Breitengrad').fill('48.2082');
+  await page.getByLabel('Längengrad').fill('16.3738');
+  await page.getByRole('button', { name: 'Immobilie speichern' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }).click();
+  await page.getByLabel('Ich stimme zu').check();
+  await page.getByRole('button', { name: 'Marktpreis recherchieren' }).click();
+  await expect(page.locator('.analysis-status')).toContainText('0 aus 0 Websites');
+  await page.getByText('Was hat die Recherche gefunden?').click();
+  await expect(page.locator('.ai-panel')).toContainText('4 Angebote ausgelesen');
+  await expect(page.locator('.ai-panel')).toContainText('4 × Andere Währung');
+  await expect(page.getByRole('link', { name: /Quelle öffnen/ })).toHaveCount(4);
+  await expect(page.locator('.ai-result')).toHaveCount(0);
+  await page
+    .locator('.ai-panel')
+    .screenshot({ path: `work/qa/analysis-diagnostics-${test.info().project.name}.png` });
+  await page.reload();
+  await expect(page.locator('.value-card')).toContainText('280.000');
+  await page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }).click();
+  await page.getByText('Was hat die Recherche gefunden?').click();
+  await expect(page.locator('.ai-panel')).toContainText('4 × Andere Währung');
 });
