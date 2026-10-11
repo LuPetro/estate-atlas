@@ -273,6 +273,35 @@ it('enforces daily limits even after deletion', async () => {
     runtime.globalDailyLimit = previous;
   }
 });
+it('disables daily quotas explicitly while retaining consent, reservations and duplicate protection', async () => {
+  const p = await create();
+  const previous = [runtime.globalDailyLimit, runtime.userDailyLimit];
+  runtime.globalDailyLimit = runtime.userDailyLimit = 0;
+  try {
+    expect(
+      (await pool.query('SELECT count(*)::int AS total FROM analysis_requests')).rows[0].total,
+    ).toBeGreaterThan(1);
+    expect(
+      (await enqueue(p.id, owner, { model: 'fixture-model', consent: false })).statusCode,
+    ).toBe(400);
+    const queued = await enqueue(p.id);
+    expect(queued.statusCode).toBe(201);
+    const job = queued.json();
+    expect((await enqueue(p.id)).json().id).toBe(job.id);
+    expect(
+      (
+        await pool.query('SELECT count(*)::int AS total FROM analysis_requests WHERE id=$1', [
+          job.id,
+        ])
+      ).rows[0].total,
+    ).toBe(1);
+    await post(job.id, 'cancel');
+    runtime.userDailyLimit = 1;
+    expect((await enqueue(p.id)).statusCode).toBe(429);
+  } finally {
+    [runtime.globalDailyLimit, runtime.userDailyLimit] = previous as [number, number];
+  }
+});
 it('does not call an external provider after attributes change in the queue', async () => {
   const p = await create();
   const a = (await enqueue(p.id)).json();

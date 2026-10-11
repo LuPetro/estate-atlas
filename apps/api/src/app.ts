@@ -468,8 +468,8 @@ export async function createApp(
           [req.user!.id],
         );
         if (
-          counts[0].global >= analysis.globalDailyLimit ||
-          counts[0].personal >= analysis.userDailyLimit
+          (analysis.globalDailyLimit > 0 && counts[0].global >= analysis.globalDailyLimit) ||
+          (analysis.userDailyLimit > 0 && counts[0].personal >= analysis.userDailyLimit)
         )
           throw new HttpError(429, 'Das Recherchelimit für die letzten 24 Stunden ist erreicht.');
         const { rows } = await client.query(

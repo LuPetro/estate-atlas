@@ -32,7 +32,7 @@ export interface ResearchProvider {
 export type AnalysisRuntime = {
   config: AnalysisConfig;
   provider: ResearchProvider | null;
-  userDailyLimit: number;
+  userDailyLimit: number; // 0 disables this daily quota; per-request bounds still apply.
   globalDailyLimit: number;
 };
 const defaultModel = 'gpt-6-luna';
@@ -90,8 +90,8 @@ export async function analysisRuntime(env: NodeJS.ProcessEnv): Promise<AnalysisR
   const limit = (value: string | undefined, fallback: number) => {
     if (!value) return fallback;
     const n = Number(value);
-    if (!Number.isInteger(n) || n < 1 || n > 100)
-      throw new Error('Analysis daily limit must be between 1 and 100.');
+    if (!Number.isInteger(n) || n < 0 || n > 100)
+      throw new Error('Analysis daily limit must be between 0 and 100 (0 disables the quota).');
     return n;
   };
   return {

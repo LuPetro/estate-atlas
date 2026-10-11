@@ -1,6 +1,6 @@
 # KI-Marktpreisrecherche
 
-Die Recherche ist implementiert und bei neuen Installationen standardmäßig ausgeschaltet (`ANALYSIS_ENABLED=false`). Der Eigentümer hat den ersten App-Auftrag ausdrücklich freigegeben; auf diesem VPS sind GPT-6 Luna und beide Tageslimits `1` vorbereitet. Der Key ist inzwischen hinterlegt. Der erste vom Eigentümer gestartete Live-Auftrag erreichte die Berechnung, scheiterte aber an der Mindestzahl akzeptierter Vergleichsangebote. Die bisherigen Daten enthalten keine Ausschlussdiagnose dieses Auftrags; die genaue Ursache ist rückwirkend nicht bestimmbar. Keine weiteren kostenpflichtigen Tests wurden gestartet; die Tageslimits bleiben bei `1`. Ein erfolgreicher Test mit synthetischen Providerantworten beweist den Ablauf, nicht die Qualität aktueller Immobilienangebote oder den Modellzugang des API-Kontos.
+Die Recherche ist implementiert und bei neuen Installationen standardmäßig ausgeschaltet (`ANALYSIS_ENABLED=false`). Der Eigentümer hat am 11.10.2026 die Tageslimits aufgehoben: Auf diesem VPS ist GPT-6 Luna freigegeben, beide Tageslimits stehen auf `0` (keine Tagesquote). Manuell gestartete App-Recherchen und sparsame, gezielte Entwicklertests sind erlaubt; automatische Wiederholungen oder Serienaufträge sind nicht freigegeben. Der Key ist inzwischen hinterlegt. Der erste vom Eigentümer gestartete Live-Auftrag erreichte die Berechnung, scheiterte aber an der Mindestzahl akzeptierter Vergleichsangebote. Die bisherigen Daten enthalten keine Ausschlussdiagnose dieses Auftrags; die genaue Ursache ist rückwirkend nicht bestimmbar. Beim Aufheben der Tageslimits wurde kein zusätzlicher kostenpflichtiger Test gestartet. Tests mit synthetischen Providerantworten beweisen den Ablauf, nicht die Qualität aktueller Immobilienangebote.
 
 ## OpenAI-Key auf diesem Server hinterlegen
 
@@ -20,15 +20,15 @@ Die Projektregel in `AGENTS.md` verlangt ausdrücklich eine Freigabe kostenpflic
 ```dotenv
 ANALYSIS_ENABLED=true
 ANALYSIS_MODELS=gpt-6-luna
-ANALYSIS_USER_DAILY_LIMIT=5
-ANALYSIS_GLOBAL_DAILY_LIMIT=20
+ANALYSIS_USER_DAILY_LIMIT=0
+ANALYSIS_GLOBAL_DAILY_LIMIT=0
 ```
 
 ```bash
 ./scripts/docker up -d --force-recreate --wait api worker
 ```
 
-Für den ersten Einzeltest beide Tageslimits auf `1` setzen. Sind bereits Aufträge innerhalb der letzten 24 Stunden reserviert, werden diese mitgezählt. Ein Abbruch oder Fehler gibt die Reservierung nicht zurück. Das Löschen einer Immobilie umgeht das Kostenlimit nicht. `ANALYSIS_ENABLED=false` und derselbe Neustart schalten neue Recherchen aus; bereits laufende Aufrufe können trotzdem Kosten verursacht haben. In einer Sitzung mit alter Gruppenmitgliedschaft die Docker-Befehle mit `sg docker -c '…'` ausführen.
+Die Standardwerte für neue Installationen sind 5 pro Nutzer und 20 global. `0` deaktiviert die jeweilige Tagesquote ausdrücklich. Der Eigentümer hat für diesen privaten Testbetrieb beide Quoten aufgehoben; daher sind auf diesem VPS beide Werte `0`. Für einen bewusst begrenzten Einzeltest können beide Werte auf `1` gesetzt werden. Sind bereits Aufträge innerhalb der letzten 24 Stunden reserviert, werden diese mitgezählt. Ein Abbruch oder Fehler gibt die Reservierung nicht zurück. Das Löschen einer Immobilie umgeht das Kostenlimit nicht. `ANALYSIS_ENABLED=false` und derselbe Neustart schalten neue Recherchen aus; bereits laufende Aufrufe können trotzdem Kosten verursacht haben. In einer Sitzung mit alter Gruppenmitgliedschaft die Docker-Befehle mit `sg docker -c '…'` ausführen.
 
 Modellwechsel ohne Codeänderung: `ANALYSIS_MODELS` enthält eine kommaseparierte Liste freigegebener Responses-Modelle, die Websuche, Structured Outputs und `reasoning.effort=low` unterstützen. Das erste ist Standard; beide Apps zeigen dieselbe Liste. Verfügbarkeit/Kompatibilität des konkreten API-Kontos vor einer Freigabe prüfen. Kein stilles Upgrade auf teurere Modelle. Weitere Anbieter implementieren `ResearchProvider`; Queue, Berechnung und Clients bleiben davon unabhängig.
 
@@ -58,4 +58,8 @@ Seit Migration 003 werden Quellen, Anzahl extrahierter und belegter Angebote sow
 
 Der begrenzte Recherchetext (maximal 60.000 Zeichen) und die strukturierte Extraktion werden privat am Auftrag gespeichert. Die öffentlichen HTTP-Antworten enthalten ausschließlich die eigentümergeschützte Diagnose, nie diesen Rohtext, Nutzungsabrechnung oder Zugangsdaten. Das Löschen des Objekts entfernt auch diese Auftragsdaten. Frühere fehlgeschlagene Aufträge haben keine nachträglich rekonstruierbare Diagnose. Quellen-/Preisangaben werden weiterhin von KI gelesen, nicht unabhängig gegen das Portal verifiziert.
 
-Die Suche bekommt die tatsächlichen Vergleichsregeln ausdrücklich mitgeteilt, verwendet lokale Suchbegriffe und priorisiert innerhalb des unveränderten Budgets eine zweite Website. Getrennte Belege lösen ein unnötiges Formatproblem, garantieren aber keine ausreichenden zugänglichen Angebote. Ein neues kostenpflichtiges Testkontingent braucht eine weitere Freigabe; Fehler oder Diagnose geben die bereits verbrauchte Reservierung nicht zurück.
+Die Suche bekommt die tatsächlichen Vergleichsregeln ausdrücklich mitgeteilt, verwendet lokale Suchbegriffe und priorisiert innerhalb des unveränderten Budgets eine zweite Website. Getrennte Belege lösen ein unnötiges Formatproblem, garantieren aber keine ausreichenden zugänglichen Angebote. Die dokumentierte Eigentümerfreigabe erlaubt inzwischen manuelle App-Aufträge ohne Tagesquote sowie sparsame gezielte Entwicklertests innerhalb des unveränderten Auftragsbudgets. Fehler oder Diagnose löschen die bisherige Nutzungsreservierung nicht.
+
+## Kontrollierte Nutzung ohne Tagesquote
+
+Mit beiden Tageslimits `0` bleibt jede Recherche ein ausdrücklich gestarteter, angemeldeter und eigentümergeprüfter Auftrag mit Zustimmung zur Datenübermittlung/Kosten. Pro Auftrag bleiben höchstens vier Webtool-Aufrufe, zwei Modellantworten, jeweils höchstens 6.000 Ausgabetokens und drei Minuten Zeitlimit. Keine automatischen kostenpflichtigen Wiederholungen. Ein bereits aktiver Auftrag für dasselbe Objekt wird zurückgegeben statt doppelt gestartet. Die kurze Begrenzung auf sechs Start-Anfragen pro Minute bleibt als Klick-/Spam-Schutz bestehen; sie ist keine Tagesquote. Der einzelne Docker-Worker verarbeitet die Aufträge nacheinander. Nutzungsreservierungen und verfügbare Provider-Nutzungszahlen werden weiterhin gespeichert.

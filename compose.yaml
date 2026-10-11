@@ -44,6 +44,7 @@ services:
       OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
       ANALYSIS_ENABLED: ${ANALYSIS_ENABLED:-false}
       ANALYSIS_MODELS: ${ANALYSIS_MODELS:-gpt-6-luna}
+      # 0 disables a daily quota after owner approval; request bounds remain.
       ANALYSIS_USER_DAILY_LIMIT: ${ANALYSIS_USER_DAILY_LIMIT:-5}
       ANALYSIS_GLOBAL_DAILY_LIMIT: ${ANALYSIS_GLOBAL_DAILY_LIMIT:-20}
       GEOCODING_URL: ${GEOCODING_URL:-https://photon.komoot.io/api/}

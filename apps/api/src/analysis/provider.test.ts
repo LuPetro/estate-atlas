@@ -56,6 +56,20 @@ describe('OpenAI adapter with local fake HTTP responses', () => {
     expect(approved.config.enabled).toBe(false);
     expect(approved.config.reason).toContain('OpenAI-Key fehlt');
   });
+  it('allows explicitly disabled daily quotas without activating paid research', async () => {
+    const runtime = await analysisRuntime({
+      ANALYSIS_USER_DAILY_LIMIT: '0',
+      ANALYSIS_GLOBAL_DAILY_LIMIT: '0',
+    });
+    expect(runtime.userDailyLimit).toBe(0);
+    expect(runtime.globalDailyLimit).toBe(0);
+    expect(runtime.provider).toBeNull();
+    expect(runtime.config.enabled).toBe(false);
+    for (const value of ['-1', '0.5', '101', 'unlimited'])
+      await expect(analysisRuntime({ ANALYSIS_GLOBAL_DAILY_LIMIT: value })).rejects.toThrow(
+        'daily limit',
+      );
+  });
   it('bounds research, disables provider storage and extracts only cited evidence', async () => {
     const data = responses();
     const fetcher = vi
