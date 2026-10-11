@@ -94,7 +94,7 @@ export type Valuation = {
   marketValue: number;
   currency: Currency;
   recordedAt: string;
-  origin: 'user';
+  origin: 'user' | 'analysis';
 };
 export type Asset = {
   id: string;
@@ -104,33 +104,8 @@ export type Asset = {
   size: number;
   createdAt: string;
 };
-export type AnalysisJob = {
-  id: string;
-  propertyId: string;
-  status: 'blocked' | 'queued' | 'running' | 'succeeded' | 'failed';
-  requestedAt: string;
-  reason: string | null;
-  result: AnalysisResult | null;
-};
-export type Comparable = {
-  title: string;
-  url: string;
-  observedAt: string;
-  price: number;
-  currency: Currency;
-  area: number;
-  distanceKm: number | null;
-};
-export type AnalysisResult = {
-  low: number;
-  high: number;
-  currency: Currency;
-  researchedAt: string;
-  sources: { url: string; title: string; retrievedAt: string }[];
-  comparables: Comparable[];
-  uncertainties: string[];
-  reasoning: string;
-};
+export type { AnalysisJob, AnalysisResult, Candidate as Comparable } from './analysis';
+import type { AnalysisJob } from './analysis';
 export type PropertyDetail = Property & {
   valuations: Valuation[];
   assets: Asset[];

@@ -5,6 +5,15 @@ import { resolve } from 'node:path';
 import { database, migrate } from '../apps/api/src/database';
 import { createApp } from '../apps/api/src/app';
 import { GeocodingError } from '../apps/api/src/geocoding';
+import { fixtureProvider } from '../tests/fixtures/analysis';
+import { AnalysisRunner } from '../apps/api/src/analysis/runner';
+const analysis = {
+  config: { enabled: true, reason: null, models: ['fixture-model'], defaultModel: 'fixture-model' },
+  provider: fixtureProvider(2500),
+  userDailyLimit: 5,
+  globalDailyLimit: 100,
+};
+
 const root = resolve('.local');
 mkdirSync(root, { recursive: true });
 const password = randomBytes(24).toString('hex');
@@ -29,6 +38,7 @@ await migrate(pool);
 // No real user addresses or synthetic queries are sent to the public Photon service.
 const app = await createApp(pool, {
   origin: 'http://localhost:3001',
+  analysis,
   geocoder: async (query) => {
     if (query.includes('Ausfall'))
       throw new GeocodingError(
@@ -50,6 +60,17 @@ const app = await createApp(pool, {
 });
 await app.listen({ host: '127.0.0.1', port: 4001 });
 let stopping = false;
+const runner = new AnalysisRunner(pool, analysis);
+let workerBusy = false;
+const worker = setInterval(async () => {
+  if (workerBusy || stopping) return;
+  workerBusy = true;
+  try {
+    await runner.tick();
+  } finally {
+    workerBusy = false;
+  }
+}, 500);
 pool.on('error', (error) => {
   // EmbeddedPostgres also stops on process signals; idle connections can close
   // before our async shutdown reaches pool.end(). Do not dump connection data.
@@ -62,6 +83,9 @@ pool.on('error', (error) => {
 const stop = async () => {
   if (stopping) return;
   stopping = true;
+  clearInterval(worker);
+  runner.stop();
+  while (workerBusy) await new Promise((resolve) => setTimeout(resolve, 30));
   await app.close();
   await pool.end();
   await server.stop();

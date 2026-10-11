@@ -13,14 +13,16 @@ export async function migrate(pool: pg.Pool) {
     await client.query(
       'CREATE TABLE IF NOT EXISTS schema_migrations (version text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())',
     );
-    const previous = await client.query('SELECT 1 FROM schema_migrations WHERE version=$1', [
-      '001_initial',
-    ]);
-    if (!previous.rowCount) {
-      await client.query(
-        await readFile(new URL('../migrations/001_initial.sql', import.meta.url), 'utf8'),
-      );
-      await client.query('INSERT INTO schema_migrations(version) VALUES($1)', ['001_initial']);
+    for (const version of ['001_initial', '002_analysis']) {
+      const previous = await client.query('SELECT 1 FROM schema_migrations WHERE version=$1', [
+        version,
+      ]);
+      if (!previous.rowCount) {
+        await client.query(
+          await readFile(new URL(`../migrations/${version}.sql`, import.meta.url), 'utf8'),
+        );
+        await client.query('INSERT INTO schema_migrations(version) VALUES($1)', [version]);
+      }
     }
     await client.query('COMMIT');
   } catch (error) {
@@ -69,5 +71,11 @@ export function toAnalysis(r: Record<string, any>): AnalysisJob {
     requestedAt: iso(r.requested_at),
     reason: r.reason,
     result: r.result,
+    phase: r.phase ?? 'queued',
+    model: r.model ?? null,
+    provider: r.provider ?? null,
+    startedAt: r.started_at ? iso(r.started_at) : null,
+    finishedAt: r.finished_at ? iso(r.finished_at) : null,
+    appliedAt: r.applied_at ? iso(r.applied_at) : null,
   };
 }

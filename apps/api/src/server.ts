@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { analysisRuntime } from './analysis/provider';
 import { database } from './database';
 import { createApp } from './app';
 import { browserSecurity, connectionString } from './runtime-config';
@@ -8,6 +9,7 @@ const app = await createApp(pool, {
   ...browserSecurity(process.env),
   logging: true,
   geocodingUrl: process.env.GEOCODING_URL,
+  analysis: await analysisRuntime(process.env),
 });
 await app.listen({
   host: process.env.API_HOST ?? '127.0.0.1',

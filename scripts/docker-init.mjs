@@ -14,6 +14,9 @@ for (const name of ['postgres-admin-password', 'postgres-app-password']) {
   // private on the host; containers need to read the mounted file as non-root.
   chmodSync(file, 0o644);
 }
+const openai = path.join(dir, 'openai-api-key');
+if (!existsSync(openai)) writeFileSync(openai, '', { flag: 'wx', mode: 0o644 });
+chmodSync(openai, 0o644);
 const env = path.join(dir, 'compose.env');
 if (!existsSync(env))
   writeFileSync(

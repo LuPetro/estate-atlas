@@ -13,7 +13,7 @@ if [ "$(uname -s)" = Linux ] && [ -z "${DISPLAY:-}" ]; then
 fi
 export EXPO_NO_TELEMETRY=1
 export NEXT_TELEMETRY_DISABLED=1
-export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=640}"
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=384}"
 export PLAYWRIGHT_BROWSERS_PATH="$TASK_ROOT/.local/browsers"
 export TMPDIR="$TASK_ROOT/.local/tmp"
 export __UNSAFE_EXPO_HOME_DIRECTORY="$TASK_ROOT/.local/expo"

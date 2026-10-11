@@ -15,7 +15,7 @@ Projekt auf diesem VPS: `/home/codexdev/projects/estate-atlas`.
 - Native Apps: Stack- und Tab-Navigation, Übersicht, Liste, Details, Formular und native Weltkarte mit Clustering und Filtern.
 - Private Foto-/PDF-Uploads (JPEG, PNG, WebP, PDF; 10 MB; bis 30 Anhänge pro Immobilie).
 - Opt-in-Testdaten im angemeldeten Benutzerportfolio, überall als synthetisch gekennzeichnet.
-- Persistente, ausdrücklich **blockierte** Analyseaufträge als Grundlage für Meilenstein 4. Keine echte Recherche, kein KI-Anbieter, keine generierten Bewertungen.
+- KI-Recherche mit OpenAI-Adapter, austauschbaren Modellen, eigener Docker-Worker-Queue, nachvollziehbarer Vergleichspreisberechnung, Quellen und ausdrücklicher Wertübernahme. Standardmäßig bis Key und Kostenfreigabe deaktiviert; Einrichtung in [docs/ai-research.md](docs/ai-research.md).
 
 ## Mit Docker auf dem VPS starten
 

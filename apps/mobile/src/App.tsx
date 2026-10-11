@@ -33,6 +33,7 @@ import { File, Paths } from 'expo-file-system';
 import { StatusBar } from 'expo-status-bar';
 import { ApiClient, ApiError } from '@estate-atlas/api-client';
 import AddressPicker from './AddressPicker';
+import AnalysisPanel from './AnalysisPanel';
 import { mapTheme } from './mapTheme';
 import SimpleMap, { MapModeControl } from './SimpleMap';
 import {
@@ -815,11 +816,14 @@ function Detail({ route, navigation }: NativeStackScreenProps<Stack, 'Detail'>) 
       </Button>
       <Text style={styles.sectionTitle}>Erfasste Wertentwicklung</Text>
       <Text style={styles.footnote}>
-        Datierte eigene Angaben, keine recherchierten Bewertungen.
+        Eigene Angaben und übernommene Recherchewerte. Währungen bleiben getrennt.
       </Text>
       {p.valuations.map((v) => (
         <View key={v.id} style={styles.historyRow}>
-          <Text style={styles.footnote}>{new Date(v.recordedAt).toLocaleString('de-AT')}</Text>
+          <Text style={styles.footnote}>
+            {new Date(v.recordedAt).toLocaleString('de-AT')}
+            {v.origin === 'analysis' ? ' · KI-Recherche übernommen' : ' · Eigene Angabe'}
+          </Text>
           <Text style={styles.gain}>{formatMoney(v.marketValue, v.currency)}</Text>
         </View>
       ))}
@@ -869,20 +873,15 @@ function Detail({ route, navigation }: NativeStackScreenProps<Stack, 'Detail'>) 
           </Button>
         </View>
       ))}
-      <View style={styles.research}>
-        <Text style={styles.cardTitle}>KI-Marktpreisanalyse</Text>
-        <Text style={styles.subtitle}>
-          Recherche wartet auf freigegebene Datenquellen. Es wird keine Bewertung erzeugt.
-        </Text>
-        {p.analyses.slice(0, 1).map((a) => (
-          <Text style={styles.footnote} key={a.id}>
-            Status: {a.status === 'blocked' ? 'Wartet auf Datenquellen' : a.status}
-          </Text>
-        ))}
-        <Button secondary disabled={busy} onPress={() => act(() => api.analyse(p.id))}>
-          Analyseauftrag vorbereiten
-        </Button>
-      </View>
+      <AnalysisPanel
+        key={p.id}
+        property={p}
+        api={api}
+        onApplied={async () => {
+          await load();
+          await reload();
+        }}
+      />
       <Button secondary disabled={busy} onPress={() => act(() => api.archive(p.id, !p.archivedAt))}>
         {p.archivedAt ? 'Aus Archiv wiederherstellen' : 'Immobilie archivieren'}
       </Button>

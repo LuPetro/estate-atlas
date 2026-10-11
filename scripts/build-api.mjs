@@ -4,7 +4,7 @@ const pkg = JSON.parse(
   await readFile(new URL('../apps/api/package.json', import.meta.url), 'utf8'),
 );
 await build({
-  entryPoints: ['server', 'migrate'].map(
+  entryPoints: ['server', 'migrate', 'worker'].map(
     (name) => new URL(`../apps/api/src/${name}.ts`, import.meta.url).pathname,
   ),
   bundle: true,

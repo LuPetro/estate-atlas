@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+TASK_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+TASK_SECRET_DIR="$TASK_ROOT/.local/docker"
+mkdir -p "$TASK_SECRET_DIR"
+chmod 700 "$TASK_SECRET_DIR"
+IFS= read -r -s -p 'OpenAI-API-Key (Eingabe bleibt unsichtbar): ' TASK_OPENAI_KEY
+printf '\n'
+if [[ -z "$TASK_OPENAI_KEY" || "$TASK_OPENAI_KEY" =~ [[:space:]] ]]; then
+  printf 'Kein gültiger Schlüssel eingegeben; vorhandener Schlüssel bleibt erhalten.\n' >&2
+  exit 1
+fi
+umask 077
+TASK_TEMP_SECRET="$(mktemp "$TASK_SECRET_DIR/openai-api-key.XXXXXX")"
+trap 'rm -f "$TASK_TEMP_SECRET"' EXIT
+printf '%s\n' "$TASK_OPENAI_KEY" > "$TASK_TEMP_SECRET"
+# Parent is private; Compose file-backed secrets must support non-root readers.
+chmod 644 "$TASK_TEMP_SECRET"
+mv "$TASK_TEMP_SECRET" "$TASK_SECRET_DIR/openai-api-key"
+unset TASK_OPENAI_KEY
+printf 'Schlüssel lokal gespeichert. Er wird nicht angezeigt oder in Git aufgenommen.\n'
+printf 'Danach API und Worker neu erstellen, damit das neue Secret eingelesen wird:\n'
+printf './scripts/docker up -d --force-recreate --wait api worker\n'
+printf 'Die Recherche erfordert außerdem eine freigegebene Betriebskonfiguration.\n'

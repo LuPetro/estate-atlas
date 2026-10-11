@@ -20,6 +20,8 @@ import {
 import { hashPassword, verifyPassword, newToken, tokenHash } from './auth';
 import { toProperty, toValuation, toAsset, toAnalysis } from './database';
 import { createGeocoder } from './geocoding';
+import { analysisInput, type AnalysisResult } from '@estate-atlas/shared/analysis';
+import { disabledRuntime, type AnalysisRuntime } from './analysis/provider';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -45,8 +47,10 @@ export async function createApp(
     logging?: boolean;
     geocoder?: ReturnType<typeof createGeocoder>;
     geocodingUrl?: string;
+    analysis?: AnalysisRuntime;
   } = {},
 ) {
+  const analysis = options.analysis ?? disabledRuntime;
   const origin = options.origin ?? 'http://localhost:3000';
   const geocode = options.geocoder ?? createGeocoder({ url: options.geocodingUrl });
   if (options.production && !origin.startsWith('https://'))
@@ -416,19 +420,146 @@ export async function createApp(
     if (!result.rowCount) throw missing();
     return reply.code(204).send();
   });
-  app.post('/properties/:id/analyses', { preHandler: requireUser }, async (req, reply) => {
-    const id = idOf(req);
+  app.get('/analyses/config', { preHandler: requireUser }, async () => analysis.config);
+  app.post(
+    '/properties/:id/analyses',
+    { preHandler: requireUser, config: { rateLimit: { max: 6, timeWindow: '1 minute' } } },
+    async (req, reply) => {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        // Global cost limits and duplicate requests are serialized across API instances.
+        await client.query('SELECT pg_advisory_xact_lock(428716026)');
+        const p = (
+          await client.query('SELECT * FROM properties WHERE id=$1 AND owner_id=$2 FOR UPDATE', [
+            idOf(req),
+            req.user!.id,
+          ])
+        ).rows[0];
+        if (!p) throw missing();
+        const active = (
+          await client.query(
+            "SELECT * FROM analysis_jobs WHERE property_id=$1 AND status IN ('queued','running')",
+            [p.id],
+          )
+        ).rows[0];
+        if (active) {
+          await client.query('COMMIT');
+          return toAnalysis(active);
+        }
+        if (!analysis.config.enabled || !analysis.provider) {
+          const { rows } = await client.query(
+            "INSERT INTO analysis_jobs(id,property_id,status,reason) VALUES($1,$2,'blocked',$3) RETURNING *",
+            [randomUUID(), p.id, analysis.config.reason],
+          );
+          await client.query('COMMIT');
+          return reply.code(201).send(toAnalysis(rows[0]));
+        }
+        const { model } = z
+          .object({ model: z.string().max(80), consent: z.literal(true) })
+          .strict()
+          .parse(req.body);
+        if (!analysis.config.models.includes(model))
+          throw new HttpError(400, 'Dieses Modell ist nicht aktiviert.');
+        if (p.archived_at || p.data.isTestData)
+          throw new HttpError(409, 'Recherche ist nur für aktive, reale Immobilien verfügbar.');
+        const { rows: counts } = await client.query(
+          "SELECT count(*)::int AS global, count(*) FILTER (WHERE owner_id=$1)::int AS personal FROM analysis_requests WHERE requested_at>now()-interval '24 hours'",
+          [req.user!.id],
+        );
+        if (
+          counts[0].global >= analysis.globalDailyLimit ||
+          counts[0].personal >= analysis.userDailyLimit
+        )
+          throw new HttpError(429, 'Das Recherchelimit für die letzten 24 Stunden ist erreicht.');
+        const { rows } = await client.query(
+          "INSERT INTO analysis_jobs(id,property_id,status,input,model,provider) VALUES($1,$2,'queued',$3,$4,$5) RETURNING *",
+          [randomUUID(), p.id, analysisInput(p.data), model, analysis.provider.id],
+        );
+        await client.query('INSERT INTO analysis_requests(id,owner_id) VALUES($1,$2)', [
+          rows[0].id,
+          req.user!.id,
+        ]);
+        await client.query('COMMIT');
+        return reply.code(201).send(toAnalysis(rows[0]));
+      } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+      } finally {
+        client.release();
+      }
+    },
+  );
+  app.get('/analyses/:id', { preHandler: requireUser }, async (req) => {
     const { rows } = await pool.query(
-      "INSERT INTO analysis_jobs(id,property_id,status,reason) SELECT $1,p.id,'blocked',$2 FROM properties p WHERE p.id=$3 AND p.owner_id=$4 RETURNING *",
-      [
-        randomUUID(),
-        'Recherche wartet auf freigegebene Datenquellen und API-Zugänge. Es wurde keine Bewertung erstellt.',
-        id,
-        req.user!.id,
-      ],
+      'SELECT a.* FROM analysis_jobs a JOIN properties p ON p.id=a.property_id WHERE a.id=$1 AND p.owner_id=$2',
+      [idOf(req), req.user!.id],
     );
     if (!rows[0]) throw missing();
-    return reply.code(201).send(toAnalysis(rows[0]));
+    return toAnalysis(rows[0]);
+  });
+  app.post('/analyses/:id/cancel', { preHandler: requireUser }, async (req) => {
+    const { rows } = await pool.query(
+      "UPDATE analysis_jobs a SET status='cancelled',reason='Recherche abgebrochen. Bereits erfolgte API-Aufrufe können Kosten verursachen.',finished_at=now(),updated_at=now() FROM properties p WHERE p.id=a.property_id AND a.id=$1 AND p.owner_id=$2 AND a.status IN ('queued','running') RETURNING a.*",
+      [idOf(req), req.user!.id],
+    );
+    if (!rows[0]) {
+      const current = await pool.query(
+        'SELECT a.* FROM analysis_jobs a JOIN properties p ON p.id=a.property_id WHERE a.id=$1 AND p.owner_id=$2',
+        [idOf(req), req.user!.id],
+      );
+      if (!current.rows[0]) throw missing();
+      return toAnalysis(current.rows[0]);
+    }
+    return toAnalysis(rows[0]);
+  });
+  app.post('/analyses/:id/apply', { preHandler: requireUser }, async (req) => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Same lock order as edits/enqueue: property before job.
+      const owned = (
+        await client.query(
+          'SELECT p.* FROM properties p JOIN analysis_jobs a ON a.property_id=p.id WHERE a.id=$1 AND p.owner_id=$2 FOR UPDATE OF p',
+          [idOf(req), req.user!.id],
+        )
+      ).rows[0];
+      if (!owned) throw missing();
+      const job = (
+        await client.query('SELECT * FROM analysis_jobs WHERE id=$1 FOR UPDATE', [idOf(req)])
+      ).rows[0];
+      if (job.status !== 'succeeded' || !job.result)
+        throw new HttpError(409, 'Noch kein Ergebnis zum Übernehmen vorhanden.');
+      if (!job.applied_at) {
+        const r = job.result as AnalysisResult;
+        if (
+          owned.archived_at ||
+          JSON.stringify(analysisInput(owned.data)) !== JSON.stringify(analysisInput(job.input)) ||
+          r.currency !== owned.data.currency
+        )
+          throw new HttpError(
+            409,
+            'Objektangaben haben sich geändert. Bitte eine neue Recherche starten.',
+          );
+        await client.query(
+          "UPDATE properties SET data=jsonb_set(data,'{marketValue}',$2::jsonb),updated_at=now() WHERE id=$1",
+          [owned.id, JSON.stringify(r.mid)],
+        );
+        await client.query(
+          "INSERT INTO valuations(id,property_id,market_value,currency,origin,analysis_job_id) VALUES($1,$2,$3,$4,'analysis',$5)",
+          [randomUUID(), owned.id, r.mid, r.currency, job.id],
+        );
+        await client.query('UPDATE analysis_jobs SET applied_at=now() WHERE id=$1', [job.id]);
+      }
+      const { rows } = await client.query('SELECT * FROM analysis_jobs WHERE id=$1', [job.id]);
+      await client.query('COMMIT');
+      return toAnalysis(rows[0]);
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
   });
   return app;
 }

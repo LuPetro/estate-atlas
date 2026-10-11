@@ -176,7 +176,7 @@ test('keeps map selection usable when CARTO tiles fail and switches attribution 
   await expect(page.getByLabel('Breitengrad')).not.toHaveValue('');
   await expect(page.getByLabel('Längengrad')).not.toHaveValue('');
 });
-test('uploads a private photo and records a blocked analysis without inventing a result', async ({
+test('uploads a private photo, researches labeled fixtures and adopts a result', async ({
   page,
 }) => {
   await register(page);
@@ -191,8 +191,18 @@ test('uploads a private photo and records a blocked analysis without inventing a
     ),
   });
   await expect(page.getByRole('link', { name: 'private.png' })).toBeVisible();
-  await page.getByRole('button', { name: 'Analyseauftrag vorbereiten' }).click();
-  await expect(page.locator('.analysis-status')).toContainText('Wartet auf Datenquellen');
+  await page.getByLabel('Ich stimme zu').check();
+  await page.getByRole('button', { name: 'Marktpreis recherchieren' }).click();
+  await expect(page.getByRole('button', { name: 'Recherche abbrechen' })).toBeVisible();
+  await expect(page.locator('.ai-result')).toContainText('4 Vergleichsobjekte');
+  await page
+    .locator('.ai-panel')
+    .screenshot({ path: `work/qa/analysis-${test.info().project.name}.png` });
+  await page.getByText('Vergleichsobjekte & Quellen ansehen').click();
+  await expect(page.getByRole('link', { name: 'TESTDATEN Vergleich 1' })).toBeVisible();
+  await page.getByRole('button', { name: 'Geprüften Wert übernehmen' }).click();
+  await expect(page.getByRole('button', { name: 'Wert übernommen', exact: true })).toBeDisabled();
+  await expect(page.locator('.history')).toContainText('KI-Recherche · von dir übernommen');
   const assetUrl = await page.getByRole('link', { name: 'private.png' }).getAttribute('href');
   const anonymous = await page.context().browser()!.newContext();
   expect((await anonymous.request.get(assetUrl!)).status()).toBe(401);
@@ -313,4 +323,33 @@ test('allows choosing a map position when the provider is unavailable or has no 
   await page.getByRole('button', { name: 'Immobilie speichern' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('.property-card').filter({ hasText: 'Pin Testobjekt' })).toBeVisible();
+});
+
+test('shows disabled setup without research or fabricated results', async ({ page }) => {
+  await page.route('**/analyses/config', (route) =>
+    route.fulfill({
+      json: {
+        enabled: false,
+        reason: 'TESTDATEN: OpenAI-Key und Freigabe fehlen.',
+        models: ['gpt-6-luna'],
+        defaultModel: 'gpt-6-luna',
+      },
+    }),
+  );
+  await register(page);
+  await create(page);
+  await page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }).click();
+  await expect(page.getByRole('button', { name: 'Marktpreis recherchieren' })).toBeDisabled();
+  await expect(page.locator('.ai-panel')).toContainText('OpenAI-Key und Freigabe fehlen');
+  await expect(page.locator('.ai-result')).toHaveCount(0);
+});
+test('can cancel research while it is running', async ({ page }) => {
+  await register(page);
+  await create(page);
+  await page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }).click();
+  await page.getByLabel('Ich stimme zu').check();
+  await page.getByRole('button', { name: 'Marktpreis recherchieren' }).click();
+  await page.getByRole('button', { name: 'Recherche abbrechen' }).click();
+  await expect(page.locator('.analysis-status')).toContainText('Recherche abgebrochen');
+  await expect(page.locator('.ai-result')).toHaveCount(0);
 });

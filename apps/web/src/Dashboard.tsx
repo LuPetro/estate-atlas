@@ -46,6 +46,7 @@ import {
   type User,
 } from '@estate-atlas/shared';
 import PropertyEditor from './PropertyEditor';
+import AnalysisPanel from './AnalysisPanel';
 const PropertyMap = dynamic(() => import('./Map'), {
   ssr: false,
   loading: () => <div className="map-loading">Karte wird geladen …</div>,
@@ -424,10 +425,9 @@ export default function Dashboard() {
                   <div className="research-note">
                     <Sparkles size={18} />
                     <div>
-                      <strong>KI-Recherche vorbereiten</strong>
+                      <strong>KI-Marktpreis recherchieren</strong>
                       <p>
-                        Datenquellen noch nicht freigegeben. Analysen erstellen keine erfundenen
-                        Marktwerte.
+                        Vergleichsangebote, nachvollziehbare Preisspannen und Quellen direkt bei deiner Immobilie.
                       </p>
                     </div>
                   </div>
@@ -898,14 +898,16 @@ function Detail({
           {p.notes && <p className="detail-notes">{p.notes}</p>}
           <h3>Erfasste Wertentwicklung</h3>
           <p className="muted">
-            Datierte Angaben von dir. Währungsänderungen werden getrennt ausgewiesen.
+            Eigene Angaben und übernommene Recherchewerte. Währungen werden getrennt ausgewiesen.
           </p>
           <div className="history">
             {p.valuations.map((v) => (
               <div key={v.id}>
                 <span>{new Date(v.recordedAt).toLocaleString('de-AT')}</span>
                 <strong>{formatMoney(v.marketValue, v.currency)}</strong>
-                <span>Eigene Angabe</span>
+                <span>
+                  {v.origin === 'analysis' ? 'KI-Recherche · von dir übernommen' : 'Eigene Angabe'}
+                </span>
               </div>
             ))}
           </div>
@@ -953,29 +955,7 @@ function Detail({
               </div>
             ))}
           </div>
-          <div className="analysis-box">
-            <Sparkles size={22} />
-            <div>
-              <h3>KI-Marktpreisanalyse</h3>
-              <p>
-                Recherche wartet auf freigegebene Datenquellen. Ein Auftrag wird als blockiert
-                gespeichert und liefert keine Bewertung.
-              </p>
-              {p.analyses.slice(0, 1).map((a) => (
-                <p key={a.id} className="analysis-status">
-                  Status: {a.status === 'blocked' ? 'Wartet auf Datenquellen' : a.status} ·{' '}
-                  {new Date(a.requestedAt).toLocaleString('de-AT')}
-                </p>
-              ))}
-              <button
-                className="text-button"
-                disabled={uploading}
-                onClick={() => task(() => api.analyse(p.id))}
-              >
-                Analyseauftrag vorbereiten <ArrowRight size={15} />
-              </button>
-            </div>
-          </div>
+          <AnalysisPanel key={p.id} property={p} api={api} onApplied={onRefresh} />
           {error && (
             <p role="alert" className="error">
               {error}

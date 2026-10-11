@@ -32,7 +32,7 @@ Native detail maps use Apple Maps on iOS with `mutedStandard`, and Google Maps o
 
 ## Analysis extension
 
-Analysis jobs will be persisted with owner/property, requested_at, status (blocked/queued/running/succeeded/failed), provider, errors and result JSON. Result validation includes comparable properties, dated real source URLs, evidence, uncertainty and justified ranges. Until approved APIs are configured, requests remain explicitly blocked with no fabricated valuation. Later add a PostgreSQL-backed worker (SKIP LOCKED, retries, idempotency), cancellation and freshness policies; no Redis requirement initially.
+Analysis jobs are persisted with a minimal property snapshot, owner-scoped access, model/provider, real phases, reason, result and usage. A Docker worker claims jobs with PostgreSQL SKIP LOCKED, heartbeats and a three-minute timeout. Interrupted paid requests fail rather than automatically retrying. Only explicitly consented user requests enter the queue; global/personal rolling daily reservations survive property deletion. OpenAI Responses performs web research and separate strict extraction with bounded tool calls/output and store:false. The ResearchProvider interface separates providers from queue/business logic. Shared rules calculate comparison medians/ranges; neither API nor model overwrites a property value automatically. Adoption is owner-checked, transactional and idempotent, and rejects changed attributes/currency. Clients share configuration, phase/result contracts and HTTP methods. See docs/ai-research.md for exact activation, limits and evidence caveats. Live OpenAI quality/account access remains unverified until cost approval and a key are available.
 
 ## Environment and verification
 

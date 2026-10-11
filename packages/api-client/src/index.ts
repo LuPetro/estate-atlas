@@ -1,3 +1,4 @@
+import type { AnalysisConfig } from '@estate-atlas/shared/analysis';
 import type {
   Property,
   PropertyInput,
@@ -109,7 +110,22 @@ export class ApiClient {
   assetUrl(id: string) {
     return `${this.baseUrl}/assets/${id}`;
   }
-  analyse(id: string) {
-    return this.request<AnalysisJob>(`/properties/${id}/analyses`, { method: 'POST' });
+  analyse(id: string, input?: { model: string; consent: true }) {
+    return this.request<AnalysisJob>(`/properties/${id}/analyses`, {
+      method: 'POST',
+      body: input ? JSON.stringify(input) : undefined,
+    });
+  }
+  analysisConfig() {
+    return this.request<AnalysisConfig>('/analyses/config');
+  }
+  analysis(id: string, signal?: AbortSignal) {
+    return this.request<AnalysisJob>(`/analyses/${id}`, { signal });
+  }
+  cancelAnalysis(id: string) {
+    return this.request<AnalysisJob>(`/analyses/${id}/cancel`, { method: 'POST' });
+  }
+  applyAnalysis(id: string) {
+    return this.request<AnalysisJob>(`/analyses/${id}/apply`, { method: 'POST' });
   }
 }

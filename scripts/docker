@@ -6,4 +6,34 @@ export DOCKER_CONFIG="$TASK_ROOT/.local/docker/cli"
 export COMPOSE_PARALLEL_LIMIT=1
 node "$TASK_ROOT/scripts/docker-init.mjs"
 cd "$TASK_ROOT"
-exec docker compose --project-directory "$TASK_ROOT" --env-file "$TASK_ROOT/.local/docker/compose.env" -f "$TASK_ROOT/compose.yaml" "$@"
+TASK_COMPOSE=(docker compose --project-directory "$TASK_ROOT" --env-file "$TASK_ROOT/.local/docker/compose.env" -f "$TASK_ROOT/compose.yaml")
+# BuildKit can build multiple images in parallel even with Compose concurrency=1.
+# Serialize our two image targets on this 1.8 GB VPS. Other commands pass through.
+if [[ "${1:-}" == build ]]; then
+  shift
+  TASK_FLAGS=()
+  TASK_TARGETS=()
+  for TASK_ARG in "$@"; do
+    case "$TASK_ARG" in
+      api|web) TASK_TARGETS+=("$TASK_ARG") ;;
+      *) TASK_FLAGS+=("$TASK_ARG") ;;
+    esac
+  done
+  if (( ${#TASK_TARGETS[@]} == 0 )); then TASK_TARGETS=(api web); fi
+  for TASK_TARGET in "${TASK_TARGETS[@]}"; do
+    "${TASK_COMPOSE[@]}" build "${TASK_FLAGS[@]}" "$TASK_TARGET"
+  done
+  exit 0
+fi
+if [[ "${1:-}" == up ]]; then
+  TASK_UP_ARGS=()
+  TASK_BUILD=false
+  for TASK_ARG in "$@"; do
+    if [[ "$TASK_ARG" == --build ]]; then TASK_BUILD=true; else TASK_UP_ARGS+=("$TASK_ARG"); fi
+  done
+  if [[ "$TASK_BUILD" == true ]]; then
+    "$TASK_ROOT/scripts/docker" build api web
+    exec "${TASK_COMPOSE[@]}" "${TASK_UP_ARGS[@]}"
+  fi
+fi
+exec "${TASK_COMPOSE[@]}" "$@"
