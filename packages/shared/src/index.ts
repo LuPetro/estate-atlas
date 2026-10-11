@@ -11,6 +11,9 @@ export const propertyTypeLabels: Record<PropertyType, string> = {
   land: 'Grundstück',
 };
 export const conditionLabels = { new: 'Neuwertig', good: 'Gut', renovation: 'Sanierungsbedarf' };
+export { rentalSchema, rentalSummary } from './rental';
+export { valuationSeries, valuationChart } from './valuation';
+import { rentalSchema } from './rental';
 const money = z
   .number()
   .finite()
@@ -47,6 +50,7 @@ export const propertyInputSchema = z
     amenities: z.array(z.string().trim().min(1).max(80)).max(30).default([]),
     condition: z.enum(conditions).default('good'),
     notes: z.string().trim().max(5000).default(''),
+    rental: rentalSchema.nullable().default(null),
     isTestData: z.boolean().default(false),
   })
   .strict()
@@ -188,6 +192,7 @@ export const sampleProperties: PropertyInput[] = [
     condition: 'good',
     notes: 'TESTDATEN – keine reale Immobilie, keine Marktanalyse.',
     isTestData: true,
+    rental: null,
   },
   {
     title: 'Gartenhaus · Berlin',
@@ -205,6 +210,7 @@ export const sampleProperties: PropertyInput[] = [
     condition: 'new',
     notes: 'TESTDATEN – alle Werte sind synthetisch.',
     isTestData: true,
+    rental: null,
   },
   {
     title: 'Apartment · Barcelona',
@@ -222,6 +228,7 @@ export const sampleProperties: PropertyInput[] = [
     condition: 'good',
     notes: 'TESTDATEN – keine reale Adresse.',
     isTestData: true,
+    rental: null,
   },
   {
     title: 'Loft · New York',
@@ -239,5 +246,6 @@ export const sampleProperties: PropertyInput[] = [
     condition: 'good',
     notes: 'TESTDATEN – Werte nicht mit EUR zusammenrechnen.',
     isTestData: true,
+    rental: null,
   },
 ];

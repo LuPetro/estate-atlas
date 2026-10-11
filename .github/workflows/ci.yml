@@ -8,6 +8,7 @@ jobs:
     timeout-minutes: 20
     env:
       EXPO_NO_TELEMETRY: '1'
+      EXPO_UNSTABLE_HEADLESS: '1'
       NEXT_TELEMETRY_DISABLED: '1'
       NODE_OPTIONS: --max-old-space-size=640
     steps:
@@ -18,10 +19,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
-      - run: pnpm mobile:export
-      - run: pnpm exec playwright install chromium
-      - run: pnpm test:e2e
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check all workspace types
+        run: pnpm typecheck
+      - name: Test business rules and real PostgreSQL API
+        run: pnpm test
+      - name: Build API and production web app
+        run: pnpm build
+      - name: Export native Android and iOS JavaScript
+        run: pnpm mobile:export
+      - name: Install Chromium with runner dependencies
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Test desktop and mobile browser flows
+        run: pnpm test:e2e

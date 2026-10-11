@@ -79,6 +79,7 @@ test('registers, creates, edits, persists, archives, restores and deletes a prop
   await expect(
     page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }),
   ).toHaveCount(0);
+  await verifyRentalHistory(page);
 });
 test('labeled fixtures, filters, all views and interactive map use the same portfolio', async ({
   page,
@@ -149,6 +150,62 @@ test('labeled fixtures, filters, all views and interactive map use the same port
   await page.locator('.map-popup').click();
   await expect(page.getByRole('heading', { name: 'Stadtwohnung · Wien' })).toBeVisible();
 });
+
+// Extend the same isolated owner's CRUD flow instead of consuming another
+// registration allowance. Production anti-abuse limits stay enabled in E2E.
+async function verifyRentalHistory(page: Page) {
+  await create(page);
+  const card = page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' });
+  await expect(card).toContainText('Vermietung nicht angegeben');
+  await card.click();
+  const history = page.getByRole('region', { name: 'Wertentwicklung', exact: true });
+  await expect(history).toContainText('Ein erster Wert – noch kein Trend');
+  await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
+  await page.getByLabel('Vermietungsstatus', { exact: true }).selectOption('rented');
+  await page.getByLabel('Mietbeginn', { exact: true }).fill('2020-01-01');
+  await page.getByLabel('Unbefristet', { exact: true }).uncheck();
+  await page.getByLabel('Mietende', { exact: true }).fill('2019-01-01');
+  await page.getByRole('button', { name: 'Immobilie speichern' }).click();
+  await expect(page.getByRole('dialog').getByRole('alert')).toContainText(
+    'Mietende darf nicht vor',
+  );
+  await page.getByLabel('Mietende', { exact: true }).fill('2099-12-31');
+  await page.getByLabel('Marktwert (eigene Schätzung)').fill('310000');
+  await page.getByRole('button', { name: 'Immobilie speichern' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.reload();
+  await expect(card).toContainText('Vermietet');
+  await expect(card).toContainText('31.12.2099');
+  await card.click();
+  await expect(history).toContainText('30.000');
+  await expect(history).toContainText('10,7 %');
+  await expect(history.getByRole('img')).toHaveAttribute(
+    'aria-label',
+    /2 gespeicherte Wertangaben/,
+  );
+  await history.getByLabel('Wertangabe auswählen').fill('0');
+  await expect(history.locator('.chart-selection')).toContainText('280.000');
+  await history.getByRole('button', { name: '30 Tage', exact: true }).click();
+  await expect(history.getByRole('button', { name: '30 Tage', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await history.getByText('Alle Wertangaben ansehen').click();
+  await expect(history.locator('.history>div')).toHaveCount(2);
+  await history.screenshot({ path: `work/qa/rental-history-${test.info().project.name}.png` });
+  await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
+  await page.getByLabel('Währung', { exact: true }).selectOption('USD');
+  await page.getByLabel('Unbefristet', { exact: true }).check();
+  await page.getByRole('button', { name: 'Immobilie speichern' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await card.click();
+  await expect(page.getByRole('dialog')).toContainText('unbefristet');
+  await expect(history).toContainText('Ein erster Wert – noch kein Trend');
+  await history.getByLabel('Währung der Wertentwicklung').selectOption('EUR');
+  await expect(history).toContainText('30.000');
+  await expect(history.getByRole('img')).toHaveAttribute('aria-label', /in EUR, 2 gespeicherte/);
+  await page.getByRole('button', { name: 'Schließen', exact: true }).click();
+}
 
 test('keeps map selection usable when CARTO tiles fail and switches attribution to OSM', async ({
   page,

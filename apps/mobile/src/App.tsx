@@ -34,6 +34,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ApiClient, ApiError } from '@estate-atlas/api-client';
 import AddressPicker from './AddressPicker';
 import AnalysisPanel from './AnalysisPanel';
+import ValueHistory from './ValueHistory';
 import { mapTheme } from './mapTheme';
 import SimpleMap, { MapModeControl } from './SimpleMap';
 import {
@@ -47,6 +48,7 @@ import {
   currencies,
   conditions,
   conditionLabels,
+  rentalSummary,
   type Property,
   type PropertyInput,
   type PropertyDetail,
@@ -383,6 +385,10 @@ function PropertyCard({ property: p, onPress }: { property: Property; onPress: (
       </View>
       <Text style={styles.cardTitle}>{p.title}</Text>
       <Text style={styles.subtitle}>{p.address}</Text>
+      <Text style={styles.subtitle}>
+        {rentalSummary(p.rental).label}
+        {rentalSummary(p.rental).period ? ` · ${rentalSummary(p.rental).period}` : ''}
+      </Text>
       <View style={styles.cardBottom}>
         <Text style={styles.cardValue}>{formatMoney(p.marketValue, p.currency)}</Text>
         <Text style={styles.footnote}>{p.area} m² · Eigene Angabe</Text>
@@ -811,22 +817,17 @@ function Detail({ route, navigation }: NativeStackScreenProps<Stack, 'Detail'>) 
         Ausstattung: {p.amenities.join(', ') || 'Nicht angegeben'}
       </Text>
       {!!p.notes && <Text style={styles.research}>{p.notes}</Text>}
+      <View style={styles.historyRow}>
+        <Text style={styles.label}>Vermietung</Text>
+        <Text style={styles.detailText}>{rentalSummary(p.rental).label}</Text>
+        {rentalSummary(p.rental).period && (
+          <Text style={styles.subtitle}>{rentalSummary(p.rental).period}</Text>
+        )}
+      </View>
       <Button onPress={() => navigation.navigate('Editor', { property: p })}>
         Immobilie bearbeiten
       </Button>
-      <Text style={styles.sectionTitle}>Erfasste Wertentwicklung</Text>
-      <Text style={styles.footnote}>
-        Eigene Angaben und übernommene Recherchewerte. Währungen bleiben getrennt.
-      </Text>
-      {p.valuations.map((v) => (
-        <View key={v.id} style={styles.historyRow}>
-          <Text style={styles.footnote}>
-            {new Date(v.recordedAt).toLocaleString('de-AT')}
-            {v.origin === 'analysis' ? ' · KI-Recherche übernommen' : ' · Eigene Angabe'}
-          </Text>
-          <Text style={styles.gain}>{formatMoney(v.marketValue, v.currency)}</Text>
-        </View>
-      ))}
+      <ValueHistory key={`${p.id}-${p.currency}`} values={p.valuations} currency={p.currency} />
       <Text style={styles.sectionTitle}>Fotos & Dokumente</Text>
       <Text style={styles.footnote}>Privat · JPEG/PNG/WebP/PDF · bis 10 MB</Text>
       <View style={styles.twoButtons}>
@@ -934,6 +935,12 @@ function Editor({ route, navigation }: NativeStackScreenProps<Stack, 'Editor'>) 
   const [type, setType] = useState(p?.type ?? 'apartment');
   const [currency, setCurrency] = useState(p?.currency ?? 'EUR');
   const [condition, setCondition] = useState(p?.condition ?? 'good');
+  const [rentalStatus, setRentalStatus] = useState<'unknown' | 'vacant' | 'rented'>(
+    p?.rental?.status ?? 'unknown',
+  );
+  const [rentalStart, setRentalStart] = useState(p?.rental?.start ?? '');
+  const [rentalEnd, setRentalEnd] = useState(p?.rental?.end ?? '');
+  const [unlimited, setUnlimited] = useState(!p?.rental?.end);
   const latitude = Number(values.latitude.replace(',', '.'));
   const longitude = Number(values.longitude.replace(',', '.'));
   const position =
@@ -974,6 +981,12 @@ function Editor({ route, navigation }: NativeStackScreenProps<Stack, 'Editor'>) 
       currency,
       condition,
       isTestData: p?.isTestData ?? false,
+      rental:
+        rentalStatus === 'unknown'
+          ? null
+          : rentalStatus === 'vacant'
+            ? { status: 'vacant', start: null, end: null }
+            : { status: 'rented', start: rentalStart, end: unlimited ? null : rentalEnd },
     });
     if (!input.success) {
       setError(input.error.issues[0].message);
@@ -1068,6 +1081,42 @@ function Editor({ route, navigation }: NativeStackScreenProps<Stack, 'Editor'>) 
           onChange={setCondition}
           labels={conditionLabels}
         />
+        <Choices
+          label="Vermietungsstatus"
+          values={['unknown', 'vacant', 'rented'] as const}
+          value={rentalStatus}
+          onChange={setRentalStatus}
+          labels={{ unknown: 'Nicht angegeben', vacant: 'Nicht vermietet', rented: 'Vermietet' }}
+        />
+        {rentalStatus === 'rented' && (
+          <>
+            <Field
+              label="Mietbeginn (JJJJ-MM-TT)"
+              value={rentalStart}
+              onChange={setRentalStart}
+              number
+            />
+            <Choices
+              label="Mietdauer"
+              values={['unlimited', 'fixed'] as const}
+              value={unlimited ? 'unlimited' : 'fixed'}
+              onChange={(v) => setUnlimited(v === 'unlimited')}
+              labels={{ unlimited: 'Unbefristet', fixed: 'Befristet' }}
+            />
+            {!unlimited && (
+              <Field
+                label="Mietende (JJJJ-MM-TT)"
+                value={rentalEnd}
+                onChange={setRentalEnd}
+                number
+              />
+            )}
+            <Text style={styles.footnote}>
+              Datum z. B. 2026-10-11. Zukünftige und abgelaufene Mietzeiträume werden entsprechend
+              gekennzeichnet.
+            </Text>
+          </>
+        )}
         <ErrorText error={error} />
         <Button disabled={busy} onPress={submit}>
           {busy ? 'Wird gespeichert …' : 'Immobilie speichern'}

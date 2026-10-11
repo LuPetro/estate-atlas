@@ -1603,6 +1603,172 @@ dd {
   font-size: 14px;
   margin: 24px 0 9px;
 }
+.rental-editor {
+  margin: 4px 0;
+  padding: 20px;
+  border: 1px solid #dce5d7;
+  border-radius: 16px;
+  background: #f6f9f5;
+  min-width: 0;
+}
+.rental-editor legend {
+  font-weight: 650;
+  color: #315443;
+  padding: 0 6px;
+}
+.rental-dates {
+  margin-top: 16px;
+}
+.rental-unlimited {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+}
+.rental-unlimited input {
+  width: 18px;
+  height: 18px;
+  accent-color: #26715b;
+}
+.rental-badge {
+  color: #4a715e;
+  font-size: 12px;
+  margin: 12px 0;
+}
+.rental-badge small,
+.rental-period {
+  display: block;
+  color: #738779;
+  margin-top: 4px;
+}
+.value-history {
+  background: #f6f9f5;
+  padding: 22px;
+  border: 1px solid #e0e9dd;
+  border-radius: 18px;
+  margin: 24px 0;
+  min-width: 0;
+}
+.value-history-heading,
+.history-summary,
+.chart-dates,
+.history-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.value-history-heading {
+  align-items: center;
+}
+.value-history-heading .eyebrow {
+  font-size: 9px;
+}
+.value-history-heading h3 {
+  margin: 4px 0 0;
+}
+.value-history-heading select {
+  width: auto;
+}
+.history-periods {
+  display: flex;
+  gap: 6px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+.history-periods button {
+  padding: 9px 14px;
+  background: transparent;
+  border: 1px solid #dce5d7;
+  border-radius: 100px;
+  color: #5c7968;
+  font-size: 12px;
+}
+.history-periods button[aria-pressed='true'] {
+  color: #fff;
+  background: #26715b;
+  border-color: #26715b;
+}
+.history-summary {
+  flex-direction: column;
+  margin-bottom: 20px;
+  gap: 7px;
+}
+.history-summary strong {
+  font-size: 28px;
+  color: #254e3e;
+  letter-spacing: -1px;
+}
+.history-summary span {
+  color: #26715b;
+  font-size: 12px;
+}
+.history-summary .negative {
+  color: #a65148;
+}
+.history-axis,
+.chart-dates {
+  font-size: 10px;
+  color: #6f8275;
+}
+.value-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 8px 0;
+  overflow: visible;
+}
+.chart-grid {
+  stroke: #dce7dc;
+  stroke-width: 1;
+  stroke-dasharray: 4 6;
+}
+.chart-line {
+  stroke: #26715b;
+  stroke-width: 3;
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.chart-point {
+  fill: #26715b;
+  stroke: #f6f9f5;
+  stroke-width: 3;
+  cursor: pointer;
+}
+.chart-slider {
+  width: 100%;
+  accent-color: #26715b;
+  margin: 14px 0 4px;
+  padding: 0;
+}
+.chart-selection {
+  font-size: 11px;
+  line-height: 1.6;
+  color: #597365;
+  margin: 12px 0;
+}
+.history-records summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: #315443;
+  padding-top: 10px;
+}
+.history-empty {
+  padding: 26px 0;
+  font-size: 13px;
+  color: #738779;
+}
+@media (max-width: 600px) {
+  .value-history {
+    padding: 16px;
+  }
+  .value-history-heading .eyebrow {
+    letter-spacing: 1px;
+  }
+  .history-summary strong {
+    font-size: 25px;
+  }
+}
 .history {
   border: 1px solid #e6ebe0;
   border-radius: 6px;

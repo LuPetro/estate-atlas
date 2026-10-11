@@ -28,6 +28,8 @@ export default function PropertyEditor({
   const [country, setCountry] = useState(property?.country ?? 'AT');
   const [latitude, setLatitude] = useState(property ? String(property.latitude) : '');
   const [longitude, setLongitude] = useState(property ? String(property.longitude) : '');
+  const [rentalStatus, setRentalStatus] = useState(property?.rental?.status ?? 'unknown');
+  const [unlimited, setUnlimited] = useState(!property?.rental?.end);
   const validPosition =
     latitude.trim() &&
     longitude.trim() &&
@@ -61,6 +63,16 @@ export default function PropertyEditor({
       condition: data.get('condition'),
       notes: data.get('notes'),
       isTestData: property?.isTestData ?? false,
+      rental:
+        rentalStatus === 'unknown'
+          ? null
+          : rentalStatus === 'vacant'
+            ? { status: 'vacant', start: null, end: null }
+            : {
+                status: 'rented',
+                start: data.get('rentalStart'),
+                end: unlimited ? null : data.get('rentalEnd'),
+              },
     });
     if (!parsed.success) {
       setError(parsed.error.issues[0].message);
@@ -134,7 +146,11 @@ export default function PropertyEditor({
             </label>
             <label>
               Immobilienart
-              <select name="type" defaultValue={property?.type ?? 'apartment'}>
+              <select
+                aria-label="Immobilienart"
+                name="type"
+                defaultValue={property?.type ?? 'apartment'}
+              >
                 {propertyTypes.map((t) => (
                   <option key={t} value={t}>
                     {propertyTypeLabels[t]}
@@ -222,7 +238,11 @@ export default function PropertyEditor({
             </label>
             <label>
               Währung
-              <select name="currency" defaultValue={property?.currency ?? 'EUR'}>
+              <select
+                aria-label="Währung"
+                name="currency"
+                defaultValue={property?.currency ?? 'EUR'}
+              >
                 {currencies.map((c) => (
                   <option key={c}>{c}</option>
                 ))}
@@ -252,7 +272,11 @@ export default function PropertyEditor({
             </label>
             <label>
               Zustand
-              <select name="condition" defaultValue={property?.condition ?? 'good'}>
+              <select
+                aria-label="Zustand"
+                name="condition"
+                defaultValue={property?.condition ?? 'good'}
+              >
                 {conditions.map((c) => (
                   <option key={c} value={c}>
                     {conditionLabels[c]}
@@ -269,6 +293,56 @@ export default function PropertyEditor({
                 placeholder="Balkon, Aufzug, Garage"
               />
             </label>
+            <fieldset className="full rental-editor">
+              <legend>Vermietung</legend>
+              <label>
+                Vermietungsstatus
+                <select
+                  aria-label="Vermietungsstatus"
+                  value={rentalStatus}
+                  onChange={(e) => setRentalStatus(e.target.value as typeof rentalStatus)}
+                >
+                  <option value="unknown">Nicht angegeben</option>
+                  <option value="vacant">Nicht vermietet</option>
+                  <option value="rented">Vermietet</option>
+                </select>
+              </label>
+              {rentalStatus === 'rented' && (
+                <div className="form-grid rental-dates">
+                  <label>
+                    Mietbeginn
+                    <input
+                      type="date"
+                      name="rentalStart"
+                      required
+                      defaultValue={property?.rental?.start ?? ''}
+                    />
+                  </label>
+                  {!unlimited && (
+                    <label>
+                      Mietende
+                      <input
+                        type="date"
+                        name="rentalEnd"
+                        required
+                        defaultValue={property?.rental?.end ?? ''}
+                      />
+                    </label>
+                  )}
+                  <label className="full rental-unlimited">
+                    <input
+                      type="checkbox"
+                      checked={unlimited}
+                      onChange={(e) => setUnlimited(e.target.checked)}
+                    />
+                    Unbefristet
+                  </label>
+                  <p className="form-hint full">
+                    Zukünftige und abgelaufene Mietzeiträume werden entsprechend gekennzeichnet.
+                  </p>
+                </div>
+              )}
+            </fieldset>
             <label className="full">
               Notizen
               <textarea name="notes" maxLength={5000} defaultValue={property?.notes} rows={3} />

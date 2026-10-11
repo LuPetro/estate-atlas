@@ -276,6 +276,51 @@ describe('real PostgreSQL persistence, authentication and resource authorization
         })
       ).statusCode,
     ).toBe(400));
+  it('persists rental periods, protects ownership and never creates a valuation for rental-only edits', async () => {
+    const before = (await app.inject({ url: `/properties/${propertyId}`, headers: owner })).json();
+    const rental = { status: 'rented', start: '2026-10-01', end: '2027-09-30' };
+    const saved = await app.inject({
+      method: 'PUT',
+      url: `/properties/${propertyId}`,
+      headers: owner,
+      payload: { ...sampleProperties[0], rental },
+    });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().rental).toEqual(rental);
+    const detail = (await app.inject({ url: `/properties/${propertyId}`, headers: owner })).json();
+    expect(detail.rental).toEqual(rental);
+    expect(detail.valuations).toEqual(before.valuations);
+    expect(
+      (
+        await app.inject({
+          method: 'PUT',
+          url: `/properties/${propertyId}`,
+          headers: other,
+          payload: { ...sampleProperties[0], rental: null },
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await app.inject({
+          method: 'PUT',
+          url: `/properties/${propertyId}`,
+          headers: owner,
+          payload: { ...sampleProperties[0], rental: { ...rental, end: '2026-09-01' } },
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(
+      (await app.inject({ url: '/properties', headers: owner }))
+        .json()
+        .find((p: { id: string }) => p.id === propertyId).rental,
+    ).toEqual(rental);
+    // Simulate a pre-feature stored row in this isolated test database.
+    await pool.query("UPDATE properties SET data=data-'rental' WHERE id=$1", [propertyId]);
+    expect(
+      (await app.inject({ url: `/properties/${propertyId}`, headers: owner })).json().rental,
+    ).toBeNull();
+  });
   it('keeps other portfolios empty', async () =>
     expect((await app.inject({ url: '/properties', headers: other })).json()).toEqual([]));
   it.each(['GET', 'PUT', 'PATCH', 'DELETE', 'POST'] as const)(

@@ -40,6 +40,7 @@ import {
   propertyTypeLabels,
   propertyTypes,
   conditionLabels,
+  rentalSummary,
   type Property,
   type PropertyDetail,
   type Currency,
@@ -47,6 +48,7 @@ import {
 } from '@estate-atlas/shared';
 import PropertyEditor from './PropertyEditor';
 import AnalysisPanel from './AnalysisPanel';
+import ValueHistory from './ValueHistory';
 const PropertyMap = dynamic(() => import('./Map'), {
   ssr: false,
   loading: () => <div className="map-loading">Karte wird geladen …</div>,
@@ -427,7 +429,8 @@ export default function Dashboard() {
                     <div>
                       <strong>KI-Marktpreis recherchieren</strong>
                       <p>
-                        Vergleichsangebote, nachvollziehbare Preisspannen und Quellen direkt bei deiner Immobilie.
+                        Vergleichsangebote, nachvollziehbare Preisspannen und Quellen direkt bei
+                        deiner Immobilie.
                       </p>
                     </div>
                   </div>
@@ -556,6 +559,7 @@ export default function Dashboard() {
                       <th>Fläche</th>
                       <th>Kaufpreis</th>
                       <th>Marktwert¹</th>
+                      <th>Vermietung</th>
                       <th />
                     </tr>
                   </thead>
@@ -574,6 +578,10 @@ export default function Dashboard() {
                         <td>{p.area} m²</td>
                         <td>{formatMoney(p.purchasePrice, p.currency)}</td>
                         <td>{formatMoney(p.marketValue, p.currency)}</td>
+                        <td>
+                          {rentalSummary(p.rental).label}
+                          <small>{rentalSummary(p.rental).period}</small>
+                        </td>
                         <td>
                           <button
                             aria-label={`${p.title} öffnen`}
@@ -609,6 +617,12 @@ export default function Dashboard() {
                         <span>{p.area} m²</span>
                         <span>{p.yearBuilt ?? 'Baujahr offen'}</span>
                         <span>{conditionLabels[p.condition]}</span>
+                      </div>
+                      <div className="rental-badge">
+                        {rentalSummary(p.rental).label}
+                        {rentalSummary(p.rental).period && (
+                          <small>{rentalSummary(p.rental).period}</small>
+                        )}
                       </div>
                       <div className="property-price">
                         <strong>{formatMoney(p.marketValue, p.currency)}</strong>
@@ -884,6 +898,13 @@ function Detail({
             </div>
           </div>
           <dl>
+            <dt>Vermietung</dt>
+            <dd>
+              {rentalSummary(p.rental).label}
+              {rentalSummary(p.rental).period && (
+                <small className="rental-period">{rentalSummary(p.rental).period}</small>
+              )}
+            </dd>
             <dt>Zustand</dt>
             <dd>{conditionLabels[p.condition]}</dd>
             <dt>Baujahr</dt>
@@ -896,21 +917,7 @@ function Detail({
             <dd>{p.amenities.join(', ') || 'Nicht angegeben'}</dd>
           </dl>
           {p.notes && <p className="detail-notes">{p.notes}</p>}
-          <h3>Erfasste Wertentwicklung</h3>
-          <p className="muted">
-            Eigene Angaben und übernommene Recherchewerte. Währungen werden getrennt ausgewiesen.
-          </p>
-          <div className="history">
-            {p.valuations.map((v) => (
-              <div key={v.id}>
-                <span>{new Date(v.recordedAt).toLocaleString('de-AT')}</span>
-                <strong>{formatMoney(v.marketValue, v.currency)}</strong>
-                <span>
-                  {v.origin === 'analysis' ? 'KI-Recherche · von dir übernommen' : 'Eigene Angabe'}
-                </span>
-              </div>
-            ))}
-          </div>
+          <ValueHistory key={`${p.id}-${p.currency}`} values={p.valuations} currency={p.currency} />
           <div className="detail-subheading">
             <h3>Fotos & Dokumente</h3>
             <label className="button secondary upload-button">

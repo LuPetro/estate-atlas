@@ -36,6 +36,7 @@ const iso = (v: Date | string) => (v instanceof Date ? v.toISOString() : v);
 export function toProperty(row: Record<string, any>): Property {
   return {
     ...row.data,
+    rental: row.data.rental ?? null,
     id: row.id,
     ownerId: row.owner_id,
     archivedAt: row.archived_at ? iso(row.archived_at) : null,
