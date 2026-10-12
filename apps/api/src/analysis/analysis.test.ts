@@ -13,6 +13,13 @@ import type { AnalysisRuntime } from './provider';
 import { AnalysisRunner } from './runner';
 import { reprocessAnalysis } from './reprocess';
 let pool: pg.Pool, server: EmbeddedPostgres, app: FastifyInstance;
+let stopping = false;
+const testDatabaseError = (error: Error & { code?: string }) => {
+  if (stopping && error.code === '57P01') return;
+  // Never let Vitest serialize an idle pg Client containing temporary credentials.
+  throw new Error(`Isolated test database error: ${error.code ?? 'UNKNOWN'}`);
+};
+
 let owner: { authorization: string }, other: { authorization: string };
 const runtime: AnalysisRuntime = {
   config: {
@@ -45,6 +52,8 @@ beforeAll(async () => {
   await server.start();
   await server.createDatabase('analysis_test');
   pool = database(`postgresql://analysis_test:${password}@127.0.0.1:55436/analysis_test`);
+  pool.on('error', testDatabaseError);
+  pool.on('connect', (client) => client.on('error', testDatabaseError));
   await migrate(pool);
   await migrate(pool);
   app = await createApp(pool, { analysis: runtime });
@@ -76,6 +85,7 @@ beforeEach(async () => {
   app = await createApp(pool, { analysis: runtime });
 });
 afterAll(async () => {
+  stopping = true;
   await app?.close();
   await pool?.end();
   await server?.stop();

@@ -12,6 +12,13 @@ import { base32, totp, encryptSecret, decryptSecret, checkTotp } from './account
 import type { AccountMail } from './account-runtime';
 import { sampleProperties } from '@estate-atlas/shared';
 let pool: pg.Pool, server: EmbeddedPostgres, app: FastifyInstance;
+let stopping = false;
+const testDatabaseError = (error: Error & { code?: string }) => {
+  if (stopping && error.code === '57P01') return;
+  // Never let Vitest serialize an idle pg Client containing temporary credentials.
+  throw new Error(`Isolated test database error: ${error.code ?? 'UNKNOWN'}`);
+};
+
 const password = 'Correct horse battery staple 42',
   key = randomBytes(32),
   secret = base32(Buffer.from('12345678901234567890'));
@@ -45,7 +52,7 @@ beforeAll(async () => {
     databaseDir: resolve(root, `accounts-test-postgres-${process.pid}`),
     user: 'account_test',
     password: dbPassword,
-    port: 55436,
+    port: 55437,
     persistent: false,
     authMethod: 'scram-sha-256',
     createPostgresUser: false,
@@ -56,8 +63,9 @@ beforeAll(async () => {
   await server.initialise();
   await server.start();
   await server.createDatabase('accounts');
-  pool = database(`postgresql://account_test:${dbPassword}@127.0.0.1:55436/accounts`);
-  pool.on('error', () => {});
+  pool = database(`postgresql://account_test:${dbPassword}@127.0.0.1:55437/accounts`);
+  pool.on('error', testDatabaseError);
+  pool.on('connect', (client) => client.on('error', testDatabaseError));
   await migrate(pool);
   await migrate(pool);
   app = await createApp(pool, { accounts: runtime });
@@ -110,6 +118,7 @@ afterEach(async () => {
   await app.close();
 });
 afterAll(async () => {
+  stopping = true;
   await pool?.end();
   await server?.stop();
 });
