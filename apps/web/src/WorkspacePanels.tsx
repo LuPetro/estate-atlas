@@ -719,6 +719,60 @@ export function SharingPanel({
               </small>
             </div>
           )}
+          {data?.members.some((m) => m.role === 'editor') && (
+            <details className="account-card">
+              <summary>Eigentümerschaft übertragen</summary>
+              <p>
+                Die ausgewählte Person übernimmt die Immobilie samt Dokumenten und Freigaben. Du
+                behältst Bearbeitungsrechte. Offene Einladungen werden ungültig.
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const d = new FormData(e.currentTarget);
+                  if (!window.confirm('Eigentümerschaft verbindlich übertragen?')) return;
+                  void run(async () => {
+                    await api.accountPost(`/properties/${property.id}/transfer`, {
+                      userId: String(d.get('userId')),
+                      password: String(d.get('password')),
+                      code: String(d.get('code') ?? ''),
+                    });
+                    window.location.reload();
+                  });
+                }}
+              >
+                <label>
+                  Neue Eigentümerin / neuer Eigentümer
+                  <select name="userId">
+                    {data.members
+                      .filter((m) => m.role === 'editor')
+                      .map((m) => (
+                        <option key={m.userId} value={m.userId}>
+                          {m.name} · {m.email}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label>
+                  Aktuelles Passwort
+                  <input
+                    name="password"
+                    type="password"
+                    required
+                    autoComplete="current-password"
+                    minLength={12}
+                  />
+                </label>
+                <label>
+                  Zwei-Faktor-Code (falls eingerichtet)
+                  <input name="code" autoComplete="one-time-code" />
+                </label>
+                <button className="button secondary" disabled={busy}>
+                  Übertragung bestätigen
+                </button>
+              </form>
+            </details>
+          )}
           <h4>Personen mit Zugriff</h4>
           {data?.members.length ? (
             data.members.map((member) => (

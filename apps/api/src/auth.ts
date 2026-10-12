@@ -1,11 +1,36 @@
 import { randomBytes, scrypt, timingSafeEqual, createHash } from 'node:crypto';
+// Bound scrypt concurrency so distributed login attempts cannot exhaust the small API container.
+let active = 0;
+const waiters: (() => void)[] = [];
+async function acquire() {
+  if (active < 2) {
+    active++;
+    return;
+  }
+  if (waiters.length >= 16)
+    throw Object.assign(new Error('Anmeldung gerade ausgelastet. Bitte kurz warten.'), {
+      statusCode: 503,
+    });
+  await new Promise<void>((resolve) => waiters.push(resolve));
+}
+function release() {
+  const next = waiters.shift();
+  if (next) next();
+  else active--;
+}
 // OWASP's memory/CPU-balanced scrypt recommendation: N=2^15, r=8, p=3.
-const derive = (password: string, salt: string, N = 32768, r = 8, p = 3) =>
-  new Promise<Buffer>((resolve, reject) =>
-    scrypt(password, salt, 64, { N, r, p, maxmem: 64 * 1024 * 1024 }, (error, key) =>
-      error ? reject(error) : resolve(key),
-    ),
-  );
+async function derive(password: string, salt: string, N = 32768, r = 8, p = 3) {
+  await acquire();
+  try {
+    return await new Promise<Buffer>((resolve, reject) =>
+      scrypt(password, salt, 64, { N, r, p, maxmem: 64 * 1024 * 1024 }, (error, key) =>
+        error ? reject(error) : resolve(key),
+      ),
+    );
+  } finally {
+    release();
+  }
+}
 export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString('hex');
   const hash = await derive(password, salt);

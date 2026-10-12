@@ -12,6 +12,14 @@ import type {
   WorkspaceSaveInput,
   PropertyShares,
   CreatedPropertyInvitation,
+  AccountInfo,
+  AccountConfig,
+  AccountSession,
+  AdminUser,
+  BetaInvitation,
+  AuditEvent,
+  AdminOverview,
+  PlatformRole,
 } from '@estate-atlas/shared';
 export class ApiError extends Error {
   constructor(
@@ -55,13 +63,13 @@ export class ApiClient {
   me() {
     return this.request<User>('/auth/me');
   }
-  register(input: { email: string; password: string; name: string }) {
+  register(input: { email: string; password: string; name: string; invitation?: string }) {
     return this.request<{ user: User; token?: string }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(input),
     });
   }
-  login(input: { email: string; password: string }) {
+  login(input: { email: string; password: string; code?: string }) {
     return this.request<{ user: User; token?: string }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(input),
@@ -69,6 +77,69 @@ export class ApiClient {
   }
   logout() {
     return this.request<void>('/auth/logout', { method: 'POST' });
+  }
+  accountConfig() {
+    return this.request<AccountConfig>('/auth/config');
+  }
+  account() {
+    return this.request<AccountInfo>('/account');
+  }
+  profile(name: string) {
+    return this.request<AccountInfo>('/account/profile', {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    });
+  }
+  accountPost<T = { message: string }>(path: string, input: unknown = {}) {
+    return this.request<T>(path, { method: 'POST', body: JSON.stringify(input) });
+  }
+  sessions() {
+    return this.request<AccountSession[]>('/account/sessions');
+  }
+  revokeSession(id: string) {
+    return this.request<void>(`/account/sessions/${id}`, { method: 'DELETE' });
+  }
+  forgotPassword(email: string) {
+    return this.accountPost('/auth/forgot-password', { email });
+  }
+  resetPassword(token: string, password: string) {
+    return this.accountPost('/auth/reset-password', { token, password });
+  }
+  verifyEmail(token: string) {
+    return this.accountPost('/auth/verify-email', { token });
+  }
+  adminOverview() {
+    return this.request<AdminOverview>('/admin/overview');
+  }
+  adminUsers(query: string, status: string, verified: string, page: number) {
+    const params = new URLSearchParams({ query, page: String(page) });
+    if (status) params.set('status', status);
+    if (verified) params.set('verified', verified);
+    return this.request<{ users: AdminUser[]; total: number; page: number }>(
+      `/admin/users?${params}`,
+    );
+  }
+  adminInvitations() {
+    return this.request<BetaInvitation[]>('/admin/invitations');
+  }
+  revokeBetaInvitation(id: string) {
+    return this.request<void>(`/admin/invitations/${id}`, { method: 'DELETE' });
+  }
+  adminAudit(page = 1) {
+    return this.request<AuditEvent[]>(`/admin/audit?page=${page}`);
+  }
+  adminAction(
+    id: string,
+    input: {
+      action: string;
+      password: string;
+      code: string;
+      reason: string;
+      role?: PlatformRole;
+      confirmation?: string;
+    },
+  ) {
+    return this.accountPost(`/admin/users/${id}/action`, input);
   }
   searchAddress(query: string, signal?: AbortSignal) {
     return this.request<GeocodingResult[]>('/geocoding/search', {

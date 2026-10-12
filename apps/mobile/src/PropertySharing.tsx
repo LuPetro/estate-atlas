@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Alert, Share } from 'react-native';
+import { View, Text, Alert, Share, TextInput } from 'react-native';
 import type { ApiClient } from '@estate-atlas/api-client';
 import type { Property, PropertyShares, CreatedPropertyInvitation } from '@estate-atlas/shared';
 import { Card, Action, ErrorMessage, ui } from './WorkspaceUI';
@@ -11,6 +11,10 @@ export default function PropertySharing({ property, api }: { property: Property;
   const [created, setCreated] = useState<CreatedPropertyInvitation | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [transferTo, setTransferTo] = useState('');
+  const [password, setPassword] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [transferred, setTransferred] = useState(false);
   const owner = !property.access || property.access === 'owner';
   const load = async () => setShares(await api.shares(property.id));
   useEffect(() => {
@@ -40,6 +44,15 @@ export default function PropertySharing({ property, api }: { property: Property;
       setBusy(false);
     }
   };
+  if (transferred)
+    return (
+      <Card title="Eigentümerschaft übertragen">
+        <Text style={ui.note}>
+          Du behältst Bearbeitungsrechte. Öffne die Immobilie erneut, um die aktualisierten
+          Berechtigungen zu sehen.
+        </Text>
+      </Card>
+    );
   if (!owner)
     return (
       <Card title="Zusammenarbeit">
@@ -159,6 +172,68 @@ export default function PropertySharing({ property, api }: { property: Property;
           </Action>
         )}
       </Card>
+      {shares?.members.some((m) => m.role === 'editor') && (
+        <Card
+          title="Eigentümerschaft übertragen"
+          note="Die neue Person übernimmt die Immobilie, Dokumente und Freigaben. Du behältst Bearbeitungsrechte. Offene Einladungen werden ungültig."
+        >
+          <Chips
+            label="Neue Eigentümerin / neuer Eigentümer"
+            value={transferTo}
+            onChange={setTransferTo}
+            values={shares.members
+              .filter((m) => m.role === 'editor')
+              .map((m) => ({ value: m.userId, label: m.name }))}
+          />
+          <TextInput
+            accessibilityLabel="Aktuelles Passwort"
+            placeholder="Aktuelles Passwort"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            style={ui.input}
+          />
+          <TextInput
+            accessibilityLabel="Zwei-Faktor-Code"
+            placeholder="Zwei-Faktor-Code (falls eingerichtet)"
+            value={mfaCode}
+            onChangeText={setMfaCode}
+            autoCapitalize="none"
+            style={ui.input}
+          />
+          <Action
+            secondary
+            disabled={busy || !transferTo || !password}
+            onPress={() =>
+              Alert.alert(
+                'Eigentümerschaft übertragen?',
+                'Diese Person übernimmt die Kontrolle über diese Immobilie.',
+                [
+                  { text: 'Abbrechen', style: 'cancel' },
+                  {
+                    text: 'Übertragen',
+                    onPress: () => {
+                      void act(async () => {
+                        await api.accountPost(`/properties/${property.id}/transfer`, {
+                          userId: transferTo,
+                          password,
+                          code: mfaCode,
+                        });
+                        setPassword('');
+                        setMfaCode('');
+                        setTransferred(true);
+                      });
+                    },
+                  },
+                ],
+              )
+            }
+          >
+            Übertragung bestätigen
+          </Action>
+        </Card>
+      )}
       <Card title="Offene Einladungen">
         {shares?.invitations.length === 0 && (
           <Text style={ui.note}>Keine offenen Einladungen.</Text>

@@ -137,3 +137,7 @@ Architekturentscheidungen: `docs/architecture.md`. Arbeitsregeln: `AGENTS.md`. K
 Portfolio-Werte und anpassbare Dashboard-Bereiche: [docs/portfolio-workspace.md](docs/portfolio-workspace.md).
 
 Als Nächstes: Android-/iOS-Gerätetests und native Build-Konfiguration, bestätigter privater HTTPS-Betrieb mit Backups sowie E-Mail-Verifizierung/Passwort-Reset. Recherchequalität weiter anhand überprüfbarer Vergleichsangebote absichern. Anschließend Mieteinnahmen, Kosten/Cashflow und Erinnerungen ergänzen.
+
+## Konten und Verwaltung
+
+Kontoeinstellungen: Sidebar **Mein Konto** oder `/account`; native App: **Mein Konto & Sicherheit**. Adminpanel: `/admin`, nur mit Verwaltungsrolle und Zwei-Faktor-Sitzung. Docker nutzt standardmäßig Einladungen für neue Konten und erstellt tägliche lokale Backups. Erstes Admin-Konto, Mailanbieter, Secret-Konfiguration und Wiederherstellungstest: [Konten und Adminbetrieb](docs/accounts-admin.md).

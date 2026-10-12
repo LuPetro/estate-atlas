@@ -21,6 +21,7 @@ export {
 } from './portfolio';
 export type { DashboardWidget } from './portfolio';
 export * from './workspace';
+export * from './accounts';
 export { portfolioDistribution } from './distribution';
 export type { DistributionGrouping, DistributionMetric } from './distribution';
 import { rentalSchema } from './rental';
@@ -81,7 +82,13 @@ export const credentialsSchema = z
     password: z.string().min(12, 'Mindestens 12 Zeichen').max(128),
   })
   .strict();
-export const registerSchema = credentialsSchema.extend({ name: z.string().trim().min(2).max(80) });
+export const loginInputSchema = credentialsSchema.extend({
+  code: z.string().trim().max(80).default(''),
+});
+export const registerSchema = credentialsSchema.extend({
+  name: z.string().trim().min(2).max(80),
+  invitation: z.string().trim().max(128).optional(),
+});
 export const archiveSchema = z.object({ archived: z.boolean() }).strict();
 export const geocodingQuerySchema = z.object({ query: z.string().trim().min(4).max(300) }).strict();
 export const geocodingResultSchema = z.object({
@@ -104,7 +111,14 @@ export type Property = PropertyInput & {
   createdAt: string;
   updatedAt: string;
 };
-export type User = { id: string; email: string; name: string };
+export type User = {
+  id: string;
+  email: string;
+  name: string;
+  role?: import('./accounts').PlatformRole;
+  emailVerifiedAt?: string | null;
+  mfaEnabled?: boolean;
+};
 export type Valuation = {
   id: string;
   propertyId: string;

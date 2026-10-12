@@ -34,6 +34,7 @@ import { File, Paths } from 'expo-file-system';
 import { StatusBar } from 'expo-status-bar';
 import { ApiClient, ApiError } from '@estate-atlas/api-client';
 import AddressPicker from './AddressPicker';
+import AccountScreen, { RecoveryScreen } from './AccountScreen';
 import AnalysisPanel from './AnalysisPanel';
 import ValueHistory from './ValueHistory';
 import PortfolioValues from './PortfolioValues';
@@ -78,6 +79,7 @@ type Tabs = {
   Workspace: undefined;
 };
 type Stack = {
+  Account: undefined;
   Home: NavigatorScreenParams<Tabs> | undefined;
   Detail: { id: string; tab?: 'documents' };
   Editor: { property?: Property } | undefined;
@@ -86,6 +88,8 @@ const RootStack = createNativeStackNavigator<Stack>();
 const Tab = createBottomTabNavigator<Tabs>();
 type State = {
   user: User;
+  onUser: (user: User) => void;
+  exit: () => Promise<void>;
   properties: Property[];
   reload: () => Promise<void>;
   logout: () => Promise<void>;
@@ -223,13 +227,16 @@ export default function App() {
     setUser(result.user);
     await reload();
   };
-  const logout = async () => {
-    await api.logout();
+  const exit = async () => {
     await SecureStore.deleteItemAsync('estateatlas-session');
     token = null;
     setUser(null);
     setProperties([]);
     setError('');
+  };
+  const logout = async () => {
+    await api.logout();
+    await exit();
   };
   return (
     <SafeAreaProvider>
@@ -242,7 +249,9 @@ export default function App() {
       ) : !user ? (
         <Auth onSuccess={success} initialError={error} />
       ) : (
-        <PortfolioContext.Provider value={{ user, properties, reload, logout }}>
+        <PortfolioContext.Provider
+          value={{ user, properties, reload, logout, onUser: setUser, exit }}
+        >
           <NavigationContainer>
             <RootStack.Navigator
               screenOptions={{
@@ -252,6 +261,11 @@ export default function App() {
                 contentStyle: { backgroundColor: '#F6F5F1' },
               }}
             >
+              <RootStack.Screen
+                name="Account"
+                component={Account}
+                options={{ title: 'Mein Konto' }}
+              />
               <RootStack.Screen name="Home" component={Home} options={{ headerShown: false }} />
               <RootStack.Screen
                 name="Detail"
@@ -273,6 +287,10 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+function Account() {
+  const { onUser, exit } = usePortfolio();
+  return <AccountScreen api={api} onUser={onUser} onExit={exit} />;
+}
 function Auth({
   onSuccess,
   initialError,
@@ -281,6 +299,16 @@ function Auth({
   initialError: string;
 }) {
   const [register, setRegister] = useState(false);
+  const [recover, setRecover] = useState(false);
+  const [invitation, setInvitation] = useState('');
+  const [code, setCode] = useState('');
+  const [mode, setMode] = useState('open');
+  useEffect(() => {
+    api
+      .accountConfig()
+      .then((c) => setMode(c.registration))
+      .catch(() => {});
+  }, []);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -291,8 +319,8 @@ function Auth({
     setError('');
     try {
       const result = register
-        ? await api.register({ name, email, password })
-        : await api.login({ email, password });
+        ? await api.register({ name, email, password, invitation })
+        : await api.login({ email, password, code });
       await onSuccess(result);
     } catch (e) {
       setError(message(e));
@@ -300,6 +328,7 @@ function Auth({
       setBusy(false);
     }
   };
+  if (recover) return <RecoveryScreen api={api} onBack={() => setRecover(false)} />;
   return (
     <SafeAreaView style={styles.screen}>
       <KeyboardAvoidingView
@@ -332,7 +361,16 @@ function Auth({
             onChange={setPassword}
             secure
           />
+          {register && mode === 'invite' && (
+            <Field label="Einladungscode" value={invitation} onChange={setInvitation} />
+          )}
+          {!register && (
+            <Field label="Zwei-Faktor-Code (falls eingerichtet)" value={code} onChange={setCode} />
+          )}
           <ErrorText error={error} />
+          <Button secondary onPress={() => setRecover(true)}>
+            Passwort vergessen / E-Mail bestätigen
+          </Button>
           <Button disabled={busy} onPress={submit}>
             {busy ? 'Bitte warten …' : register ? 'Konto erstellen' : 'Anmelden'}
           </Button>
@@ -496,6 +534,9 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
             <Text style={styles.link}>Abmelden</Text>
           </Pressable>
         </View>
+        <Action secondary onPress={() => navigation.getParent()?.navigate('Account')}>
+          Mein Konto & Sicherheit
+        </Action>
         <Text style={styles.eyebrow}>DEIN IMMOBILIENPORTFOLIO</Text>
         <Text style={styles.title}>Dein Portfolio.</Text>
         <Text style={styles.subtitle}>Hallo {user.name}. Deine Immobilien im Überblick.</Text>

@@ -6,7 +6,7 @@ export DOCKER_CONFIG="$TASK_ROOT/.local/docker/cli"
 export COMPOSE_PARALLEL_LIMIT=1
 node "$TASK_ROOT/scripts/docker-init.mjs"
 cd "$TASK_ROOT"
-TASK_COMPOSE=(docker compose --project-directory "$TASK_ROOT" --env-file "$TASK_ROOT/.local/docker/compose.env" -f "$TASK_ROOT/compose.yaml")
+TASK_COMPOSE=(docker compose --project-directory "$TASK_ROOT" --env-file "$TASK_ROOT/.local/docker/compose.env" --env-file "$TASK_ROOT/.local/docker/backup-user.env" -f "$TASK_ROOT/compose.yaml")
 # BuildKit can build multiple images in parallel even with Compose concurrency=1.
 # Serialize our two image targets on this 1.8 GB VPS. Other commands pass through.
 if [[ "${1:-}" == build ]]; then

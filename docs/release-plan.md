@@ -1,3 +1,5 @@
+> Account lifecycle, platform roles, MFA-gated admin panel, beta invitations and automatic local Docker backups are now implemented. See [accounts-admin.md](accounts-admin.md) for tested behavior and pending operator setup. The earlier roadmap below remains a record of broader release work.
+
 # EstateAtlas: Vorschlag bis zur Veröffentlichung
 
 Stand: 11. Oktober 2026 (Europe/Vienna). Dieser Plan beschreibt Empfehlungen und offene Produktentscheidungen; er genehmigt keine Anbieterbuchung, Systemänderung oder Veröffentlichung.

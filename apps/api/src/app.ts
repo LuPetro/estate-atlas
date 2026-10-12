@@ -9,7 +9,7 @@ import { z, ZodError } from 'zod';
 import type pg from 'pg';
 import {
   propertyInputSchema,
-  credentialsSchema,
+  loginInputSchema,
   registerSchema,
   archiveSchema,
   geocodingQuerySchema,
@@ -24,6 +24,8 @@ import { analysisInput, type AnalysisResult } from '@estate-atlas/shared/analysi
 import { disabledRuntime, type AnalysisRuntime } from './analysis/provider';
 import { propertyFor } from './property-access';
 import { registerWorkspaceRoutes } from './workspace-routes';
+import { createAccounts, sessionUser } from './account-routes';
+import type { AccountRuntime } from './account-runtime';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -50,6 +52,9 @@ export async function createApp(
     geocoder?: ReturnType<typeof createGeocoder>;
     geocodingUrl?: string;
     analysis?: AnalysisRuntime;
+    accounts?: AccountRuntime;
+    /** Isolated fixture runners only; production retains ten registrations per 15 minutes. */
+    registrationLimit?: number;
   } = {},
 ) {
   const analysis = options.analysis ?? disabledRuntime;
@@ -94,18 +99,32 @@ export async function createApp(
     if (token && token.length <= 128) {
       const hash = tokenHash(token);
       const { rows } = await pool.query(
-        'SELECT u.id,u.email,u.name FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()',
+        "SELECT u.id,u.email,u.name,u.role,u.email_verified_at,u.mfa_secret FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.status='active'",
         [hash],
       );
       if (rows[0]) {
-        req.user = rows[0];
+        req.user = sessionUser(rows[0]);
+        await pool.query(
+          "UPDATE sessions SET last_seen_at=now() WHERE token_hash=$1 AND last_seen_at<now()-interval '5 minutes'",
+          [hash],
+        );
         req.sessionHash = hash;
       }
     }
   });
-  const requireUser = async (req: FastifyRequest) => {
+  const requireIdentity = async (req: FastifyRequest) => {
     if (!req.user) throw new HttpError(401, 'Bitte anmelden.');
   };
+  const requireUser = async (req: FastifyRequest) => {
+    await requireIdentity(req);
+    if (options.accounts?.verificationRequired && !req.user!.emailVerifiedAt)
+      throw new HttpError(403, 'Bitte zuerst deine E-Mail-Adresse im Konto bestätigen.');
+  };
+  const accounts = createAccounts(
+    app,
+    pool,
+    options.accounts ?? { publicUrl: origin, verificationRequired: false },
+  );
   app.setErrorHandler((error, req, reply) => {
     if (error instanceof ZodError)
       return reply.code(400).send({
@@ -129,13 +148,20 @@ export async function createApp(
             : 'Ungültige Anfrage.',
     });
   });
-  const session = async (req: FastifyRequest, reply: FastifyReply, user: User) => {
+  const session = async (req: FastifyRequest, reply: FastifyReply, user: User, version: number) => {
     const token = newToken();
     await pool.query('DELETE FROM sessions WHERE expires_at<=now()');
-    await pool.query(
-      "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '7 days')",
-      [tokenHash(token), user.id],
+    const inserted = await pool.query(
+      "INSERT INTO sessions(token_hash,user_id,expires_at,user_agent,mfa_verified) SELECT $1,id,now()+interval '7 days',$3,$4 FROM users WHERE id=$2 AND status='active' AND auth_version=$5 RETURNING id",
+      [
+        tokenHash(token),
+        user.id,
+        (req.headers['user-agent'] ?? '').slice(0, 300),
+        !!user.mfaEnabled,
+        version,
+      ],
     );
+    if (!inserted.rowCount) throw new HttpError(401, 'Bitte erneut anmelden.');
     if (req.headers.origin) {
       reply.setCookie('ea_session', token, {
         httpOnly: true,
@@ -154,18 +180,11 @@ export async function createApp(
   });
   app.post(
     '/auth/register',
-    { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } },
+    { config: { rateLimit: { max: options.registrationLimit ?? 10, timeWindow: '15 minutes' } } },
     async (req, reply) => {
-      const input = registerSchema.parse(req.body);
-      const user = { id: randomUUID(), email: input.email, name: input.name };
-      await pool.query('INSERT INTO users(id,email,name,password_hash) VALUES($1,$2,$3,$4)', [
-        user.id,
-        user.email,
-        user.name,
-        await hashPassword(input.password),
-      ]);
+      const { user, version } = await accounts.register(req);
       reply.code(201);
-      return session(req, reply, user);
+      return session(req, reply, user, version);
     },
   );
   // A fixed dummy hash makes nonexistent-user and incorrect-password checks comparable.
@@ -174,18 +193,17 @@ export async function createApp(
     '/auth/login',
     { config: { rateLimit: { max: 15, timeWindow: '15 minutes' } } },
     async (req, reply) => {
-      const input = credentialsSchema.parse(req.body);
-      const { rows } = await pool.query(
-        'SELECT id,email,name,password_hash FROM users WHERE email=$1',
-        [input.email],
+      const input = loginInputSchema.parse(req.body);
+      const { user, version } = await accounts.authenticate(
+        input.email,
+        input.password,
+        input.code,
+        dummy,
       );
-      const valid = await verifyPassword(input.password, rows[0]?.password_hash ?? dummy);
-      if (!valid || !rows[0]) throw new HttpError(401, 'E-Mail oder Passwort falsch.');
-      const { id, email, name } = rows[0];
-      return session(req, reply, { id, email, name });
+      return session(req, reply, user, version);
     },
   );
-  app.get('/auth/me', { preHandler: requireUser }, async (req) => req.user);
+  app.get('/auth/me', { preHandler: requireIdentity }, async (req) => req.user);
   app.post(
     '/geocoding/search',
     {
@@ -205,7 +223,7 @@ export async function createApp(
       }
     },
   );
-  app.post('/auth/logout', { preHandler: requireUser }, async (req, reply) => {
+  app.post('/auth/logout', { preHandler: requireIdentity }, async (req, reply) => {
     await pool.query('DELETE FROM sessions WHERE token_hash=$1', [req.sessionHash]);
     reply.clearCookie('ea_session', {
       path: '/',

@@ -11,7 +11,7 @@ const ensureMode = (file, mode) => {
 };
 mkdirSync(dir, { recursive: true, mode: 0o700 });
 chmodSync(dir, 0o700);
-for (const name of ['postgres-admin-password', 'postgres-app-password']) {
+for (const name of ['postgres-admin-password', 'postgres-app-password', 'account-encryption-key']) {
   const file = path.join(dir, name);
   if (!existsSync(file))
     writeFileSync(file, randomBytes(32).toString('hex') + '\n', { flag: 'wx', mode: 0o644 });
@@ -22,6 +22,16 @@ for (const name of ['postgres-admin-password', 'postgres-app-password']) {
 const openai = path.join(dir, 'openai-api-key');
 if (!existsSync(openai)) writeFileSync(openai, '', { flag: 'wx', mode: 0o644 });
 ensureMode(openai, 0o644);
+const smtp = path.join(dir, 'smtp-password');
+if (!existsSync(smtp)) writeFileSync(smtp, '', { flag: 'wx', mode: 0o644 });
+ensureMode(smtp, 0o644);
+const backupDir = path.join(root, '.local/backups/automatic');
+mkdirSync(backupDir, { recursive: true, mode: 0o700 });
+writeFileSync(
+  path.join(dir, 'backup-user.env'),
+  `BACKUP_UID=${process.getuid()}\nBACKUP_GID=${process.getgid()}\n`,
+  { mode: 0o600 },
+);
 const env = path.join(dir, 'compose.env');
 if (!existsSync(env))
   writeFileSync(

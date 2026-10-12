@@ -2,12 +2,14 @@ import dotenv from 'dotenv';
 import { analysisRuntime } from './analysis/provider';
 import { database } from './database';
 import { createApp } from './app';
+import { accountRuntime } from './account-runtime';
 import { browserSecurity, connectionString } from './runtime-config';
 dotenv.config({ path: new URL('../../../.env', import.meta.url), quiet: true });
 const pool = database(await connectionString(process.env));
 const app = await createApp(pool, {
   ...browserSecurity(process.env),
   logging: true,
+  accounts: await accountRuntime(process.env, browserSecurity(process.env).production),
   geocodingUrl: process.env.GEOCODING_URL,
   analysis: await analysisRuntime(process.env),
 });

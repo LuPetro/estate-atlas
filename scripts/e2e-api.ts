@@ -4,6 +4,10 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { database, migrate } from '../apps/api/src/database';
 import { createApp } from '../apps/api/src/app';
+import { encryptSecret, base32 } from '../apps/api/src/account-security';
+import { hashPassword } from '../apps/api/src/auth';
+import type { AccountMail } from '../apps/api/src/account-runtime';
+import { randomUUID } from 'node:crypto';
 import { GeocodingError } from '../apps/api/src/geocoding';
 import { fixtureProvider } from '../tests/fixtures/analysis';
 import { AnalysisRunner } from '../apps/api/src/analysis/runner';
@@ -49,7 +53,18 @@ const pool = database(`postgresql://estateatlas_e2e:${password}@127.0.0.1:55434/
 await migrate(pool);
 // Third-party responses are deterministic, labeled fixtures in the isolated test server.
 // No real user addresses or synthetic queries are sent to the public Photon service.
+const mailFixtures: AccountMail[] = [];
+const accountKey = randomBytes(32);
 const app = await createApp(pool, {
+  registrationLimit: 100, // Multiple synthetic browser accounts share the same fixture-runner IP.
+  accounts: {
+    publicUrl: 'http://localhost:3001',
+    verificationRequired: false,
+    encryptionKey: accountKey,
+    mail: async (mail) => {
+      mailFixtures.push(mail);
+    },
+  },
   origin: 'http://localhost:3001',
   analysis,
   geocoder: async (query) => {
@@ -71,6 +86,22 @@ const app = await createApp(pool, {
     ];
   },
 });
+// Fixture helpers exist only in this isolated test server, never in production.
+app.get('/__fixtures/mail', async (req) => {
+  const email = (req.query as { email?: string }).email;
+  return mailFixtures.filter((m) => m.to === email);
+});
+await pool.query(
+  'INSERT INTO users(id,email,name,password_hash,role,mfa_secret) VALUES($1,$2,$3,$4,$5,$6)',
+  [
+    randomUUID(),
+    'admin-browser@example.test',
+    'Synthetic browser admin',
+    await hashPassword('Browser fixture password 1234'),
+    'admin',
+    encryptSecret(base32(Buffer.from('12345678901234567890')), accountKey),
+  ],
+);
 await app.listen({ host: '127.0.0.1', port: 4001 });
 let stopping = false;
 const runner = new AnalysisRunner(pool, analysis);
