@@ -55,16 +55,17 @@ await migrate(pool);
 // No real user addresses or synthetic queries are sent to the public Photon service.
 const mailFixtures: AccountMail[] = [];
 const accountKey = randomBytes(32);
+const accountFixtureRuntime = {
+  publicUrl: 'http://localhost:3001',
+  verificationRequired: false,
+  encryptionKey: accountKey,
+  mail: async (mail: AccountMail) => {
+    mailFixtures.push(mail);
+  },
+};
 const app = await createApp(pool, {
   registrationLimit: 100, // Multiple synthetic browser accounts share the same fixture-runner IP.
-  accounts: {
-    publicUrl: 'http://localhost:3001',
-    verificationRequired: false,
-    encryptionKey: accountKey,
-    mail: async (mail) => {
-      mailFixtures.push(mail);
-    },
-  },
+  accounts: accountFixtureRuntime,
   origin: 'http://localhost:3001',
   analysis,
   geocoder: async (query) => {
@@ -87,6 +88,10 @@ const app = await createApp(pool, {
   },
 });
 // Fixture helpers exist only in this isolated test server, never in production.
+app.post('/__fixtures/verification', async (req) => {
+  accountFixtureRuntime.verificationRequired = !!(req.body as { required: boolean }).required;
+  return { ok: true };
+});
 app.get('/__fixtures/mail', async (req) => {
   const email = (req.query as { email?: string }).email;
   return mailFixtures.filter((m) => m.to === email);

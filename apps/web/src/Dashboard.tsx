@@ -133,7 +133,13 @@ export default function Dashboard() {
         await reload();
       })
       .catch((e) => {
-        if (!(e instanceof ApiError && e.status === 401)) setError(e.message);
+        if (e instanceof ApiError && e.status === 401) {
+          setUser(null);
+          setProperties([]);
+        } else {
+          setError(e.message);
+          if (e instanceof ApiError && e.status === 403) setSection('account');
+        }
       })
       .finally(() => setReady(true));
   }, [reload]);
@@ -239,7 +245,12 @@ export default function Dashboard() {
         onSuccess={async (u) => {
           setUser(u);
           setError('');
-          await reload();
+          try {
+            await reload();
+          } catch (e) {
+            setError((e as Error).message);
+            if (e instanceof ApiError && e.status === 403) setSection('account');
+          }
         }}
         error={error}
       />
@@ -365,7 +376,7 @@ export default function Dashboard() {
           {section === 'account' ? (
             <AccountPanel
               api={api}
-              onUser={setUser}
+              onUser={(u) => setUser((current) => (current?.id === u.id ? u : current))}
               onExit={() => {
                 setUser(null);
                 setProperties([]);

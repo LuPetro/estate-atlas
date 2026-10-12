@@ -123,6 +123,12 @@ export default function AccountPanel({
         </div>
         <ShieldCheck size={32} />
       </div>
+      {config?.verificationRequired && !account.emailVerifiedAt && (
+        <p className="account-notice" role="status">
+          Bestätige deine E-Mail-Adresse, um dein Portfolio zu öffnen. Prüfe dein Postfach oder
+          fordere die Bestätigung erneut an.
+        </p>
+      )}
       {error && (
         <p className="error banner" role="alert">
           {error}

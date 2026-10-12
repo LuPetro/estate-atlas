@@ -99,3 +99,90 @@ test('admin MFA login, search, invitations and audit are usable without exposing
   await expect(page.locator('.audit-event').filter({ hasText: 'beta.invited' })).toBeVisible();
   await page.screenshot({ path: `work/admin-${test.info().project.name}.png`, fullPage: true });
 });
+test('mandatory verification guides signup to account settings and unlocks the portfolio after confirmation', async ({
+  page,
+  request,
+}) => {
+  await request.post('http://localhost:4001/__fixtures/verification', {
+    data: { required: true },
+    headers: { origin: 'http://localhost:3001' },
+  });
+  try {
+    const email = `verification-browser-${Date.now()}@example.test`;
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Konto erstellen', exact: true }).click();
+    await page.getByLabel('Dein Name').fill('Synthetic verification browser');
+    await page.getByLabel('E-Mail-Adresse').fill(email);
+    await page.getByLabel('Passwort', { exact: true }).fill(password);
+    await page.getByRole('button', { name: 'Konto erstellen', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Persönlich. Sicher.' })).toBeVisible();
+    await expect(page.getByRole('status')).toContainText('Bestätige deine E-Mail-Adresse');
+    const mails = await (
+      await request.get(`http://localhost:4001/__fixtures/mail?email=${encodeURIComponent(email)}`)
+    ).json();
+    const token = mails.find((m: any) => m.purpose === 'verify').token;
+    await page.goto(`/account-action#purpose=verify&token=${token}`);
+    await page.getByRole('button', { name: 'Bestätigen', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('E-Mail bestätigt');
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Portfolioübersicht' })).toBeVisible();
+  } finally {
+    await request.post('http://localhost:4001/__fixtures/verification', {
+      data: { required: false },
+      headers: { origin: 'http://localhost:3001' },
+    });
+  }
+});
+test('a delayed profile response cannot restore the account interface after logout', async ({
+  page,
+}) => {
+  const email = `late-profile-${Date.now()}@example.test`;
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Konto erstellen', exact: true }).click();
+  await page.getByLabel('Dein Name').fill('Synthetic late profile');
+  await page.getByLabel('E-Mail-Adresse').fill(email);
+  await page.getByLabel('Passwort', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Konto erstellen', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Portfolioübersicht' })).toBeVisible();
+  const menu = page.getByRole('button', { name: 'Navigation öffnen' });
+  if (await menu.isVisible()) await menu.click();
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'Mein Konto', exact: true })
+    .click();
+  let release!: () => void, arrived!: () => void;
+  const barrier = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const responseReady = new Promise<void>((resolve) => {
+    arrived = resolve;
+  });
+  await page.route('**/account/profile', async (route) => {
+    const response = await route.fetch();
+    arrived();
+    await barrier;
+    await route.fulfill({ response });
+  });
+  try {
+    await page.getByLabel('Dein Name').fill('Delayed profile update');
+    await page.getByRole('button', { name: 'Profil speichern' }).click();
+    await responseReady;
+    if (await menu.isVisible()) await menu.click();
+    await page.getByRole('button', { name: 'Abmelden', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Schön, dass du da bist.' })).toBeVisible();
+    const delivered = page.waitForResponse('**/account/profile');
+    release();
+    const profileResponse = await delivered;
+    await profileResponse.finished();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    await expect(page.getByRole('heading', { name: 'Schön, dass du da bist.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Portfolioübersicht' })).toHaveCount(0);
+  } finally {
+    release();
+  }
+});

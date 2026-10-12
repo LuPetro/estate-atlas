@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   ScrollView,
   View,
@@ -17,10 +17,12 @@ export default function AccountScreen({
   api,
   onUser,
   onExit,
+  onLogout,
 }: {
   api: ApiClient;
   onUser: (u: User) => void;
   onExit: () => Promise<void>;
+  onLogout: () => Promise<void>;
 }) {
   const [account, setAccount] = useState<AccountInfo | null>(null),
     [config, setConfig] = useState<AccountConfig | null>(null),
@@ -37,8 +39,10 @@ export default function AccountScreen({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [notice, setNotice] = useState('');
+  const mounted = useRef(true);
   async function reload() {
     const [a, c, s] = await Promise.all([api.account(), api.accountConfig(), api.sessions()]);
+    if (!mounted.current) return;
     setAccount(a);
     setConfig(c);
     setSessions(s);
@@ -46,7 +50,13 @@ export default function AccountScreen({
     onUser(a);
   }
   useEffect(() => {
-    void reload().catch((e) => setError(e.message));
+    mounted.current = true;
+    void reload().catch((e) => {
+      if (mounted.current) setError(e.message);
+    });
+    return () => {
+      mounted.current = false;
+    };
   }, []);
   async function run(fn: () => Promise<void>) {
     setError('');
@@ -100,6 +110,15 @@ export default function AccountScreen({
       >
         <Text style={ui.eyebrow}>DEIN KONTO</Text>
         <Text style={ui.heading}>Persönlich. Sicher.</Text>
+        <Action secondary disabled={busy} onPress={() => run(onLogout)}>
+          Abmelden
+        </Action>
+        {config?.verificationRequired && account && !account.emailVerifiedAt && (
+          <Text accessibilityRole="alert" style={ui.note}>
+            Bestätige deine E-Mail-Adresse, um dein Portfolio zu öffnen. Prüfe dein Postfach oder
+            fordere die Bestätigung erneut an.
+          </Text>
+        )}
         <ErrorMessage error={error} />
         {!!notice && (
           <Text accessibilityRole="alert" style={ui.note}>
@@ -172,7 +191,8 @@ export default function AccountScreen({
                     const r = await api.verifyEmail(linkCode);
                     setNotice(r.message);
                     setLinkCode('');
-                    await reload();
+                    if (account.pendingEmail) await onExit();
+                    else await reload();
                   })
                 }
               >

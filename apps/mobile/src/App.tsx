@@ -201,6 +201,7 @@ export default function App() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
+  const [needsVerification, setNeedsVerification] = useState(false);
   const reload = async () => setProperties(await api.properties());
   useEffect(() => {
     (async () => {
@@ -213,8 +214,13 @@ export default function App() {
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) {
           token = null;
+          setUser(null);
+          setProperties([]);
           await SecureStore.deleteItemAsync('estateatlas-session');
-        } else setError(message(e));
+        } else {
+          setError(message(e));
+          if (e instanceof ApiError && e.status === 403) setNeedsVerification(true);
+        }
       } finally {
         setReady(true);
       }
@@ -225,18 +231,37 @@ export default function App() {
     token = result.token;
     await SecureStore.setItemAsync('estateatlas-session', token);
     setUser(result.user);
-    await reload();
+    try {
+      await reload();
+    } catch (e) {
+      setError(message(e));
+      if (e instanceof ApiError && e.status === 403) setNeedsVerification(true);
+    }
   };
   const exit = async () => {
     await SecureStore.deleteItemAsync('estateatlas-session');
     token = null;
     setUser(null);
     setProperties([]);
+    setNeedsVerification(false);
     setError('');
   };
+  const accountSession = token;
+  const updateUser = (u: User) => {
+    if (!accountSession || token !== accountSession || user?.id !== u.id) return;
+    setUser((current) => (current?.id === u.id ? u : current));
+    if (needsVerification && u.emailVerifiedAt) {
+      setNeedsVerification(false);
+      setError('');
+      void reload().catch((e) => setError(message(e)));
+    }
+  };
   const logout = async () => {
-    await api.logout();
-    await exit();
+    try {
+      await api.logout();
+    } finally {
+      await exit();
+    }
   };
   return (
     <SafeAreaProvider>
@@ -250,10 +275,12 @@ export default function App() {
         <Auth onSuccess={success} initialError={error} />
       ) : (
         <PortfolioContext.Provider
-          value={{ user, properties, reload, logout, onUser: setUser, exit }}
+          value={{ user, properties, reload, logout, onUser: updateUser, exit }}
         >
           <NavigationContainer>
             <RootStack.Navigator
+              key={needsVerification ? 'verification' : 'portfolio'}
+              initialRouteName={needsVerification ? 'Account' : 'Home'}
               screenOptions={{
                 headerStyle: { backgroundColor: '#F6F5F1' },
                 headerTintColor: '#172B36',
@@ -288,8 +315,8 @@ export default function App() {
   );
 }
 function Account() {
-  const { onUser, exit } = usePortfolio();
-  return <AccountScreen api={api} onUser={onUser} onExit={exit} />;
+  const { onUser, exit, logout } = usePortfolio();
+  return <AccountScreen api={api} onUser={onUser} onExit={exit} onLogout={logout} />;
 }
 function Auth({
   onSuccess,
