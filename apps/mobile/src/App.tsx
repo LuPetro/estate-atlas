@@ -16,6 +16,7 @@ import {
 import {
   NavigationContainer,
   useFocusEffect,
+  usePreventRemove,
   type NavigatorScreenParams,
 } from '@react-navigation/native';
 import {
@@ -36,8 +37,13 @@ import AddressPicker from './AddressPicker';
 import AnalysisPanel from './AnalysisPanel';
 import ValueHistory from './ValueHistory';
 import PortfolioValues from './PortfolioValues';
+import WorkspaceHub from './WorkspaceHub';
+import PropertyWorkspace from './PropertyWorkspace';
+import PropertySharing from './PropertySharing';
+import { Card, Action, ui, palette } from './WorkspaceUI';
 import {
   PortfolioFilters,
+  Chips,
   DashboardCustomize,
   useDashboardWidgets,
   emptyFilters,
@@ -47,7 +53,6 @@ import { mapTheme } from './mapTheme';
 import SimpleMap, { MapModeControl } from './SimpleMap';
 import {
   portfolioStats,
-  filterProperties,
   formatMoney,
   clusterProperties,
   propertyInputSchema,
@@ -65,10 +70,16 @@ import {
 } from '@estate-atlas/shared';
 let token: string | null = null;
 const api = new ApiClient(process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000', () => token);
-type Tabs = { Overview: undefined; Properties: undefined; Map: undefined; Values: undefined };
+type Tabs = {
+  Overview: undefined;
+  Properties: undefined;
+  Map: undefined;
+  Values: undefined;
+  Workspace: undefined;
+};
 type Stack = {
   Home: NavigatorScreenParams<Tabs> | undefined;
-  Detail: { id: string };
+  Detail: { id: string; tab?: 'documents' };
   Editor: { property?: Property } | undefined;
 };
 const RootStack = createNativeStackNavigator<Stack>();
@@ -101,7 +112,7 @@ function Button({
       onPress={onPress}
       style={[styles.button, secondary && styles.secondary, disabled && { opacity: 0.5 }]}
     >
-      <Text style={[styles.buttonText, secondary && { color: '#26715b' }]}>{children}</Text>
+      <Text style={[styles.buttonText, secondary && { color: '#146F68' }]}>{children}</Text>
     </Pressable>
   );
 }
@@ -225,7 +236,7 @@ export default function App() {
       <StatusBar style="dark" />
       {!ready ? (
         <View style={styles.loading}>
-          <ActivityIndicator color="#14836f" />
+          <ActivityIndicator color="#146F68" />
           <Text style={styles.subtitle}>EstateAtlas wird geladen …</Text>
         </View>
       ) : !user ? (
@@ -235,10 +246,10 @@ export default function App() {
           <NavigationContainer>
             <RootStack.Navigator
               screenOptions={{
-                headerStyle: { backgroundColor: '#f8faf6' },
-                headerTintColor: '#21483c',
+                headerStyle: { backgroundColor: '#F6F5F1' },
+                headerTintColor: '#172B36',
                 headerShadowVisible: false,
-                contentStyle: { backgroundColor: '#f4f7f3' },
+                contentStyle: { backgroundColor: '#F6F5F1' },
               }}
             >
               <RootStack.Screen name="Home" component={Home} options={{ headerShown: false }} />
@@ -348,9 +359,9 @@ function Home() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#14836f',
+        tabBarActiveTintColor: '#146F68',
         tabBarInactiveTintColor: '#8a9d8f',
-        tabBarStyle: { backgroundColor: '#fff', borderTopColor: '#e2e9de' },
+        tabBarStyle: { backgroundColor: '#fff', borderTopColor: '#E1E5E4' },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>◇</Text>,
       }}
@@ -387,7 +398,26 @@ function Home() {
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 21 }}>◎</Text>,
         }}
       />
+      <Tab.Screen
+        name="Workspace"
+        component={WorkspaceScreen}
+        options={{
+          title: 'Mehr',
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 24 }}>⋯</Text>,
+        }}
+      />
     </Tab.Navigator>
+  );
+}
+function WorkspaceScreen({ navigation }: BottomTabScreenProps<Tabs, 'Workspace'>) {
+  const { properties, reload } = usePortfolio();
+  return (
+    <WorkspaceHub
+      properties={properties}
+      api={api}
+      reload={reload}
+      onSelect={(id, tab) => navigation.getParent()?.navigate('Detail', { id, tab })}
+    />
   );
 }
 function ValuesScreen({ navigation }: BottomTabScreenProps<Tabs, 'Values'>) {
@@ -409,6 +439,11 @@ function PropertyCard({ property: p, onPress }: { property: Property; onPress: (
           {propertyTypeLabels[p.type]} · {p.country}
         </Text>
         {p.isTestData && <Text style={styles.testBadge}>TESTDATEN</Text>}
+        {p.access && p.access !== 'owner' && (
+          <Text style={styles.testBadge}>
+            {p.access === 'editor' ? 'GETEILT · BEARBEITEN' : 'GETEILT · ANSEHEN'}
+          </Text>
+        )}
       </View>
       <Text style={styles.cardTitle}>{p.title}</Text>
       <Text style={styles.subtitle}>{p.address}</Text>
@@ -462,8 +497,8 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
           </Pressable>
         </View>
         <Text style={styles.eyebrow}>DEIN IMMOBILIENPORTFOLIO</Text>
-        <Text style={styles.title}>Alles im Blick.</Text>
-        <Text style={styles.subtitle}>Hallo {user.name}. Ein Portfolio. Die ganze Welt.</Text>
+        <Text style={styles.title}>Dein Portfolio.</Text>
+        <Text style={styles.subtitle}>Hallo {user.name}. Deine Immobilien im Überblick.</Text>
         <ErrorText error={error} />
         {properties.some((p) => p.isTestData) && (
           <Text style={styles.testNotice}>
@@ -594,18 +629,18 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
 }
 function Properties({ navigation }: BottomTabScreenProps<Tabs, 'Properties'>) {
   const { properties, reload } = usePortfolio();
+  const [scope, setScope] = useState('own');
   const [query, setQuery] = useState('');
   const [country, setCountry] = useState('');
   const [type, setType] = useState('');
   const [archived, setArchived] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const items = filterProperties(properties, {
-    query,
-    country: country.trim().toUpperCase(),
-    type,
+  const items = filteredPortfolio(
+    properties,
+    { ...emptyFilters, scope, query, country: country.trim().toUpperCase(), type },
     archived,
-  });
+  );
   const root = navigation.getParent();
   return (
     <SafeAreaView edges={['top']} style={styles.screen}>
@@ -629,7 +664,17 @@ function Properties({ navigation }: BottomTabScreenProps<Tabs, 'Properties'>) {
         }
       >
         <Text style={styles.eyebrow}>DEIN PORTFOLIO</Text>
-        <Text style={styles.title}>Raum für deine Werte.</Text>
+        <Text style={styles.title}>Deine Immobilien.</Text>
+        <Chips
+          label="Bestand"
+          value={scope}
+          onChange={setScope}
+          values={[
+            { value: 'own', label: 'Meine Immobilien' },
+            { value: 'shared', label: 'Geteilt mit mir' },
+            { value: 'all', label: 'Alle zugänglichen' },
+          ]}
+        />
         <Field label="Immobilien suchen" value={query} onChange={setQuery} />
         <Field
           label="Land filtern (ISO-Code, leer für alle)"
@@ -668,6 +713,7 @@ function Properties({ navigation }: BottomTabScreenProps<Tabs, 'Properties'>) {
 }
 function MapScreen({ navigation }: BottomTabScreenProps<Tabs, 'Map'>) {
   const { properties } = usePortfolio();
+  const [scope, setScope] = useState('own');
   const [query, setQuery] = useState('');
   const [country, setCountry] = useState('');
   const [type, setType] = useState('');
@@ -680,8 +726,15 @@ function MapScreen({ navigation }: BottomTabScreenProps<Tabs, 'Map'>) {
   const map = React.useRef<MapView>(null);
   const [detail, setDetail] = useState(false);
   const items = useMemo(
-    () => filterProperties(properties, { query, country: country.trim().toUpperCase(), type }),
-    [properties, query, country, type],
+    () =>
+      filteredPortfolio(properties, {
+        ...emptyFilters,
+        scope,
+        query,
+        country: country.trim().toUpperCase(),
+        type,
+      }),
+    [properties, query, country, type, scope],
   );
   const clusters = clusterProperties(items, Math.log2(360 / Math.max(0.01, region.longitudeDelta)));
   const selectCluster = (key: string) => {
@@ -708,7 +761,17 @@ function MapScreen({ navigation }: BottomTabScreenProps<Tabs, 'Map'>) {
     <SafeAreaView edges={['top']} style={styles.screen}>
       <View style={{ padding: 22, paddingBottom: 8 }}>
         <Text style={styles.eyebrow}>DEINE WELT</Text>
-        <Text style={styles.title}>Portfolio auf der Karte.</Text>
+        <Text style={styles.title}>Deine Welt.</Text>
+        <Chips
+          label="Bestand"
+          value={scope}
+          onChange={setScope}
+          values={[
+            { value: 'own', label: 'Meine Immobilien' },
+            { value: 'shared', label: 'Geteilt mit mir' },
+            { value: 'all', label: 'Alle zugänglichen' },
+          ]}
+        />
         <TextInput
           accessibilityLabel="Karte durchsuchen"
           style={styles.input}
@@ -764,7 +827,7 @@ function MapScreen({ navigation }: BottomTabScreenProps<Tabs, 'Map'>) {
                     ? formatMoney(c.items[0].marketValue, c.items[0].currency)
                     : 'Antippen zum Vergrößern'
                 }
-                pinColor="#14836f"
+                pinColor="#146F68"
                 onPress={() => selectCluster(c.key)}
               >
                 {c.items.length > 1 && (
@@ -799,6 +862,29 @@ function Detail({ route, navigation }: NativeStackScreenProps<Stack, 'Detail'>) 
   const [p, setP] = useState<PropertyDetail | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<string>(route.params.tab ?? 'overview');
+  const [workspaceDirty, setWorkspaceDirty] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+  usePreventRemove(workspaceDirty && !deleted, ({ data }) => {
+    Alert.alert(
+      'Ungespeicherte Änderungen',
+      'Deine Änderungen an Checklisten oder Kaufcheck wurden noch nicht gespeichert.',
+      [
+        { text: 'Weiter bearbeiten', style: 'cancel' },
+        {
+          text: 'Verwerfen & verlassen',
+          style: 'destructive',
+          onPress: () => navigation.dispatch(data.action),
+        },
+      ],
+    );
+  });
+  useEffect(() => {
+    if (deleted) navigation.goBack();
+  }, [deleted, navigation]);
+  useEffect(() => {
+    setTab(route.params.tab ?? 'overview');
+  }, [route.params.id, route.params.tab]);
   const load = async () => setP(await api.detail(route.params.id));
   useFocusEffect(
     useCallback(() => {
@@ -870,136 +956,234 @@ function Detail({ route, navigation }: NativeStackScreenProps<Stack, 'Detail'>) 
     return (
       <View style={styles.loading}>
         <ErrorText error={error} />
-        {!error && <ActivityIndicator color="#14836f" />}
+        {!error && <ActivityIndicator color={palette.accent} />}
       </View>
     );
+  const owner = !p.access || p.access === 'owner';
+  const editable = p.access !== 'viewer';
+  const tabs = [
+    { value: 'overview', label: 'Übersicht' },
+    { value: 'values', label: 'Werte' },
+    { value: 'documents', label: 'Dokumente' },
+    { value: 'checklists', label: 'Übergabe' },
+    { value: 'purchase', label: 'Kaufcheck' },
+    { value: 'sharing', label: 'Zusammenarbeit' },
+  ];
   return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.eyebrow}>
-        {propertyTypeLabels[p.type]} · {p.country} {p.isTestData ? '· TESTDATEN' : ''}
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <Text style={ui.eyebrow}>
+        {propertyTypeLabels[p.type]} · {p.country}
+        {p.isTestData ? ' · TESTDATEN' : ''}
+        {p.archivedAt ? ' · ARCHIVIERT' : ''}
       </Text>
       <Text style={styles.title}>{p.title}</Text>
-      <Text style={styles.subtitle}>{p.address}</Text>
-      <ErrorText error={error} />
-      <View style={styles.valueCard}>
-        <Text style={styles.label}>Eigener Marktwert</Text>
-        <Text
-          style={styles.largeValue}
-          adjustsFontSizeToFit
-          numberOfLines={1}
-          minimumFontScale={0.6}
-        >
-          {formatMoney(p.marketValue, p.currency)}
+      <Text style={ui.note}>{p.address}</Text>
+      {!owner && (
+        <Text style={ui.label}>
+          Geteilt mit dir · {editable ? 'Bearbeiten erlaubt' : 'Lesezugriff'}
         </Text>
-        <Text style={styles.subtitle}>Kaufpreis: {formatMoney(p.purchasePrice, p.currency)}</Text>
+      )}
+      <ErrorText error={error} />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 24, borderBottomWidth: 1, borderBottomColor: palette.line }}
+      >
+        {tabs.map((item) => (
+          <Pressable
+            key={item.value}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === item.value }}
+            onPress={() => setTab(item.value)}
+            style={{
+              paddingVertical: 14,
+              borderBottomWidth: 2,
+              borderBottomColor: tab === item.value ? palette.accent : 'transparent',
+            }}
+          >
+            <Text
+              style={{
+                color: tab === item.value ? palette.ink : palette.muted,
+                fontSize: 13,
+                fontWeight: tab === item.value ? '700' : '400',
+              }}
+            >
+              {item.label}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+      {workspaceDirty && tab !== 'checklists' && tab !== 'purchase' && (
+        <Pressable accessibilityRole="button" onPress={() => setTab('checklists')}>
+          <Text style={ui.note}>Ungespeicherte Änderungen im Arbeitsbereich →</Text>
+        </Pressable>
+      )}
+      <View style={{ display: tab === 'overview' ? 'flex' : 'none', gap: 16 }}>
+        <Card>
+          <Text style={ui.eyebrow}>EIGENER MARKTWERT</Text>
+          <Text
+            style={styles.largeValue}
+            adjustsFontSizeToFit
+            numberOfLines={1}
+            minimumFontScale={0.6}
+          >
+            {formatMoney(p.marketValue, p.currency)}
+          </Text>
+          <Text style={ui.note}>Kaufpreis: {formatMoney(p.purchasePrice, p.currency)}</Text>
+          <View style={ui.divider} />
+          <View style={ui.row}>
+            <Text style={ui.note}>{p.area} m²</Text>
+            <Text style={ui.note}>{conditionLabels[p.condition]}</Text>
+            <Text style={ui.note}>Baujahr {p.yearBuilt ?? 'offen'}</Text>
+          </View>
+        </Card>
+        <AnalysisPanel
+          key={p.id}
+          property={p}
+          api={api}
+          onApplied={async () => {
+            await load();
+            await reload();
+          }}
+        />
+        <Card title="Objektangaben">
+          <Text style={ui.label}>Vermietung</Text>
+          <Text style={ui.note}>
+            {rentalSummary(p.rental).label}
+            {rentalSummary(p.rental).period ? ` · ${rentalSummary(p.rental).period}` : ''}
+          </Text>
+          <Text style={ui.label}>Ausstattung</Text>
+          <Text style={ui.note}>{p.amenities.join(', ') || 'Nicht angegeben'}</Text>
+          <Text style={ui.label}>Position</Text>
+          <Text style={ui.note}>
+            {p.latitude}, {p.longitude}
+          </Text>
+          {!!p.notes && (
+            <>
+              <Text style={ui.label}>Notizen</Text>
+              <Text style={ui.note}>{p.notes}</Text>
+            </>
+          )}
+          {editable && (
+            <Action secondary onPress={() => navigation.navigate('Editor', { property: p })}>
+              Immobilie bearbeiten
+            </Action>
+          )}
+        </Card>
+        {owner && (
+          <Card title="Immobilie verwalten">
+            <Action
+              secondary
+              disabled={busy}
+              onPress={() => act(() => api.archive(p.id, !p.archivedAt))}
+            >
+              {p.archivedAt ? 'Aus Archiv wiederherstellen' : 'Immobilie archivieren'}
+            </Action>
+            <Action
+              secondary
+              danger
+              disabled={busy}
+              onPress={() =>
+                Alert.alert(
+                  'Immobilie endgültig löschen?',
+                  'Alle Anhänge, Freigaben, Checklisten, die Kaufplanung und Wertangaben werden mitgelöscht.',
+                  [
+                    { text: 'Abbrechen', style: 'cancel' },
+                    {
+                      text: 'Löschen',
+                      style: 'destructive',
+                      onPress: () =>
+                        act(async () => {
+                          await api.delete(p.id);
+                          await reload();
+                          setDeleted(true);
+                        }, false),
+                    },
+                  ],
+                )
+              }
+            >
+              Immobilie löschen
+            </Action>
+          </Card>
+        )}
       </View>
-      <AnalysisPanel
+      <View style={{ display: tab === 'values' ? 'flex' : 'none' }}>
+        <ValueHistory key={`${p.id}-${p.currency}`} values={p.valuations} currency={p.currency} />
+      </View>
+      <View style={{ display: tab === 'documents' ? 'flex' : 'none', gap: 16 }}>
+        <Card
+          title="Fotos & Dokumente"
+          note="Deine Ablage ist freiwillig. Wähle nur Dateien aus, die du hier speichern möchtest. Personen mit Objektzugriff können sie ebenfalls öffnen."
+        >
+          <Text style={ui.note}>JPEG, PNG, WebP und PDF · bis 10 MB je Datei</Text>
+          {editable && (
+            <View style={styles.twoButtons}>
+              <Button secondary disabled={busy} onPress={photo}>
+                Foto wählen
+              </Button>
+              <Button secondary disabled={busy} onPress={document}>
+                PDF wählen
+              </Button>
+            </View>
+          )}
+        </Card>
+        {!p.assets.length && <Text style={ui.note}>Noch keine Dateien gespeichert.</Text>}
+        {p.assets.map((asset) => (
+          <Card key={asset.id}>
+            {asset.mimeType.startsWith('image/') && (
+              <Image
+                source={{
+                  uri: api.assetUrl(asset.id),
+                  headers: { Authorization: `Bearer ${token}` },
+                }}
+                style={styles.photo}
+                accessibilityLabel={asset.name}
+              />
+            )}
+            <Text style={ui.label}>{asset.name}</Text>
+            <Text style={ui.note}>{(asset.size / 1024).toFixed(1)} KB</Text>
+            {asset.mimeType === 'application/pdf' && (
+              <Action secondary disabled={busy} onPress={() => openDocument(asset)}>
+                PDF öffnen / teilen
+              </Action>
+            )}
+            {editable && (
+              <Action
+                secondary
+                danger
+                disabled={busy}
+                onPress={() =>
+                  Alert.alert('Anhang löschen?', asset.name, [
+                    { text: 'Abbrechen', style: 'cancel' },
+                    {
+                      text: 'Löschen',
+                      style: 'destructive',
+                      onPress: () => act(() => api.deleteAsset(asset.id)),
+                    },
+                  ])
+                }
+              >
+                Anhang löschen
+              </Action>
+            )}
+          </Card>
+        ))}
+      </View>
+      <PropertyWorkspace
         key={p.id}
         property={p}
         api={api}
-        onApplied={async () => {
-          await load();
-          await reload();
-        }}
+        section={tab}
+        onDirtyChange={setWorkspaceDirty}
       />
-      <Text style={styles.detailText}>
-        {p.area} m² · {conditionLabels[p.condition]} · Baujahr {p.yearBuilt ?? 'offen'}
-      </Text>
-      <Text style={styles.detailText}>
-        GPS: {p.latitude}, {p.longitude}
-      </Text>
-      <Text style={styles.detailText}>
-        Ausstattung: {p.amenities.join(', ') || 'Nicht angegeben'}
-      </Text>
-      {!!p.notes && <Text style={styles.research}>{p.notes}</Text>}
-      <View style={styles.historyRow}>
-        <Text style={styles.label}>Vermietung</Text>
-        <Text style={styles.detailText}>{rentalSummary(p.rental).label}</Text>
-        {rentalSummary(p.rental).period && (
-          <Text style={styles.subtitle}>{rentalSummary(p.rental).period}</Text>
-        )}
+      <View style={{ display: tab === 'sharing' ? 'flex' : 'none' }}>
+        <PropertySharing key={p.id} property={p} api={api} />
       </View>
-      <Button onPress={() => navigation.navigate('Editor', { property: p })}>
-        Immobilie bearbeiten
-      </Button>
-      <ValueHistory key={`${p.id}-${p.currency}`} values={p.valuations} currency={p.currency} />
-      <Text style={styles.sectionTitle}>Fotos & Dokumente</Text>
-      <Text style={styles.footnote}>Privat · JPEG/PNG/WebP/PDF · bis 10 MB</Text>
-      <View style={styles.twoButtons}>
-        <Button secondary disabled={busy} onPress={photo}>
-          Foto wählen
-        </Button>
-        <Button secondary disabled={busy} onPress={document}>
-          PDF wählen
-        </Button>
-      </View>
-      {p.assets.map((a) => (
-        <View key={a.id} style={styles.propertyCard}>
-          {a.mimeType.startsWith('image/') && (
-            <Image
-              source={{ uri: api.assetUrl(a.id), headers: { Authorization: `Bearer ${token}` } }}
-              style={styles.photo}
-              accessibilityLabel={a.name}
-            />
-          )}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              if (a.mimeType === 'application/pdf') openDocument(a);
-            }}
-          >
-            <Text style={styles.link}>{a.name}</Text>
-          </Pressable>
-          <Text style={styles.footnote}>{(a.size / 1024).toFixed(1)} KB</Text>
-          <Button
-            secondary
-            disabled={busy}
-            onPress={() =>
-              Alert.alert('Anhang löschen?', a.name, [
-                { text: 'Abbrechen', style: 'cancel' },
-                {
-                  text: 'Löschen',
-                  style: 'destructive',
-                  onPress: () => act(() => api.deleteAsset(a.id)),
-                },
-              ])
-            }
-          >
-            Anhang löschen
-          </Button>
-        </View>
-      ))}
-      <Button secondary disabled={busy} onPress={() => act(() => api.archive(p.id, !p.archivedAt))}>
-        {p.archivedAt ? 'Aus Archiv wiederherstellen' : 'Immobilie archivieren'}
-      </Button>
-      <Button
-        secondary
-        disabled={busy}
-        onPress={() =>
-          Alert.alert(
-            'Immobilie endgültig löschen?',
-            'Alle Anhänge und Wertangaben werden mitgelöscht.',
-            [
-              { text: 'Abbrechen', style: 'cancel' },
-              {
-                text: 'Löschen',
-                style: 'destructive',
-                onPress: () =>
-                  act(async () => {
-                    await api.delete(p.id);
-                    await reload();
-                    navigation.goBack();
-                  }, false),
-              },
-            ],
-          )
-        }
-      >
-        Immobilie löschen
-      </Button>
     </ScrollView>
   );
 }
+
 function Editor({ route, navigation }: NativeStackScreenProps<Stack, 'Editor'>) {
   const p = route.params?.property;
   const { reload } = usePortfolio();
@@ -1212,48 +1396,48 @@ function Editor({ route, navigation }: NativeStackScreenProps<Stack, 'Editor'>) 
   );
 }
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#f4f7f3' },
+  screen: { flex: 1, backgroundColor: '#F6F5F1' },
   loading: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#f4f7f3',
+    backgroundColor: '#F6F5F1',
   },
   content: { padding: 22, paddingBottom: 45, gap: 12 },
   auth: { padding: 28, paddingTop: 45, gap: 14 },
-  brand: { fontSize: 26, fontWeight: '800', color: '#24483c', letterSpacing: -1 },
-  eyebrow: { fontSize: 10, color: '#739982', fontWeight: '700', letterSpacing: 1.6, marginTop: 14 },
-  title: { fontSize: 29, fontWeight: '700', color: '#253e32', letterSpacing: -1, marginBottom: 3 },
+  brand: { fontSize: 26, fontWeight: '800', color: '#172B36', letterSpacing: -1 },
+  eyebrow: { fontSize: 11, color: '#739982', fontWeight: '700', letterSpacing: 1.6, marginTop: 14 },
+  title: { fontSize: 29, fontWeight: '700', color: '#172B36', letterSpacing: -1, marginBottom: 3 },
   authTitle: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#253e32',
+    color: '#172B36',
     letterSpacing: -1,
     marginTop: 18,
   },
-  subtitle: { fontSize: 12, color: '#8b9d8b', lineHeight: 20 },
-  label: { fontSize: 11, color: '#637f67', fontWeight: '600', marginBottom: 8 },
+  subtitle: { fontSize: 13, color: '#627580', lineHeight: 20 },
+  label: { fontSize: 11, color: '#627580', fontWeight: '600', marginBottom: 8 },
   field: { marginTop: 8 },
   input: {
     backgroundColor: '#fff',
-    borderColor: '#dce5d7',
+    borderColor: '#E1E5E4',
     borderWidth: 1,
     borderRadius: 8,
     padding: 13,
-    color: '#365a40',
+    color: '#172B36',
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#14836f',
+    backgroundColor: '#146F68',
     paddingVertical: 15,
     paddingHorizontal: 18,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 5,
   },
-  secondary: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#dce6d5' },
+  secondary: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E1E5E4' },
   buttonText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   error: {
     fontSize: 12,
@@ -1263,50 +1447,50 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     lineHeight: 19,
   },
-  footnote: { fontSize: 10, color: '#9eac96', lineHeight: 17 },
+  footnote: { fontSize: 11, color: '#627580', lineHeight: 17 },
   headingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  link: { fontSize: 11, fontWeight: '600', color: '#14836f' },
+  link: { fontSize: 11, fontWeight: '600', color: '#146F68' },
   valueCard: {
-    backgroundColor: '#eaf3e7',
+    backgroundColor: '#EEF3F1',
     borderWidth: 1,
-    borderColor: '#d5e5cd',
+    borderColor: '#E1E5E4',
     padding: 22,
     borderRadius: 12,
     marginTop: 12,
     gap: 9,
   },
-  largeValue: { fontSize: 30, fontWeight: '700', letterSpacing: -1, color: '#356448' },
-  gain: { fontSize: 11, color: '#559263', fontWeight: '600' },
+  largeValue: { fontSize: 30, fontWeight: '700', letterSpacing: -1, color: '#172B36' },
+  gain: { fontSize: 11, color: '#146F68', fontWeight: '600' },
   statsRow: { flexDirection: 'row', gap: 10, marginTop: 7 },
   smallStat: {
     flex: 1,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e4eadd',
+    borderColor: '#E1E5E4',
     padding: 15,
     borderRadius: 9,
     gap: 9,
   },
-  statNumber: { fontSize: 24, fontWeight: '700', color: '#45613e' },
-  statLabel: { fontSize: 9, color: '#9ca98f' },
+  statNumber: { fontSize: 24, fontWeight: '700', color: '#172B36' },
+  statLabel: { fontSize: 9, color: '#627580' },
   sectionTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#3d5a36',
+    color: '#172B36',
     marginTop: 19,
     marginBottom: 2,
   },
   propertyCard: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e2e9d8',
+    borderColor: '#E1E5E4',
     padding: 18,
-    borderRadius: 10,
+    borderRadius: 16,
     gap: 9,
   },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  cardCategory: { fontSize: 10, color: '#92a285', fontWeight: '600', letterSpacing: 0.5 },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: '#3c5932' },
+  cardCategory: { fontSize: 11, color: '#627580', fontWeight: '600', letterSpacing: 0.5 },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: '#172B36' },
   cardBottom: {
     borderTopWidth: 1,
     borderTopColor: '#eff2e8',
@@ -1314,7 +1498,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     gap: 5,
   },
-  cardValue: { fontSize: 21, fontWeight: '700', color: '#517641', letterSpacing: -0.5 },
+  cardValue: { fontSize: 21, fontWeight: '700', color: '#172B36', letterSpacing: -0.5 },
   testBadge: {
     fontSize: 8,
     color: '#9d9e5c',
@@ -1332,10 +1516,10 @@ const styles = StyleSheet.create({
   },
   research: {
     padding: 18,
-    backgroundColor: '#edf2e4',
+    backgroundColor: '#EEF3F1',
     borderRadius: 9,
     gap: 10,
-    color: '#8c9b77',
+    color: '#627580',
     fontSize: 12,
     lineHeight: 20,
   },
@@ -1344,7 +1528,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 9,
     gap: 14,
-    color: '#94a184',
+    color: '#627580',
     fontSize: 13,
   },
   chip: {
@@ -1352,11 +1536,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#dfe6d5',
+    borderColor: '#E1E5E4',
     backgroundColor: '#fff',
   },
-  activeChip: { backgroundColor: '#14836f', borderColor: '#14836f' },
-  chipText: { fontSize: 11, color: '#8b9e7b' },
+  activeChip: { backgroundColor: '#146F68', borderColor: '#146F68' },
+  chipText: { fontSize: 11, color: '#627580' },
   cluster: {
     width: 44,
     height: 44,
@@ -1369,19 +1553,19 @@ const styles = StyleSheet.create({
   },
   mapCaption: {
     fontSize: 10,
-    color: '#7f9770',
+    color: '#627580',
     backgroundColor: '#fff',
     padding: 12,
     textAlign: 'center',
   },
-  detailText: { color: '#8a9c78', fontSize: 12, lineHeight: 20 },
+  detailText: { color: '#627580', fontSize: 12, lineHeight: 20 },
   historyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e1e8d7',
+    borderBottomColor: '#E1E5E4',
   },
   twoButtons: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   photo: { width: '100%', height: 210, borderRadius: 7 },

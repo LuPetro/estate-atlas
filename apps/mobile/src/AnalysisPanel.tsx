@@ -27,6 +27,7 @@ export default function AnalysisPanel({
   api: ApiClient;
   onApplied: () => Promise<void>;
 }) {
+  const owner = !property.access || property.access === 'owner';
   const [config, setConfig] = useState<AnalysisConfig | null>(null);
   const [model, setModel] = useState('');
   const [setupOpen, setSetupOpen] = useState(false);
@@ -40,6 +41,7 @@ export default function AnalysisPanel({
   const pulse = useRef(new Animated.Value(1)).current;
   const running = active(job);
   useEffect(() => {
+    if (!owner) return;
     let live = true;
     api
       .analysisConfig()
@@ -55,7 +57,7 @@ export default function AnalysisPanel({
     return () => {
       live = false;
     };
-  }, [api]);
+  }, [api, owner]);
   useEffect(() => {
     setJob(property.analyses[0] ?? null);
   }, [property.analyses]);
@@ -133,34 +135,40 @@ export default function AnalysisPanel({
   const result = job?.status === 'succeeded' ? job.result : null;
   const phase = analysisPhases.findIndex((p) => p.id === job?.phase);
   const disabled =
-    busy || !config?.enabled || !consent || property.isTestData || Boolean(property.archivedAt);
+    busy ||
+    !owner ||
+    !config?.enabled ||
+    !consent ||
+    property.isTestData ||
+    Boolean(property.archivedAt);
   return (
     <View style={s.panel}>
       <View style={s.header}>
-        <Animated.View style={[s.orb, { transform: [{ scale: pulse }] }]}>
-          <Text style={s.star}>✦</Text>
-        </Animated.View>
+        {running && <Animated.View style={[s.orb, { transform: [{ scale: pulse }] }]} />}
         <View style={s.headerText}>
-          <Text style={s.eyebrow}>ESTATEATLAS RESEARCH</Text>
-          <Text style={s.title}>Marktpreis recherchieren</Text>
+          <Text style={s.title}>Marktvergleich</Text>
+          <Text style={s.note}>Angebote, Quellen und eine Preisindikation.</Text>
         </View>
       </View>
-      <Text style={s.note}>
-        Webquellen recherchieren, Vergleichsangebote prüfen und eine Preisspanne ableiten.
-      </Text>
-      {!running && config?.enabled && (
+      {!owner && !job && (
+        <Text style={s.note}>
+          Die Eigentümerin oder der Eigentümer kann eine Recherche starten.
+        </Text>
+      )}
+      {!running && owner && config?.enabled && (
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ expanded: setupOpen }}
           onPress={() => setSetupOpen(!setupOpen)}
-          style={s.model}
+          style={[s.model, { alignSelf: 'flex-start' }]}
         >
           <Text style={s.link}>
             {setupOpen
-              ? 'Einstellungen schließen'
+              ? 'Vorbereitung schließen'
               : result
                 ? 'Neue Recherche vorbereiten'
-                : 'Recherche vorbereiten'}
+                : 'Recherche vorbereiten'}{' '}
+            →
           </Text>
         </Pressable>
       )}
@@ -179,20 +187,23 @@ export default function AnalysisPanel({
             </View>
           ))}
           <Text style={s.note}>Dein eigener Wert bleibt bis zur Übernahme erhalten.</Text>
-          <Pressable
-            accessibilityRole="button"
-            style={s.secondary}
-            disabled={busy}
-            onPress={() =>
-              action(async () => {
-                setJob(await api.cancelAnalysis(job!.id));
-              })
-            }
-          >
-            <Text style={s.link}>Recherche abbrechen</Text>
-          </Pressable>
+          {owner && (
+            <Pressable
+              accessibilityRole="button"
+              style={s.secondary}
+              disabled={busy}
+              onPress={() =>
+                action(async () => {
+                  setJob(await api.cancelAnalysis(job!.id));
+                })
+              }
+            >
+              <Text style={s.link}>Recherche abbrechen</Text>
+            </Pressable>
+          )}
         </>
       ) : (
+        owner &&
         (setupOpen || !config?.enabled) && (
           <>
             <Text style={s.label}>Recherchemodell</Text>
@@ -359,21 +370,23 @@ export default function AnalysisPanel({
               ))}
             </View>
           )}
-          <Pressable
-            accessibilityRole="button"
-            disabled={busy || Boolean(job?.appliedAt)}
-            style={s.secondary}
-            onPress={() =>
-              action(async () => {
-                setJob(await api.applyAnalysis(job!.id));
-                await onApplied();
-              })
-            }
-          >
-            <Text style={s.link}>
-              {job?.appliedAt ? '✓ Wert übernommen' : 'Geprüften Wert übernehmen'}
-            </Text>
-          </Pressable>
+          {owner && (
+            <Pressable
+              accessibilityRole="button"
+              disabled={busy || Boolean(job?.appliedAt)}
+              style={s.secondary}
+              onPress={() =>
+                action(async () => {
+                  setJob(await api.applyAnalysis(job!.id));
+                  await onApplied();
+                })
+              }
+            >
+              <Text style={s.link}>
+                {job?.appliedAt ? '✓ Wert übernommen' : 'Geprüften Wert übernehmen'}
+              </Text>
+            </Pressable>
+          )}
         </View>
       )}
       {Boolean(error) && (
@@ -388,49 +401,49 @@ const s = StyleSheet.create({
   panel: {
     padding: 16,
     borderWidth: 1,
-    borderColor: '#d8e8df',
-    borderRadius: 22,
-    backgroundColor: '#f3f9f5',
+    borderColor: '#E1E5E4',
+    borderRadius: 16,
+    backgroundColor: '#fff',
     gap: 12,
-    marginVertical: 16,
+    marginVertical: 0,
   },
   header: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   headerText: { flex: 1, gap: 5 },
   orb: {
-    width: 36,
-    height: 36,
-    borderRadius: 16,
-    backgroundColor: '#dcefe2',
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: '#146F68',
     alignItems: 'center',
     justifyContent: 'center',
   },
   star: { fontSize: 22, color: '#297a52' },
   eyebrow: { fontSize: 9, fontWeight: '700', letterSpacing: 1.3, color: '#62836e' },
-  title: { fontSize: 17, fontWeight: '600', letterSpacing: -0.5, color: '#244d35' },
-  note: { fontSize: 12, lineHeight: 19, color: '#687d6e' },
-  label: { fontSize: 12, fontWeight: '600', color: '#567160' },
+  title: { fontSize: 17, fontWeight: '600', letterSpacing: -0.5, color: '#172B36' },
+  note: { fontSize: 12, lineHeight: 19, color: '#627580' },
+  label: { fontSize: 12, fontWeight: '600', color: '#627580' },
   models: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   model: {
     padding: 11,
     borderWidth: 1,
-    borderColor: '#d4e2d8',
+    borderColor: '#E1E5E4',
     borderRadius: 11,
     backgroundColor: 'white',
   },
-  modelSelected: { borderColor: '#367d54', backgroundColor: '#e5f2e9' },
+  modelSelected: { borderColor: '#146F68', backgroundColor: '#EDF3F1' },
   notice: {
     padding: 12,
     borderRadius: 10,
-    backgroundColor: '#e9f1ec',
+    backgroundColor: '#F3F5F4',
     fontSize: 12,
     lineHeight: 19,
-    color: '#65796c',
+    color: '#627580',
   },
   consent: { flexDirection: 'row', gap: 10 },
   check: { fontSize: 24, color: '#327450' },
-  consentText: { flex: 1, fontSize: 11, lineHeight: 18, color: '#58715f' },
+  consentText: { flex: 1, fontSize: 11, lineHeight: 18, color: '#627580' },
   button: {
-    backgroundColor: '#2b7450',
+    backgroundColor: '#146F68',
     borderRadius: 12,
     paddingVertical: 11,
     paddingHorizontal: 16,
@@ -443,12 +456,12 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#d2e2d7',
+    borderColor: '#E1E5E4',
     borderRadius: 11,
     backgroundColor: 'white',
   },
-  link: { fontSize: 12, fontWeight: '600', color: '#2c704b' },
-  live: { color: '#2c7950', fontSize: 13, fontWeight: '600' },
+  link: { fontSize: 12, fontWeight: '600', color: '#146F68' },
+  live: { color: '#146F68', fontSize: 13, fontWeight: '600' },
   step: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   number: {
     width: 27,
@@ -461,13 +474,13 @@ const s = StyleSheet.create({
     color: '#839588',
   },
   selected: { backgroundColor: '#d5eadb', color: '#26724a' },
-  result: { borderTopWidth: 1, borderTopColor: '#d5e6da', paddingTop: 18, gap: 12 },
-  price: { fontSize: 32, fontWeight: '600', letterSpacing: -1, color: '#254d36' },
-  range: { fontSize: 15, color: '#53785f' },
+  result: { borderTopWidth: 1, borderTopColor: '#E1E5E4', paddingTop: 18, gap: 12 },
+  price: { fontSize: 32, fontWeight: '600', letterSpacing: -1, color: '#172B36' },
+  range: { fontSize: 15, color: '#627580' },
   comparable: {
     backgroundColor: 'white',
     borderWidth: 1,
-    borderColor: '#e0e9e2',
+    borderColor: '#E1E5E4',
     borderRadius: 12,
     padding: 13,
     gap: 7,

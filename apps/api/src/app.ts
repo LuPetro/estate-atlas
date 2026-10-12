@@ -22,6 +22,8 @@ import { toProperty, toValuation, toAsset, toAnalysis } from './database';
 import { createGeocoder } from './geocoding';
 import { analysisInput, type AnalysisResult } from '@estate-atlas/shared/analysis';
 import { disabledRuntime, type AnalysisRuntime } from './analysis/provider';
+import { propertyFor } from './property-access';
+import { registerWorkspaceRoutes } from './workspace-routes';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -215,18 +217,26 @@ export async function createApp(
   });
   app.get('/properties', { preHandler: requireUser }, async (req) => {
     const { rows } = await pool.query(
-      'SELECT * FROM properties WHERE owner_id=$1 ORDER BY created_at DESC,id',
+      "SELECT p.*,CASE WHEN p.owner_id=$1 THEN 'owner' ELSE m.role END AS access FROM properties p LEFT JOIN property_members m ON m.property_id=p.id AND m.user_id=$1 WHERE p.owner_id=$1 OR m.user_id IS NOT NULL ORDER BY p.created_at DESC,p.id",
       [req.user!.id],
     );
     return rows.map(toProperty);
   });
   app.get('/portfolio/valuations', { preHandler: requireUser }, async (req) => {
     const { rows } = await pool.query(
-      'SELECT v.* FROM valuations v JOIN properties p ON p.id=v.property_id WHERE p.owner_id=$1 ORDER BY v.recorded_at,v.id',
+      'SELECT v.* FROM valuations v JOIN properties p ON p.id=v.property_id WHERE p.owner_id=$1 OR EXISTS(SELECT 1 FROM property_members m WHERE m.property_id=p.id AND m.user_id=$1) ORDER BY v.recorded_at,v.id',
       [req.user!.id],
     );
     return rows.map(toValuation);
   });
+  app.get('/portfolio/assets', { preHandler: requireUser }, async (req) => {
+    const { rows } = await pool.query(
+      'SELECT a.id,a.property_id,a.name,a.mime_type,a.size,a.created_at FROM assets a JOIN properties p ON p.id=a.property_id WHERE p.owner_id=$1 OR EXISTS(SELECT 1 FROM property_members m WHERE m.property_id=p.id AND m.user_id=$1) ORDER BY a.created_at DESC,a.id',
+      [req.user!.id],
+    );
+    return rows.map(toAsset);
+  });
+  registerWorkspaceRoutes(app, pool, requireUser);
   const insert = async (client: pg.PoolClient, owner: string, input: PropertyInput) => {
     const id = randomUUID();
     const { rows } = await client.query(
@@ -278,11 +288,7 @@ export async function createApp(
   });
   app.get('/properties/:id', { preHandler: requireUser }, async (req) => {
     const id = idOf(req);
-    const property = await pool.query('SELECT * FROM properties WHERE id=$1 AND owner_id=$2', [
-      id,
-      req.user!.id,
-    ]);
-    if (!property.rows[0]) throw missing();
+    const property = await propertyFor(pool, id, req.user!.id);
     const [valuations, assets, analyses] = await Promise.all([
       pool.query('SELECT * FROM valuations WHERE property_id=$1 ORDER BY recorded_at,id', [id]),
       pool.query(
@@ -294,7 +300,7 @@ export async function createApp(
       ]),
     ]);
     return {
-      ...toProperty(property.rows[0]),
+      ...toProperty(property),
       valuations: valuations.rows.map(toValuation),
       assets: assets.rows.map(toAsset),
       analyses: analyses.rows.map(toAnalysis),
@@ -306,25 +312,18 @@ export async function createApp(
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const old = await client.query(
-        'SELECT * FROM properties WHERE id=$1 AND owner_id=$2 FOR UPDATE',
-        [id, req.user!.id],
-      );
-      if (!old.rows[0]) throw missing();
-      if (
-        old.rows[0].data.marketValue !== input.marketValue ||
-        old.rows[0].data.currency !== input.currency
-      )
+      const old = await propertyFor(client, id, req.user!.id, 'edit', true);
+      if (old.data.marketValue !== input.marketValue || old.data.currency !== input.currency)
         await client.query(
           'INSERT INTO valuations(id,property_id,market_value,currency) VALUES($1,$2,$3,$4)',
           [randomUUID(), id, input.marketValue, input.currency],
         );
       const { rows } = await client.query(
-        'UPDATE properties SET data=$1,updated_at=now() WHERE id=$2 AND owner_id=$3 RETURNING *',
-        [JSON.stringify(input), id, req.user!.id],
+        'UPDATE properties SET data=$1,updated_at=now() WHERE id=$2 RETURNING *',
+        [JSON.stringify(input), id],
       );
       await client.query('COMMIT');
-      return toProperty(rows[0]);
+      return toProperty({ ...rows[0], access: old.access });
     } catch (e) {
       await client.query('ROLLBACK');
       throw e;
@@ -355,11 +354,7 @@ export async function createApp(
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const owned = await client.query(
-        'SELECT id FROM properties WHERE id=$1 AND owner_id=$2 FOR UPDATE',
-        [id, req.user!.id],
-      );
-      if (!owned.rowCount) throw missing();
+      await propertyFor(client, id, req.user!.id, 'edit', true);
       const file = await req.file();
       if (!file) throw new HttpError(400, 'Datei fehlt.');
       const content = await file.toBuffer();
@@ -404,8 +399,9 @@ export async function createApp(
     }
   });
   app.get('/assets/:id', { preHandler: requireUser }, async (req, reply) => {
+    const { download } = z.object({ download: z.literal('1').optional() }).parse(req.query);
     const { rows } = await pool.query(
-      'SELECT a.* FROM assets a JOIN properties p ON p.id=a.property_id WHERE a.id=$1 AND p.owner_id=$2',
+      'SELECT a.* FROM assets a JOIN properties p ON p.id=a.property_id WHERE a.id=$1 AND (p.owner_id=$2 OR EXISTS(SELECT 1 FROM property_members m WHERE m.property_id=p.id AND m.user_id=$2))',
       [idOf(req), req.user!.id],
     );
     if (!rows[0]) throw missing();
@@ -414,17 +410,31 @@ export async function createApp(
       .header('Content-Type', asset.mime_type)
       .header(
         'Content-Disposition',
-        `${asset.mime_type === 'application/pdf' ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(asset.name)}`,
+        `${download || asset.mime_type === 'application/pdf' ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(asset.name)}`,
       )
       .header('X-Content-Type-Options', 'nosniff');
     return reply.send(asset.content);
   });
   app.delete('/assets/:id', { preHandler: requireUser }, async (req, reply) => {
-    const result = await pool.query(
-      'DELETE FROM assets a USING properties p WHERE a.property_id=p.id AND a.id=$1 AND p.owner_id=$2',
-      [idOf(req), req.user!.id],
-    );
-    if (!result.rowCount) throw missing();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const asset = (await client.query('SELECT property_id FROM assets WHERE id=$1', [idOf(req)]))
+        .rows[0];
+      if (!asset) throw missing();
+      await propertyFor(client, asset.property_id, req.user!.id, 'edit', true);
+      const result = await client.query('DELETE FROM assets WHERE id=$1 AND property_id=$2', [
+        idOf(req),
+        asset.property_id,
+      ]);
+      if (!result.rowCount) throw missing();
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
     return reply.code(204).send();
   });
   app.get('/analyses/config', { preHandler: requireUser }, async () => analysis.config);
@@ -499,7 +509,7 @@ export async function createApp(
   );
   app.get('/analyses/:id', { preHandler: requireUser }, async (req) => {
     const { rows } = await pool.query(
-      'SELECT a.* FROM analysis_jobs a JOIN properties p ON p.id=a.property_id WHERE a.id=$1 AND p.owner_id=$2',
+      'SELECT a.* FROM analysis_jobs a JOIN properties p ON p.id=a.property_id WHERE a.id=$1 AND (p.owner_id=$2 OR EXISTS(SELECT 1 FROM property_members m WHERE m.property_id=p.id AND m.user_id=$2))',
       [idOf(req), req.user!.id],
     );
     if (!rows[0]) throw missing();

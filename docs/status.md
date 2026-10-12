@@ -1,6 +1,6 @@
 # Umsetzungs- und Prüfstatus
 
-Stand: 11. Oktober 2026 (Europe/Vienna). Projekt: `/home/codexdev/projects/estate-atlas`.
+Stand: 12. Oktober 2026 (Europe/Vienna). Projekt: `/home/codexdev/projects/estate-atlas`.
 
 ## Meilensteine
 
@@ -99,3 +99,17 @@ Prüfungen dieses Standes:
 - Private PostgreSQL-Sicherung vor Aktualisierung erstellt. Vollständige Fingerprints aller sieben Anwendungstabellen vor/nach der Aktualisierung identisch. Keine produktiven Daten verändert, keine bezahlten Rechercheaufrufe für die Entwicklung.
 
 Anleitungen: `docs/portfolio-workspace.md`, `docs/mobile-testing.md`. Öffentliche HTTPS-Adresse, Apple-/Expo-Signierung und TestFlight bleiben offen. Dieser Funktionsstand ist lokal committed; kein neuer GitHub-Push oder CI-Lauf wurde für ihn gestartet. Der zuvor bestätigte GitHub-Lauf gehört zum Vermietungsstand `be06088`.
+
+## Portfolio, Dokumente und Zusammenarbeit (12.10.2026)
+
+Web und native App enthalten nun Portfolio-Verteilung, zentrale optionale Dokumentenablage, Objekt-Checklisten für Übergabe/Besichtigung, gespeicherte Kaufplanung und Zusammenarbeit per einmaligem Einladungscode. Rechte sind serverseitig auf Lesen, Bearbeiten und Eigentümeraktionen verteilt. Finanzielle Übersichten starten mit eigenen Immobilien; geteilte Objekte sind ausdrücklich auswählbar. Freigaben umfassen Dokumente und Arbeitsbereiche. Gleichzeitiges Speichern prüft die Version und meldet Konflikte, statt andere Änderungen still zu überschreiben. Keine automatische E-Mail-Einladung und keine kostenpflichtigen KI-Aufrufe während dieser Entwicklung.
+
+Die Oberfläche verwendet ruhigere Farben, eine kompakte Recherche und sechs getrennte Objektbereiche. Ungespeicherte Checklisten/Kaufpläne bleiben beim Reiterwechsel erhalten; Verlassen benötigt eine Bestätigung. Dokumente lassen sich suchen, filtern, öffnen und herunterladen. Nach Abmelden werden Web-Ansicht und Filter zurückgesetzt. Die native App bündelt zusätzliche Werkzeuge unter „Mehr“.
+
+Aktuelle Grenzen: tatsächliche iPhone-/Android-Geräteabnahme, öffentliche HTTPS-Adresse und signierte Store-Builds fehlen weiterhin. Erfolgreiche Hermes-Exporte (ca. 3,4 MB pro Plattform) bestätigen die JavaScript-Bundles; sie ersetzen keine IPA/APK oder Gerätetests. E-Mail-Verifizierung, Passwort-Reset, Adminverwaltung und betriebliche Absicherung für eine öffentliche Veröffentlichung bleiben separate nächste Schritte.
+
+Prüfungen dieses Updates: alle fünf Typprüfungen und **127 Logik-/API-Tests** bestanden, einschließlich echter PostgreSQL-Prüfungen für Einladung, Rollen, Widerruf, konkurrierende Saves und gespeicherte Währungen. **18 Browserfälle** bestanden (neun Desktop, neun iPhone-Bildschirmgröße), nun auch mit gespeichertem Kaufcheck, Checklistennotizen, Entwurfschutz, Dokumentdownload, Verteilung und Zwei-Konten-Freigabe/Widerruf. Der lokale Sammelprozess endete während des Handyteils mit SIGTERM; der vollständige Handyteil wurde separat erfolgreich mit Exit 0 wiederholt. Screenshots der neuen Desktop-/Handyansichten wurden geprüft und CSS-Kollisionen bei Kontrast und Eingabefeldausrichtung korrigiert. Native Android-/iOS-Exporte erfolgreich; reale Geräte bleiben ungeprüft.
+
+API-, Web- und optionale Mobile-Vorschau-Images wurden seriell in Docker gebaut. Vor Migration 004 wurde ein privater PostgreSQL-Dump erstellt und sein Inhaltsverzeichnis geprüft; keine Recherche war aktiv. Nach dem Update stimmen vollständige Zeilenfingerprints aller sieben bisherigen Datentabellen einschließlich `analysis_requests` mit der Sicherung überein. Die drei neuen Tabellen sind leer, die Migrationshistorie enthält genau den zusätzlichen Eintrag. DB/API/Web/Worker sind gesund; der Server-Browsercheck bestätigt Web, API, CORS und den Schutz privater Routen. Die optionale native Vorschau bleibt gestoppt.
+
+Dieses Update einschließlich des vorherigen Portfolio-Dashboard-Commits wird gemäß ausdrücklichem Auftrag auf das private GitHub-Repository gepusht. Maßgeblich für die Pipeline ist der neue Commit; historische erfolgreiche Läufe belegen diesen Stand nicht.

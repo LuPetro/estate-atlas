@@ -97,7 +97,7 @@ export default function ValueHistory({
               <Line key={y} x1={12} x2={588} y1={y} y2={y} stroke="#dce7dc" strokeDasharray="4 6" />
             ))}
             {chart.points.length > 1 && (
-              <Path d={chart.path} stroke="#26715b" strokeWidth={3} fill="none" />
+              <Path d={chart.path} stroke="#146F68" strokeWidth={3} fill="none" />
             )}
             {chart.points.map((p) => (
               <Circle
@@ -105,7 +105,7 @@ export default function ValueHistory({
                 cx={p.x}
                 cy={p.y}
                 r={p.value.id === point.id ? 7 : 5}
-                fill="#26715b"
+                fill="#146F68"
                 stroke="#f6f9f5"
                 strokeWidth={2}
                 onPress={() => setSelected(p.value.id)}
@@ -173,20 +173,20 @@ const s = StyleSheet.create({
     marginVertical: 12,
   },
   eyebrow: { color: '#739982', fontSize: 9, letterSpacing: 1.2, fontWeight: '700' },
-  title: { color: '#254e3e', fontSize: 21, fontWeight: '700' },
+  title: { color: '#172B36', fontSize: 21, fontWeight: '700' },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#dce5d7',
+    borderColor: '#E1E5E4',
   },
-  active: { backgroundColor: '#26715b', borderColor: '#26715b' },
+  active: { backgroundColor: '#146F68', borderColor: '#146F68' },
   activeText: { color: '#fff', fontSize: 12 },
-  text: { color: '#315443', fontSize: 12 },
-  value: { color: '#254e3e', fontSize: 26, fontWeight: '700' },
-  note: { color: '#6f8275', fontSize: 11, lineHeight: 18 },
+  text: { color: '#172B36', fontSize: 12 },
+  value: { color: '#172B36', fontSize: 26, fontWeight: '700' },
+  note: { color: '#627580', fontSize: 11, lineHeight: 18 },
   axis: { flexDirection: 'row', justifyContent: 'space-between' },
   record: { borderTopWidth: 1, borderColor: '#dce7dc', paddingVertical: 12, gap: 4 },
 });

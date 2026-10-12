@@ -8,6 +8,10 @@ import type {
   AnalysisJob,
   GeocodingResult,
   Valuation,
+  PropertyWorkspace,
+  WorkspaceSaveInput,
+  PropertyShares,
+  CreatedPropertyInvitation,
 } from '@estate-atlas/shared';
 export class ApiError extends Error {
   constructor(
@@ -79,6 +83,41 @@ export class ApiClient {
   valuations(signal?: AbortSignal) {
     return this.request<Valuation[]>('/portfolio/valuations', { signal });
   }
+  assets(signal?: AbortSignal) {
+    return this.request<Asset[]>('/portfolio/assets', { signal });
+  }
+  propertyWorkspace(id: string) {
+    return this.request<PropertyWorkspace>(`/properties/${id}/workspace`);
+  }
+  savePropertyWorkspace(id: string, input: WorkspaceSaveInput) {
+    return this.request<PropertyWorkspace>(`/properties/${id}/workspace`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    });
+  }
+  shares(id: string) {
+    return this.request<PropertyShares>(`/properties/${id}/shares`);
+  }
+  createInvitation(id: string, role: 'viewer' | 'editor') {
+    return this.request<CreatedPropertyInvitation>(`/properties/${id}/invitations`, {
+      method: 'POST',
+      body: JSON.stringify({ role }),
+    });
+  }
+  revokeInvitation(propertyId: string, invitationId: string) {
+    return this.request<void>(`/properties/${propertyId}/invitations/${invitationId}`, {
+      method: 'DELETE',
+    });
+  }
+  revokeShare(propertyId: string, userId: string) {
+    return this.request<void>(`/properties/${propertyId}/shares/${userId}`, { method: 'DELETE' });
+  }
+  acceptInvitation(code: string) {
+    return this.request<Property>('/invitations/accept', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+  }
   detail(id: string) {
     return this.request<PropertyDetail>(`/properties/${id}`);
   }
@@ -111,8 +150,8 @@ export class ApiClient {
   deleteAsset(id: string) {
     return this.request<void>(`/assets/${id}`, { method: 'DELETE' });
   }
-  assetUrl(id: string) {
-    return `${this.baseUrl}/assets/${id}`;
+  assetUrl(id: string, download = false) {
+    return `${this.baseUrl}/assets/${id}${download ? '?download=1' : ''}`;
   }
   analyse(id: string, input?: { model: string; consent: true }) {
     return this.request<AnalysisJob>(`/properties/${id}/analyses`, {

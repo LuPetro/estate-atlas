@@ -8,7 +8,14 @@ import {
   dashboardPreferencesSchema,
   type Property,
 } from '@estate-atlas/shared';
-export const emptyFilters = { query: '', country: '', type: '', currency: '', rental: '' };
+export const emptyFilters = {
+  query: '',
+  country: '',
+  type: '',
+  currency: '',
+  rental: '',
+  scope: 'own',
+};
 export type Filters = typeof emptyFilters;
 export function Chips({
   label,
@@ -34,7 +41,7 @@ export function Chips({
             onPress={() => onChange(v.value)}
             style={[s.chip, value === v.value && s.active]}
           >
-            <Text style={{ color: value === v.value ? '#fff' : '#315443' }}>{v.label}</Text>
+            <Text style={{ color: value === v.value ? '#fff' : '#172B36' }}>{v.label}</Text>
           </Pressable>
         ))}
       </ScrollView>
@@ -61,14 +68,26 @@ export function PortfolioFilters({
       >
         <Text style={s.link}>
           Portfolio filtern{' '}
-          {Object.values(filters).filter(Boolean).length
-            ? `(${Object.values(filters).filter(Boolean).length})`
+          {Object.entries(filters).filter(
+            ([key, value]) => value && (key !== 'scope' || value !== 'own'),
+          ).length
+            ? `(${Object.entries(filters).filter(([key, value]) => value && (key !== 'scope' || value !== 'own')).length})`
             : ''}{' '}
           {open ? '−' : '+'}
         </Text>
       </Pressable>
       {open && (
         <>
+          <Chips
+            label="Bestand"
+            value={filters.scope}
+            onChange={(v) => change('scope', v)}
+            values={[
+              { value: 'own', label: 'Meine Immobilien' },
+              { value: 'shared', label: 'Geteilt mit mir' },
+              { value: 'all', label: 'Alle zugänglichen' },
+            ]}
+          />
           <TextInput
             accessibilityLabel="Immobilien suchen"
             placeholder="Immobilien oder Orte suchen …"
@@ -201,22 +220,31 @@ export function DashboardCustomize({
   );
 }
 export function filteredPortfolio(properties: Property[], filters: Filters, archived = false) {
-  return filterProperties(properties, { ...filters, archived });
+  return filterProperties(
+    properties.filter(
+      (p) =>
+        filters.scope === 'all' ||
+        (filters.scope === 'shared'
+          ? p.access && p.access !== 'owner'
+          : !p.access || p.access === 'owner'),
+    ),
+    { ...filters, archived },
+  );
 }
 export const s = StyleSheet.create({
   card: { padding: 16, borderRadius: 18, backgroundColor: '#fff', gap: 12, marginVertical: 8 },
   input: {
     padding: 12,
     borderWidth: 1,
-    borderColor: '#dce5d7',
+    borderColor: '#E1E5E4',
     borderRadius: 10,
-    color: '#315443',
+    color: '#172B36',
   },
   field: { gap: 6 },
   chips: { gap: 8 },
-  chip: { padding: 10, borderRadius: 18, borderWidth: 1, borderColor: '#dce5d7' },
-  active: { backgroundColor: '#26715b' },
-  link: { color: '#26715b', fontSize: 13, fontWeight: '600' },
-  note: { color: '#6f8275', fontSize: 12, lineHeight: 18 },
-  title: { color: '#254e3e', fontSize: 22, fontWeight: '700' },
+  chip: { padding: 10, borderRadius: 18, borderWidth: 1, borderColor: '#E1E5E4' },
+  active: { backgroundColor: '#146F68' },
+  link: { color: '#146F68', fontSize: 13, fontWeight: '600' },
+  note: { color: '#627580', fontSize: 12, lineHeight: 18 },
+  title: { color: '#172B36', fontSize: 22, fontWeight: '700' },
 });

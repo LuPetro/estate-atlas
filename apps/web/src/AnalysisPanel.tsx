@@ -14,11 +14,14 @@ export default function AnalysisPanel({
   property,
   api,
   onApplied,
+  onError,
 }: {
   property: PropertyDetail;
   api: ApiClient;
   onApplied: () => Promise<void>;
+  onError?: (message: string) => void;
 }) {
+  const owner = !property.access || property.access === 'owner';
   const [config, setConfig] = useState<AnalysisConfig | null>(null);
   const [job, setJob] = useState<AnalysisJob | null>(property.analyses[0] ?? null);
   const [model, setModel] = useState('');
@@ -27,6 +30,9 @@ export default function AnalysisPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (error) onError?.(error);
+  }, [error, onError]);
   useEffect(() => {
     let live = true;
     api
@@ -102,12 +108,11 @@ export default function AnalysisPanel({
           <Sparkles size={18} />
         </div>
         <div>
-          <p className="eyebrow">ESTATEATLAS RESEARCH</p>
-          <h3 id="ai-heading">Marktpreis recherchieren</h3>
-          <p>Webquellen recherchieren, Vergleichsangebote prüfen und eine Preisspanne ableiten.</p>
+          <h3 id="ai-heading">Marktpreis prüfen</h3>
+          <p>Vergleichsangebote und Quellen für eine aktuelle Preisindikation.</p>
         </div>
       </div>
-      {!running && config?.enabled && (
+      {owner && !running && config?.enabled && (
         <button
           type="button"
           className="button secondary ai-prepare"
@@ -143,19 +148,22 @@ export default function AnalysisPanel({
             Die Schritte zeigen den tatsächlichen Serverstatus. Dein eigener Wert bleibt bis zur
             Übernahme erhalten.
           </p>
-          <button
-            className="button secondary"
-            disabled={busy}
-            onClick={() =>
-              action(async () => {
-                setJob(await api.cancelAnalysis(job!.id));
-              })
-            }
-          >
-            Recherche abbrechen
-          </button>
+          {owner && (
+            <button
+              className="button secondary"
+              disabled={busy}
+              onClick={() =>
+                action(async () => {
+                  setJob(await api.cancelAnalysis(job!.id));
+                })
+              }
+            >
+              Recherche abbrechen
+            </button>
+          )}
         </>
       ) : (
+        owner &&
         (setupOpen || !config?.enabled) && (
           <>
             <div className="ai-controls">
@@ -220,6 +228,9 @@ export default function AnalysisPanel({
             </button>
           </>
         )
+      )}
+      {!owner && !result && !running && (
+        <p className="ai-note">Eine neue Recherche kann der Eigentümer starten.</p>
       )}
       {!running && job?.reason && (
         <p className="analysis-status ai-note" role="status">
@@ -304,7 +315,7 @@ export default function AnalysisPanel({
           </details>
           <button
             className="button secondary"
-            disabled={busy || Boolean(job?.appliedAt)}
+            disabled={!owner || busy || Boolean(job?.appliedAt)}
             onClick={() =>
               action(async () => {
                 setJob(await api.applyAnalysis(job!.id));
@@ -313,11 +324,15 @@ export default function AnalysisPanel({
             }
           >
             <Check size={16} />
-            {job?.appliedAt ? 'Wert übernommen' : 'Geprüften Wert übernehmen'}
+            {job?.appliedAt
+              ? 'Wert übernommen'
+              : owner
+                ? 'Geprüften Wert übernehmen'
+                : 'Übernahme durch Eigentümer'}
           </button>
         </div>
       )}
-      {error && (
+      {error && !onError && (
         <p className="error" role="alert">
           {error}
         </p>

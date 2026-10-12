@@ -1,6 +1,6 @@
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import EmbeddedPostgres from 'embedded-postgres';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { FastifyInstance } from 'fastify';
@@ -450,6 +450,375 @@ describe('real PostgreSQL persistence, authentication and resource authorization
     expect(res.json()).toMatchObject({ status: 'blocked', result: null });
     expect(res.json().reason).toContain('Datenquellen');
   });
+  it('persists workspace assumptions and prevents concurrent edits from silently overwriting each other', async () => {
+    const url = `/properties/${propertyId}/workspace`;
+    expect((await app.inject(url)).statusCode).toBe(401);
+    expect((await app.inject({ url, headers: other })).statusCode).toBe(404);
+    expect((await app.inject({ url, headers: owner })).json()).toEqual({
+      version: 0,
+      checklists: [],
+      purchaseCheck: null,
+    });
+    const input = {
+      expectedVersion: 0,
+      checklists: [
+        {
+          id: randomUUID(),
+          title: 'Übergabe',
+          date: '2026-10-11',
+          notes: 'Synthetischer Test',
+          items: [{ id: randomUUID(), label: 'Schlüssel', done: true, note: '3 Stück' }],
+        },
+      ],
+      purchaseCheck: {
+        currency: 'EUR',
+        purchasePrice: 320000,
+        transferTaxPercent: 0,
+        notaryPercent: 0,
+        agentPercent: 0,
+        otherCosts: 100,
+        renovationBudget: 10000,
+        equity: 80000,
+      },
+    };
+    const writes = await Promise.all([
+      app.inject({ method: 'PUT', url, headers: owner, payload: input }),
+      app.inject({ method: 'PUT', url, headers: owner, payload: { ...input, checklists: [] } }),
+    ]);
+    expect(writes.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    const saved = writes.find((r) => r.statusCode === 200)!.json();
+    expect((await app.inject({ url, headers: owner })).json()).toEqual(saved);
+    expect(saved).toMatchObject({ version: 1, purchaseCheck: input.purchaseCheck });
+    const db = await pool.query(
+      'SELECT data,version FROM property_workspaces WHERE property_id=$1',
+      [propertyId],
+    );
+    expect(db.rows[0].data.purchaseCheck.currency).toBe('EUR');
+    expect(
+      (
+        await app.inject({
+          method: 'PUT',
+          url,
+          headers: owner,
+          payload: { ...input, expectedVersion: 1, ownerId: randomUUID() },
+        })
+      ).statusCode,
+    ).toBe(400);
+    const original = (await pool.query('SELECT data FROM properties WHERE id=$1', [propertyId]))
+      .rows[0].data;
+    expect(
+      (
+        await app.inject({
+          method: 'PUT',
+          url: `/properties/${propertyId}`,
+          headers: owner,
+          payload: { ...original, currency: 'USD' },
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect((await app.inject({ url, headers: owner })).json().purchaseCheck.currency).toBe('EUR');
+    await app.inject({
+      method: 'PUT',
+      url: `/properties/${propertyId}`,
+      headers: owner,
+      payload: original,
+    });
+  });
+  it('shares reads through a hashed single-use invitation while keeping viewers read-only', async () => {
+    const invitationUrl = `/properties/${propertyId}/invitations`;
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: invitationUrl,
+          headers: other,
+          payload: { role: 'editor' },
+        })
+      ).statusCode,
+    ).toBe(404);
+    const invitation = await app.inject({
+      method: 'POST',
+      url: invitationUrl,
+      headers: owner,
+      payload: { role: 'viewer' },
+    });
+    expect(invitation.statusCode).toBe(201);
+    const invite = invitation.json();
+    expect(invite.code).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const db = (
+      await pool.query('SELECT token_hash,expires_at FROM property_invitations WHERE id=$1', [
+        invite.id,
+      ])
+    ).rows[0];
+    expect(db.token_hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(db.token_hash).not.toBe(invite.code);
+    expect(db.expires_at.getTime() - Date.now()).toBeGreaterThan(6 * 86400000);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/invitations/accept',
+          headers: owner,
+          payload: { code: invite.code },
+        })
+      ).statusCode,
+    ).toBe(409);
+    const accepted = await Promise.all([
+      app.inject({
+        method: 'POST',
+        url: '/invitations/accept',
+        headers: other,
+        payload: { code: invite.code },
+      }),
+      app.inject({
+        method: 'POST',
+        url: '/invitations/accept',
+        headers: other,
+        payload: { code: invite.code },
+      }),
+    ]);
+    expect(accepted.map((r) => r.statusCode).sort()).toEqual([200, 404]);
+    expect(accepted.find((r) => r.statusCode === 200)!.json()).toMatchObject({
+      id: propertyId,
+      access: 'viewer',
+    });
+    expect((await app.inject({ url: '/properties', headers: other })).json()).toEqual([
+      expect.objectContaining({ id: propertyId, access: 'viewer' }),
+    ]);
+    expect(
+      (await app.inject({ url: `/properties/${propertyId}`, headers: other })).json().access,
+    ).toBe('viewer');
+    expect(
+      (await app.inject({ url: '/portfolio/valuations', headers: other })).json().length,
+    ).toBeGreaterThan(0);
+    expect((await app.inject({ url: '/portfolio/assets', headers: other })).json()).toEqual([
+      expect.objectContaining({ id: assetId, propertyId }),
+    ]);
+    expect(
+      (await app.inject({ url: '/portfolio/assets', headers: other })).json()[0],
+    ).not.toHaveProperty('content');
+    expect((await app.inject({ url: `/assets/${assetId}`, headers: other })).statusCode).toBe(200);
+    expect(
+      (await app.inject({ url: `/properties/${propertyId}/workspace`, headers: other })).statusCode,
+    ).toBe(200);
+    const original = (await pool.query('SELECT data FROM properties WHERE id=$1', [propertyId]))
+      .rows[0].data;
+    for (const request of [
+      { method: 'PUT' as const, url: `/properties/${propertyId}`, payload: original },
+      {
+        method: 'PUT' as const,
+        url: `/properties/${propertyId}/workspace`,
+        payload: { expectedVersion: 1, checklists: [], purchaseCheck: null },
+      },
+      { method: 'DELETE' as const, url: `/assets/${assetId}` },
+      { method: 'GET' as const, url: `/properties/${propertyId}/shares` },
+    ])
+      expect((await app.inject({ ...request, headers: other })).statusCode).toBe(404);
+    expect((await upload(propertyId, other)).statusCode).toBe(404);
+    const memberId = (await app.inject({ url: '/auth/me', headers: other })).json().id;
+    const shares = (
+      await app.inject({ url: `/properties/${propertyId}/shares`, headers: owner })
+    ).json();
+    expect(shares).toMatchObject({
+      members: [{ userId: memberId, role: 'viewer' }],
+      invitations: [],
+    });
+    expect(JSON.stringify(shares)).not.toContain(invite.code);
+    expect(
+      (
+        await app.inject({
+          method: 'DELETE',
+          url: `/properties/${propertyId}/shares/${memberId}`,
+          headers: owner,
+        })
+      ).statusCode,
+    ).toBe(204);
+  });
+  it('allows editors to collaborate but keeps billing, destruction and sharing with the owner; revocation stops every private read and write', async () => {
+    const invite = (
+      await app.inject({
+        method: 'POST',
+        url: `/properties/${propertyId}/invitations`,
+        headers: owner,
+        payload: { role: 'editor' },
+      })
+    ).json();
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/invitations/accept',
+          headers: other,
+          payload: { code: invite.code },
+        })
+      ).statusCode,
+    ).toBe(200);
+    const original = (await pool.query('SELECT data FROM properties WHERE id=$1', [propertyId]))
+      .rows[0].data;
+    const edited = await app.inject({
+      method: 'PUT',
+      url: `/properties/${propertyId}`,
+      headers: other,
+      payload: { ...original, title: 'Gemeinsam bearbeitet' },
+    });
+    expect(edited.statusCode).toBe(200);
+    expect(edited.json().access).toBe('editor');
+    expect(
+      (
+        await app.inject({
+          method: 'PUT',
+          url: `/properties/${propertyId}`,
+          headers: other,
+          payload: {
+            ...original,
+            ownerId: (await app.inject({ url: '/auth/me', headers: other })).json().id,
+          },
+        })
+      ).statusCode,
+    ).toBe(400);
+    const workspace = (
+      await app.inject({ url: `/properties/${propertyId}/workspace`, headers: other })
+    ).json();
+    expect(
+      (
+        await app.inject({
+          method: 'PUT',
+          url: `/properties/${propertyId}/workspace`,
+          headers: other,
+          payload: {
+            expectedVersion: workspace.version,
+            checklists: [],
+            purchaseCheck: workspace.purchaseCheck,
+          },
+        })
+      ).statusCode,
+    ).toBe(200);
+    const image = await upload(propertyId, other);
+    expect(image.statusCode).toBe(201);
+    expect(
+      (await app.inject({ method: 'DELETE', url: `/assets/${image.json().id}`, headers: other }))
+        .statusCode,
+    ).toBe(204);
+    const job = (
+      await pool.query('SELECT id FROM analysis_jobs WHERE property_id=$1 LIMIT 1', [propertyId])
+    ).rows[0];
+    expect((await app.inject({ url: `/analyses/${job.id}`, headers: other })).statusCode).toBe(200);
+    const ownerOnly = [
+      {
+        method: 'POST' as const,
+        url: `/properties/${propertyId}/analyses`,
+        payload: { model: 'gpt-6-luna', consent: true },
+      },
+      { method: 'POST' as const, url: `/analyses/${job.id}/cancel` },
+      { method: 'POST' as const, url: `/analyses/${job.id}/apply` },
+      {
+        method: 'PATCH' as const,
+        url: `/properties/${propertyId}/archive`,
+        payload: { archived: true },
+      },
+      { method: 'DELETE' as const, url: `/properties/${propertyId}` },
+      {
+        method: 'POST' as const,
+        url: `/properties/${propertyId}/invitations`,
+        payload: { role: 'editor' },
+      },
+    ];
+    for (const request of ownerOnly)
+      expect((await app.inject({ ...request, headers: other })).statusCode).toBe(404);
+    const memberId = (await app.inject({ url: '/auth/me', headers: other })).json().id;
+    expect(
+      (
+        await app.inject({
+          method: 'DELETE',
+          url: `/properties/${propertyId}/shares/${memberId}`,
+          headers: other,
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await app.inject({
+          method: 'DELETE',
+          url: `/properties/${propertyId}/shares/${memberId}`,
+          headers: owner,
+        })
+      ).statusCode,
+    ).toBe(204);
+    for (const url of [
+      `/properties/${propertyId}`,
+      `/properties/${propertyId}/workspace`,
+      `/assets/${assetId}`,
+      `/analyses/${job.id}`,
+    ])
+      expect((await app.inject({ url, headers: other })).statusCode).toBe(404);
+    for (const url of ['/properties', '/portfolio/valuations', '/portfolio/assets'])
+      expect((await app.inject({ url, headers: other })).json()).toEqual([]);
+    expect(
+      (
+        await app.inject({
+          method: 'PUT',
+          url: `/properties/${propertyId}`,
+          headers: other,
+          payload: original,
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect((await upload(propertyId, other)).statusCode).toBe(404);
+    await app.inject({
+      method: 'PUT',
+      url: `/properties/${propertyId}`,
+      headers: owner,
+      payload: original,
+    });
+  });
+  it('rejects expired, revoked and malformed invitations without granting access', async () => {
+    const url = `/properties/${propertyId}/invitations`;
+    const expired = (
+      await app.inject({ method: 'POST', url, headers: owner, payload: { role: 'viewer' } })
+    ).json();
+    await pool.query(
+      "UPDATE property_invitations SET created_at=now()-interval '8 days',expires_at=now()-interval '1 day' WHERE id=$1",
+      [expired.id],
+    );
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/invitations/accept',
+          headers: other,
+          payload: { code: expired.code },
+        })
+      ).statusCode,
+    ).toBe(404);
+    const revoked = (
+      await app.inject({ method: 'POST', url, headers: owner, payload: { role: 'editor' } })
+    ).json();
+    expect(
+      (await app.inject({ method: 'DELETE', url: `${url}/${revoked.id}`, headers: owner }))
+        .statusCode,
+    ).toBe(204);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/invitations/accept',
+          headers: other,
+          payload: { code: revoked.code },
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/invitations/accept',
+          headers: other,
+          payload: { code: 'invalid' },
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect((await app.inject({ url: '/portfolio/assets' })).statusCode).toBe(401);
+  });
   it('seeds clearly labeled test data into only the current portfolio and prevents duplicates', async () => {
     const res = await app.inject({ method: 'POST', url: '/properties/test-data', headers: other });
     expect(res.statusCode).toBe(201);
@@ -466,7 +835,14 @@ describe('real PostgreSQL persistence, authentication and resource authorization
       (await app.inject({ method: 'DELETE', url: `/properties/${propertyId}`, headers: owner }))
         .statusCode,
     ).toBe(204);
-    for (const table of ['valuations', 'assets', 'analysis_jobs'])
+    for (const table of [
+      'valuations',
+      'assets',
+      'analysis_jobs',
+      'property_workspaces',
+      'property_members',
+      'property_invitations',
+    ])
       expect(
         (
           await pool.query(`SELECT count(*)::int AS count FROM ${table} WHERE property_id=$1`, [

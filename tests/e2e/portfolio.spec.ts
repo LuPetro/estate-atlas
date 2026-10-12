@@ -21,7 +21,7 @@ async function register(page: Page) {
   await page.getByLabel('E-Mail-Adresse').fill(email);
   await page.getByLabel('Passwort', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Konto erstellen', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Alles im Blick.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Portfolioübersicht' })).toBeVisible();
   return email;
 }
 async function nav(page: Page, label: string) {
@@ -52,6 +52,7 @@ async function create(page: Page) {
 test('registers, creates, edits, persists, archives, restores and deletes a property', async ({
   page,
 }) => {
+  test.setTimeout(90000);
   await register(page);
   await create(page);
   await page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }).click();
@@ -63,10 +64,12 @@ test('registers, creates, edits, persists, archives, restores and deletes a prop
   await page.getByRole('button', { name: 'Immobilie speichern' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Alles im Blick.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Portfolioübersicht' })).toBeVisible();
   await expect(page.locator('.value-card')).toContainText('310.000');
   await page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }).click();
+  await page.getByRole('tab', { name: 'Werte', exact: true }).click();
   await expect(page.locator('.history>div')).toHaveCount(2);
+  await verifyWorkspace(page);
   await page.getByRole('button', { name: 'Archivieren', exact: true }).click();
   await nav(page, 'Wertentwicklung');
   await expect(page.locator('.portfolio-history-card')).toHaveCount(0);
@@ -115,6 +118,20 @@ test('labeled fixtures, filters, all views and interactive map use the same port
   await page.getByText('Dashboard anpassen', { exact: true }).click();
   await expect(page.getByLabel('Karte', { exact: true })).not.toBeChecked();
   await page.getByLabel('Karte', { exact: true }).check();
+  await nav(page, 'Verteilung');
+  await page.getByLabel('Verteilungswährung').selectOption('EUR');
+  await expect(page.locator('.allocation-ring')).toHaveAttribute('aria-label', /3 Immobilien/);
+  await expect(page.locator('.allocation-breakdown tbody tr')).toHaveCount(3);
+  await page.getByLabel('Verteilungskennzahl').selectOption('count');
+  await expect(page.locator('.allocation-ring')).toHaveAttribute('aria-label', /Gesamt 3,/);
+  await page.getByLabel('Verteilung gruppieren').selectOption('rental');
+  await expect(page.locator('.allocation-breakdown')).toContainText('Vermietung nicht angegeben');
+  await page.getByLabel('Verteilungswährung').selectOption('USD');
+  await expect(page.locator('.allocation-ring')).toHaveAttribute('aria-label', /1 Immobilien/);
+  await page.screenshot({
+    path: `work/distribution-${test.info().project.name}.png`,
+    fullPage: true,
+  });
   await nav(page, 'Wertentwicklung');
   await expect(page.locator('.portfolio-history-card')).toHaveCount(4);
   await expect(page.locator('.portfolio-totals')).toContainText('USD');
@@ -188,6 +205,7 @@ async function verifyRentalHistory(page: Page) {
   await expect(card).toContainText('Vermietung nicht angegeben');
   await card.click();
   const history = page.getByRole('region', { name: 'Wertentwicklung', exact: true });
+  await page.getByRole('tab', { name: 'Werte', exact: true }).click();
   await expect(history).toContainText('Ein erster Wert – noch kein Trend');
   await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
   await page.getByLabel('Vermietungsstatus', { exact: true }).selectOption('rented');
@@ -206,6 +224,7 @@ async function verifyRentalHistory(page: Page) {
   await expect(card).toContainText('Vermietet');
   await expect(card).toContainText('31.12.2099');
   await card.click();
+  await page.getByRole('tab', { name: 'Werte', exact: true }).click();
   await expect(history).toContainText('30.000');
   await expect(history).toContainText('10,7 %');
   await expect(history.getByRole('img')).toHaveAttribute(
@@ -229,6 +248,7 @@ async function verifyRentalHistory(page: Page) {
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await card.click();
   await expect(page.getByRole('dialog')).toContainText('unbefristet');
+  await page.getByRole('tab', { name: 'Werte', exact: true }).click();
   await expect(history).toContainText('Ein erster Wert – noch kein Trend');
   await history.getByLabel('Währung der Wertentwicklung').selectOption('EUR');
   await expect(history).toContainText('30.000');
@@ -268,6 +288,7 @@ test('uploads a private photo, researches labeled fixtures and adopts a result',
   await register(page);
   await create(page);
   await page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }).click();
+  await page.getByRole('tab', { name: 'Dokumente', exact: true }).click();
   await page.locator('input[type=file]').setInputFiles({
     name: 'private.png',
     mimeType: 'image/png',
@@ -276,7 +297,11 @@ test('uploads a private photo, researches labeled fixtures and adopts a result',
       'base64',
     ),
   });
-  await expect(page.getByRole('link', { name: 'private.png' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'private.png', exact: true })).toBeVisible();
+  const assetUrl = await page
+    .getByRole('link', { name: 'private.png', exact: true })
+    .getAttribute('href');
+  await page.getByRole('tab', { name: 'Übersicht', exact: true }).click();
   let startedResearch = 0;
   page.on('request', (r) => {
     if (r.method() === 'POST' && /\/properties\/[^/]+\/analyses$/.test(new URL(r.url()).pathname))
@@ -296,31 +321,100 @@ test('uploads a private photo, researches labeled fixtures and adopts a result',
   await expect(page.getByRole('link', { name: 'TESTDATEN Vergleich 1' })).toBeVisible();
   await page.getByRole('button', { name: 'Geprüften Wert übernehmen' }).click();
   await expect(page.getByRole('button', { name: 'Wert übernommen', exact: true })).toBeDisabled();
+  await page.getByRole('tab', { name: 'Werte', exact: true }).click();
   await expect(page.locator('.history')).toContainText('KI-Recherche · von dir übernommen');
-  const assetUrl = await page.getByRole('link', { name: 'private.png' }).getAttribute('href');
   const anonymous = await page.context().browser()!.newContext();
   expect((await anonymous.request.get(assetUrl!)).status()).toBe(401);
   await anonymous.close();
+  await page.getByRole('button', { name: 'Schließen', exact: true }).click();
+  await nav(page, 'Dokumente');
+  await expect(page.getByRole('link', { name: 'private.png', exact: true })).toBeVisible();
+  await page.getByLabel('Dokumenttyp', { exact: true }).selectOption('pdf');
+  await expect(page.locator('.document-row')).toHaveCount(0);
+  await page.getByLabel('Dokumenttyp', { exact: true }).selectOption('image');
+  await page.getByLabel('Dokumente suchen').fill('private');
+  await expect(page.locator('.document-row')).toHaveCount(1);
+  const downloaded = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'private.png herunterladen', exact: true }).click();
+  expect((await downloaded).suggestedFilename()).toBe('private.png');
+  await page.screenshot({ path: `work/documents-${test.info().project.name}.png`, fullPage: true });
 });
-test('logout revokes browser session; another account starts with an empty portfolio', async ({
+test('logout isolates accounts; invitations grant read access and revocation removes it', async ({
   page,
 }) => {
-  const email = await register(page);
+  test.setTimeout(90000);
+  const ownerEmail = await register(page);
   await create(page);
+  const card = page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' });
+  await card.click();
+  await page.getByRole('tab', { name: 'Zusammenarbeit', exact: true }).click();
+  await page.getByRole('button', { name: 'Einladung erstellen', exact: true }).click();
+  const inviteInput = page.getByLabel('Einladungscode', { exact: true });
+  await expect(inviteInput).toHaveValue(/^[A-Za-z0-9_-]{43}$/);
+  const code = await inviteInput.inputValue();
+  await page.getByRole('button', { name: 'Schließen', exact: true }).click();
   await logout(page);
   await expect(page.getByRole('button', { name: 'Anmelden', exact: true })).toBeVisible();
   await expect(page.locator('.auth-form .error')).toHaveCount(0);
+  expect((await page.request.get('http://localhost:4001/properties')).status()).toBe(401);
+  const recipientEmail = await register(page);
+  await expect(page.locator('.property-card')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Dein Portfolio beginnt hier.' })).toBeVisible();
+  await nav(page, 'Geteilt mit mir');
+  await page.getByLabel('Einladung annehmen: Code', { exact: true }).fill(code);
+  await page.getByRole('button', { name: 'Einladung annehmen', exact: true }).click();
+  await expect(card).toBeVisible();
+  await card.click();
+  await expect(
+    page.getByRole('dialog').getByRole('button', { name: 'Bearbeiten', exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Recherche vorbereiten', exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Übergabe', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Übergabe vorbereiten', exact: true })).toHaveCount(
+    0,
+  );
+  await page.getByRole('tab', { name: 'Zusammenarbeit', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Leserechte');
+  await expect(page.getByRole('button', { name: 'Einladung erstellen', exact: true })).toHaveCount(
+    0,
+  );
+  await page.getByRole('button', { name: 'Schließen', exact: true }).click();
+  await nav(page, 'Übersicht');
+  await expect(card).toHaveCount(0);
+  await nav(page, 'Verteilung');
+  await expect(
+    page.getByRole('heading', { name: 'Noch keine Verteilung', exact: true }),
+  ).toBeVisible();
+  await logout(page);
+  await login(page, ownerEmail);
+  await expect(card).toBeVisible();
+  await card.click();
+  await page.getByRole('tab', { name: 'Zusammenarbeit', exact: true }).click();
+  await expect(page.locator('.member-row')).toContainText(recipientEmail);
+  await page.screenshot({ path: `work/sharing-${test.info().project.name}.png`, fullPage: false });
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Zugriff entfernen', exact: true }).click();
+  await expect(page.locator('.member-row')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Schließen', exact: true }).click();
+  await logout(page);
+  await login(page, recipientEmail);
+  await nav(page, 'Geteilt mit mir');
+  await expect(card).toHaveCount(0);
+  await page.getByLabel('Einladung annehmen: Code', { exact: true }).fill(code);
+  await page.getByRole('button', { name: 'Einladung annehmen', exact: true }).click();
+  await expect(page.locator('.accept-invitation').getByRole('alert')).toContainText(
+    'bereits verwendet',
+  );
+});
+
+async function login(page: Page, email: string) {
   await page.getByLabel('E-Mail-Adresse').fill(email);
   await page.getByLabel('Passwort', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Anmelden', exact: true }).click();
-  await expect(
-    page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }),
-  ).toBeVisible();
-  await logout(page);
-  await register(page);
-  await expect(page.locator('.property-card')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Dein Portfolio beginnt hier.' })).toBeVisible();
-});
+  await expect(page.getByRole('heading', { name: 'Portfolioübersicht' })).toBeVisible();
+}
 
 test('selects an address, fills GPS and country, adjusts the pin and persists the chosen position', async ({
   page,
@@ -474,3 +568,52 @@ test('can cancel research and explains insufficient comparisons without changing
   await page.getByText('Was hat die Recherche gefunden?').click();
   await expect(page.locator('.ai-panel')).toContainText('4 × Andere Währung');
 });
+
+async function verifyWorkspace(page: Page) {
+  await page.getByRole('tab', { name: 'Übergabe', exact: true }).click();
+  await page.getByRole('button', { name: 'Übergabe vorbereiten', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Zählerstände dokumentieren', exact: true }).check();
+  await page
+    .getByLabel('Notiz zu Zählerstände dokumentieren', { exact: true })
+    .fill('TESTDATEN: Strom 12345 kWh');
+  await page.getByLabel('Checklisten-Termin').fill('2026-11-01');
+  await page.getByRole('tab', { name: 'Kaufcheck', exact: true }).click();
+  await page.getByRole('button', { name: 'Kaufcheck erstellen', exact: true }).click();
+  await page.getByLabel('Angenommener Kaufpreis', { exact: true }).fill('300000');
+  await page.getByRole('spinbutton', { name: 'Grunderwerbsteuer', exact: true }).fill('3.5');
+  await page.getByRole('spinbutton', { name: 'Notar & Grundbuch', exact: true }).fill('1.5');
+  await page.getByRole('spinbutton', { name: 'Vermittlung', exact: true }).fill('2');
+  await page.getByLabel('Weitere Kaufnebenkosten', { exact: true }).fill('2000');
+  await page.getByLabel('Renovierungsbudget', { exact: true }).fill('40000');
+  await page.getByLabel('Verfügbares Eigenkapital', { exact: true }).fill('100000');
+  await expect(page.getByRole('complementary', { name: 'Kaufcheck-Ergebnis' })).toContainText(
+    '363.000',
+  );
+  await expect(page.getByRole('complementary', { name: 'Kaufcheck-Ergebnis' })).toContainText(
+    '263.000',
+  );
+  await page.getByRole('tab', { name: 'Übergabe', exact: true }).click();
+  await expect(
+    page.getByRole('checkbox', { name: 'Zählerstände dokumentieren', exact: true }),
+  ).toBeChecked();
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await page.getByRole('button', { name: 'Schließen', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Änderungen speichern', exact: true }).click();
+  await expect(page.locator('.workspace-savebar')).toContainText('Änderungen gespeichert.');
+  await page.getByRole('button', { name: 'Schließen', exact: true }).click();
+  await page.reload();
+  await page.locator('.property-card').filter({ hasText: 'Meine echte Testimmobilie' }).click();
+  await page.getByRole('tab', { name: 'Übergabe', exact: true }).click();
+  await expect(page.getByLabel('Notiz zu Zählerstände dokumentieren', { exact: true })).toHaveValue(
+    'TESTDATEN: Strom 12345 kWh',
+  );
+  await expect(page.getByLabel('Checklisten-Termin')).toHaveValue('2026-11-01');
+  await expect(
+    page.getByRole('checkbox', { name: 'Zählerstände dokumentieren', exact: true }),
+  ).toBeChecked();
+  await page.getByRole('tab', { name: 'Kaufcheck', exact: true }).click();
+  await expect(page.getByLabel('Angenommener Kaufpreis', { exact: true })).toHaveValue('300000');
+  await page.screenshot({ path: `work/purchase-${test.info().project.name}.png`, fullPage: false });
+  await page.getByRole('tab', { name: 'Übersicht', exact: true }).click();
+}

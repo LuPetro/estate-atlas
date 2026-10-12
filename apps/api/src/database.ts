@@ -13,7 +13,12 @@ export async function migrate(pool: pg.Pool) {
     await client.query(
       'CREATE TABLE IF NOT EXISTS schema_migrations (version text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())',
     );
-    for (const version of ['001_initial', '002_analysis', '003_analysis_diagnostics']) {
+    for (const version of [
+      '001_initial',
+      '002_analysis',
+      '003_analysis_diagnostics',
+      '004_property_workspace',
+    ]) {
       const previous = await client.query('SELECT 1 FROM schema_migrations WHERE version=$1', [
         version,
       ]);
@@ -39,6 +44,7 @@ export function toProperty(row: Record<string, any>): Property {
     rental: row.data.rental ?? null,
     id: row.id,
     ownerId: row.owner_id,
+    access: row.access ?? 'owner',
     archivedAt: row.archived_at ? iso(row.archived_at) : null,
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),

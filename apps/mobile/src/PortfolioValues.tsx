@@ -65,7 +65,7 @@ export default function PortfolioValues({
   const rows = valueRows(items, values, period, sort);
   const stats = portfolioStats(items);
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#f4f7f3' }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#F6F5F1' }}>
       <ScrollView
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         refreshControl={

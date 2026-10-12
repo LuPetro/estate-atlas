@@ -20,6 +20,9 @@ export {
   valueRows,
 } from './portfolio';
 export type { DashboardWidget } from './portfolio';
+export * from './workspace';
+export { portfolioDistribution } from './distribution';
+export type { DistributionGrouping, DistributionMetric } from './distribution';
 import { rentalSchema } from './rental';
 const money = z
   .number()
@@ -96,6 +99,7 @@ export type PropertyInput = z.infer<typeof propertyInputSchema>;
 export type Property = PropertyInput & {
   id: string;
   ownerId: string;
+  access?: import('./workspace').PropertyAccess;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;

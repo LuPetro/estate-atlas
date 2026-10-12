@@ -7,7 +7,7 @@
 - `./scripts/gh auth status`: Anmeldung als `LuPetro` bestätigt.
 - Privates Repository nach ausdrücklicher Freigabe erstellt: [LuPetro/estate-atlas](https://github.com/LuPetro/estate-atlas).
 - `origin`: `https://github.com/LuPetro/estate-atlas.git`.
-- Der erste Push auf `main` ist ausdrücklich freigegeben. GitHub Actions wird beim Push ausgelöst; der Laufstatus ist auf GitHub zu prüfen.
+- Repository-Erstellung und erster Push wurden ausdrücklich freigegeben. Für das Update mit Portfolio, Dokumenten, Checklisten, Kaufcheck, Zusammenarbeit und neuer Oberfläche hat der Eigentümer erneut ausdrücklich „GitHub pushen“ beauftragt. GitHub Actions prüft jeden Push; das Ergebnis muss zum aktuellen Commit gehören.
 - `.local/`, `.env`, Datenbank, Tokens, Cache und Build-Ausgaben sind ignoriert.
 
 ## Anmeldung auf einem neuen Rechner
