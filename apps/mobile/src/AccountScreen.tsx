@@ -233,9 +233,15 @@ export default function AccountScreen({
             <Card title="Zwei-Faktor-Anmeldung">
               <Text style={ui.note}>
                 {account.mfaEnabled
-                  ? 'Aktiv.'
-                  : 'Verbinde eine Authenticator-App über die manuelle Schlüsseleingabe.'}
+                  ? 'Aktiv · Bei der Anmeldung brauchst du dein Passwort und einen aktuellen Code aus deiner Authenticator-App.'
+                  : 'Zwei-Faktor bedeutet Passwort plus Einmalcode. Für Verwaltungskonten ist es erforderlich.'}
               </Text>
+              {!account.mfaEnabled && (
+                <Text style={ui.note}>
+                  Du brauchst eine Authenticator-App auf deinem Handy, etwa Google Authenticator,
+                  Microsoft Authenticator oder eine Passwort-App mit Einmalcodes.
+                </Text>
+              )}
               {!secret && (
                 <Action
                   disabled={busy || !config?.mfaAvailable}
@@ -254,7 +260,12 @@ export default function AccountScreen({
               )}
               {!!secret && (
                 <>
-                  <Text selectable style={ui.label}>
+                  <Text style={ui.note}>
+                    Öffne deine App, wähle „Konto hinzufügen“ und „Schlüssel manuell eingeben“.
+                    Nenne es EstateAtlas und trage diesen privaten Einrichtungsschlüssel ein. Er ist
+                    kein Passwort.
+                  </Text>
+                  <Text selectable style={[ui.label, { fontSize: 16, letterSpacing: 1.5 }]}>
                     {secret}
                   </Text>
                   <Input

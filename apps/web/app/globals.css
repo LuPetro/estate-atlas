@@ -1359,11 +1359,26 @@ label select:focus {
   justify-content: space-between;
   padding: 14px 16px;
 }
+.auth-help {
+  color: #718079;
+  font-size: 11px;
+  line-height: 1.6;
+  margin: -10px 0 0;
+}
+.auth-secondary-actions {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+.auth-secondary-actions > .button {
+  width: 100%;
+  min-height: 46px;
+}
 .auth-toggle {
   text-align: center;
   color: #9aa79d;
   font-size: 11px;
-  margin: 26px 0;
+  margin: 0;
 }
 .auth-toggle button {
   border: 0;
@@ -4214,6 +4229,21 @@ main {
 .account-fields {
   display: grid;
   gap: 14px;
+}
+.mfa-guide {
+  padding: 14px 16px;
+  border: 1px solid #dce9e4;
+  border-radius: 12px;
+  background: #f5f9f7;
+}
+.mfa-guide strong {
+  color: #24463f;
+  font-size: 13px;
+}
+.mfa-guide p {
+  margin: 6px 0 0;
+  color: #627580;
+  font-size: 13px;
 }
 .account-muted {
   color: #67757b;

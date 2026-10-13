@@ -1117,15 +1117,21 @@ function Auth({
               </label>
             )}
             {!register && (
-              <label>
-                Zwei-Faktor-Code (falls eingerichtet)
-                <input
-                  name="code"
-                  autoComplete="one-time-code"
-                  maxLength={80}
-                  placeholder="Authenticator oder Wiederherstellungscode"
-                />
-              </label>
+              <>
+                <label>
+                  Zwei-Faktor-Code (falls eingerichtet)
+                  <input
+                    name="code"
+                    autoComplete="one-time-code"
+                    maxLength={80}
+                    placeholder="6-stelliger Code oder Wiederherstellungscode"
+                  />
+                </label>
+                <p className="auth-help">
+                  Nur nötig, wenn du die Zwei-Faktor-Anmeldung aktiviert hast. Den Code findest du
+                  in deiner Authenticator-App; ein gespeicherter Wiederherstellungscode geht auch.
+                </p>
+              </>
             )}
             {(error || globalError) && (
               <p role="alert" className="error">
@@ -1137,19 +1143,21 @@ function Auth({
               <ArrowRight size={17} />
             </button>
           </form>
-          <button className="button secondary" onClick={() => setRecover(true)}>
-            Passwort vergessen / E-Mail bestätigen
-          </button>
-          <div className="auth-toggle">
-            {register ? 'Schon ein Konto?' : 'Neu bei EstateAtlas?'}{' '}
-            <button
-              onClick={() => {
-                setRegister(!register);
-                setError('');
-              }}
-            >
-              {register ? 'Anmelden' : 'Konto erstellen'}
+          <div className="auth-secondary-actions">
+            <button className="button secondary" onClick={() => setRecover(true)}>
+              Passwort vergessen / E-Mail bestätigen
             </button>
+            <div className="auth-toggle">
+              {register ? 'Schon ein Konto?' : 'Neu bei EstateAtlas?'}{' '}
+              <button
+                onClick={() => {
+                  setRegister(!register);
+                  setError('');
+                }}
+              >
+                {register ? 'Anmelden' : 'Konto erstellen'}
+              </button>
+            </div>
           </div>
           <div className="auth-private">
             <ShieldCheck size={18} />

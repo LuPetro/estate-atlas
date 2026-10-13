@@ -249,9 +249,18 @@ export default function AccountPanel({
           </h2>
           <p>
             {account.mfaEnabled
-              ? 'Aktiv · Dein Konto ist zusätzlich geschützt.'
-              : 'Verbinde eine Authenticator-App. Für Verwaltungskonten ist dies erforderlich.'}
+              ? 'Aktiv · Bei der Anmeldung brauchst du dein Passwort und einen aktuellen Code aus deiner Authenticator-App.'
+              : 'Zwei-Faktor bedeutet Passwort plus Einmalcode. Für Verwaltungskonten ist es erforderlich.'}
           </p>
+          {!account.mfaEnabled && (
+            <div className="mfa-guide">
+              <strong>Das brauchst du</strong>
+              <p>
+                Eine Authenticator-App auf deinem Handy, zum Beispiel Google Authenticator,
+                Microsoft Authenticator oder eine Passwort-App mit Einmalcodes.
+              </p>
+            </div>
+          )}
           {!setup && (
             <form
               onSubmit={form(async (d) => {
@@ -266,10 +275,14 @@ export default function AccountPanel({
           )}
           {setup && (
             <>
-              <p>
-                In deiner Authenticator-App „Schlüssel manuell eingeben“ wählen und diesen Schlüssel
-                hinterlegen:
-              </p>
+              <div className="mfa-guide">
+                <strong>Authenticator verbinden</strong>
+                <p>
+                  Öffne die App, wähle „Konto hinzufügen“ und dann „Schlüssel manuell eingeben“.
+                  Nenne es EstateAtlas und trage den folgenden Einrichtungsschlüssel ein. Er ist
+                  kein Passwort und bleibt privat.
+                </p>
+              </div>
               <code className="secret-code">{setup.secret}</code>
               <form
                 onSubmit={form(async (d) => {
@@ -292,6 +305,9 @@ export default function AccountPanel({
                     required
                   />
                 </label>
+                <p className="account-muted">
+                  Gib den aktuellen sechsstelligen Code ein, den die App für EstateAtlas anzeigt.
+                </p>
                 <button className="button primary" disabled={busy}>
                   Einrichtung bestätigen
                 </button>
@@ -303,18 +319,20 @@ export default function AccountPanel({
               <strong>Wiederherstellungscodes jetzt sicher speichern</strong>
               <p>Jeder Code ist einmal verwendbar und wird nur jetzt angezeigt.</p>
               <pre>{codes.join('\n')}</pre>
-              <button
-                className="button secondary"
-                onClick={() => {
-                  const blob = new Blob([codes.join('\n')], { type: 'text/plain' });
-                  download(blob, 'estateatlas-recovery-codes.txt');
-                }}
-              >
-                Codes herunterladen
-              </button>
-              <button className="button secondary" onClick={() => setCodes([])}>
-                Sicher gespeichert
-              </button>
+              <div className="account-actions">
+                <button
+                  className="button secondary"
+                  onClick={() => {
+                    const blob = new Blob([codes.join('\n')], { type: 'text/plain' });
+                    download(blob, 'estateatlas-recovery-codes.txt');
+                  }}
+                >
+                  Codes herunterladen
+                </button>
+                <button className="button secondary" onClick={() => setCodes([])}>
+                  Sicher gespeichert
+                </button>
+              </div>
             </div>
           )}
           {account.mfaEnabled && account.role === 'user' && (

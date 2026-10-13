@@ -392,14 +392,24 @@ function Auth({
             <Field label="Einladungscode" value={invitation} onChange={setInvitation} />
           )}
           {!register && (
-            <Field label="Zwei-Faktor-Code (falls eingerichtet)" value={code} onChange={setCode} />
+            <>
+              <Field
+                label="Authenticator-Code (falls eingerichtet)"
+                value={code}
+                onChange={setCode}
+              />
+              <Text style={ui.note}>
+                Nur nötig, wenn du Zwei-Faktor aktiviert hast. Nimm den aktuellen Code aus deiner
+                Authenticator-App oder einen gespeicherten Wiederherstellungscode.
+              </Text>
+            </>
           )}
           <ErrorText error={error} />
-          <Button secondary onPress={() => setRecover(true)}>
-            Passwort vergessen / E-Mail bestätigen
-          </Button>
           <Button disabled={busy} onPress={submit}>
             {busy ? 'Bitte warten …' : register ? 'Konto erstellen' : 'Anmelden'}
+          </Button>
+          <Button secondary onPress={() => setRecover(true)}>
+            Passwort vergessen / E-Mail bestätigen
           </Button>
           <Button
             secondary
