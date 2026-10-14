@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Building2,
@@ -83,6 +83,7 @@ type Section =
   | 'documents'
   | 'shared';
 export default function Dashboard() {
+  const accountEpoch = useRef(0);
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -122,8 +123,30 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
+  const clearPrivateState = () => {
+    accountEpoch.current++;
+    setProperties([]);
+    setDetail(null);
+    setEditor(null);
+    setDetailDirty(false);
+    setSection('dashboard');
+    setQuery('');
+    setCountry('');
+    setType('');
+    setRental('');
+    setFilterCurrency('');
+    setCurrency('EUR');
+    setView('grid');
+    setMobileNav(false);
+    setStorageError('');
+    setPreferences(null);
+    setBusy(false);
+    setError('');
+  };
   const reload = useCallback(async () => {
-    setProperties(await api.properties());
+    const epoch = accountEpoch.current;
+    const result = await api.properties();
+    if (epoch === accountEpoch.current) setProperties(result);
   }, []);
   useEffect(() => {
     api
@@ -174,23 +197,26 @@ export default function Dashboard() {
   const currencyStats =
     stats.byCurrency.find((s) => s.currency === currency) ?? stats.byCurrency[0];
   const select = useCallback(async (id: string) => {
+    const epoch = accountEpoch.current;
     try {
       setError('');
-      setDetail(await api.detail(id));
+      const result = await api.detail(id);
+      if (epoch === accountEpoch.current) setDetail(result);
     } catch (e) {
-      setError((e as Error).message);
+      if (epoch === accountEpoch.current) setError((e as Error).message);
     }
   }, []);
   const act = async (fn: () => Promise<unknown>, refresh = true) => {
+    const epoch = accountEpoch.current;
     setError('');
     setBusy(true);
     try {
       await fn();
-      if (refresh) await reload();
+      if (refresh && epoch === accountEpoch.current) await reload();
     } catch (e) {
-      setError((e as Error).message);
+      if (epoch === accountEpoch.current) setError((e as Error).message);
     } finally {
-      setBusy(false);
+      if (epoch === accountEpoch.current) setBusy(false);
     }
   };
   useEffect(() => {
@@ -243,6 +269,7 @@ export default function Dashboard() {
     return (
       <Auth
         onSuccess={async (u) => {
+          clearPrivateState();
           setUser(u);
           setError('');
           try {
@@ -328,22 +355,8 @@ export default function Dashboard() {
             onClick={() =>
               act(async () => {
                 await api.logout();
+                clearPrivateState();
                 setUser(null);
-                setProperties([]);
-                setDetail(null);
-                setEditor(null);
-                setDetailDirty(false);
-                setSection('dashboard');
-                setQuery('');
-                setCountry('');
-                setType('');
-                setRental('');
-                setFilterCurrency('');
-                setCurrency('EUR');
-                setView('grid');
-                setMobileNav(false);
-                setStorageError('');
-                setPreferences(null);
               }, false)
             }
           >
@@ -378,8 +391,8 @@ export default function Dashboard() {
               api={api}
               onUser={(u) => setUser((current) => (current?.id === u.id ? u : current))}
               onExit={() => {
+                clearPrivateState();
                 setUser(null);
-                setProperties([]);
                 setSection('dashboard');
               }}
             />

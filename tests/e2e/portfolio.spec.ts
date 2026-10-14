@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { sampleProperties } from '../../packages/shared/src/index';
 const password = 'EstateAtlas browser test password 42';
 // The isolated build uses a synthetic CARTO key. Tile fixtures never contact
 // CARTO or use a real key; provider failure is exercised separately below.
@@ -49,6 +50,68 @@ async function create(page: Page) {
   await page.getByRole('button', { name: 'Immobilie speichern' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 }
+test('a delayed portfolio response cannot expose the previous account after logout and new signup', async ({
+  page,
+}) => {
+  await register(page);
+  const title = 'SYNTHETIC · Previous account private property';
+  const response = await page.request.post('/api/properties', {
+    headers: { Origin: 'http://localhost:3001' },
+    data: { ...sampleProperties[0], title },
+  });
+  expect(response.status()).toBe(201);
+  const property = await response.json();
+  await page.reload();
+  await page.locator('.property-card').filter({ hasText: title }).click();
+  let release!: () => void,
+    captured!: () => void,
+    capturedDetail!: () => void,
+    delayed = false;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const received = new Promise<void>((resolve) => {
+    captured = resolve;
+  });
+  const receivedDetail = new Promise<void>((resolve) => {
+    capturedDetail = resolve;
+  });
+  await page.route(`**/api/properties/${property.id}`, async (route) => {
+    const result = await route.fetch();
+    capturedDetail();
+    await held;
+    await route.fulfill({ response: result });
+  });
+  await page.route('**/api/properties', async (route) => {
+    if (route.request().method() !== 'GET' || delayed) {
+      await route.continue();
+      return;
+    }
+    delayed = true;
+    const result = await route.fetch();
+    captured();
+    await held;
+    await route.fulfill({ response: result });
+  });
+  await page.getByRole('button', { name: 'Archivieren', exact: true }).click();
+  await received;
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.locator('.property-card').filter({ hasText: title }).click();
+  await receivedDetail;
+  await logout(page);
+  await expect(page.getByRole('heading', { name: 'Schön, dass du da bist.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Konto erstellen', exact: true }).click();
+  await page.getByLabel('Dein Name').fill('Synthetic second account');
+  await page.getByLabel('E-Mail-Adresse').fill(`second-account-${Date.now()}@example.test`);
+  await page.getByLabel('Passwort', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Konto erstellen', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Portfolioübersicht' })).toBeVisible();
+  release();
+  await expect.poll(async () => (await page.request.get('/api/properties')).json()).toEqual([]);
+  await nav(page, 'Archiv');
+  await expect(page.locator('.property-card').filter({ hasText: title })).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
 test('registers, creates, edits, persists, archives, restores and deletes a property', async ({
   page,
 }) => {

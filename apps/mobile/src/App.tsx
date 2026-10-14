@@ -1,4 +1,12 @@
-import React, { useState, useEffect, useMemo, createContext, useContext, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  createContext,
+  useContext,
+  useCallback,
+  useRef,
+} from 'react';
 import {
   View,
   Text,
@@ -197,12 +205,17 @@ function Choices<T extends string>({
   );
 }
 export default function App() {
+  const accountEpoch = useRef(0);
   const [user, setUser] = useState<User | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
   const [needsVerification, setNeedsVerification] = useState(false);
-  const reload = async () => setProperties(await api.properties());
+  const reload = async () => {
+    const epoch = accountEpoch.current;
+    const result = await api.properties();
+    if (epoch === accountEpoch.current) setProperties(result);
+  };
   useEffect(() => {
     (async () => {
       try {
@@ -228,6 +241,8 @@ export default function App() {
   }, []);
   const success = async (result: { user: User; token?: string }) => {
     if (!result.token) throw new Error('Die API hat keine native Sitzung geliefert.');
+    accountEpoch.current++;
+    setProperties([]);
     token = result.token;
     await SecureStore.setItemAsync('estateatlas-session', token);
     setUser(result.user);
@@ -239,6 +254,7 @@ export default function App() {
     }
   };
   const exit = async () => {
+    accountEpoch.current++;
     await SecureStore.deleteItemAsync('estateatlas-session');
     token = null;
     setUser(null);
