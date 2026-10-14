@@ -26,6 +26,29 @@ const account = (email: string) => ({
   name: 'Integration Test',
 });
 describe('public release limits and proxy isolation', () => {
+  it('keeps the real 240-request limit and refuses fixture overrides in public production', async () => {
+    await expect(
+      createApp(pool, {
+        production: true,
+        origin: 'https://fixture.example.test',
+        fixtureRequestLimit: 5000,
+      }),
+    ).rejects.toThrow('forbidden');
+    const protectedApp = await createApp(pool);
+    try {
+      for (let i = 0; i < 240; i++) {
+        expect(
+          (await protectedApp.inject({ url: '/health', remoteAddress: '198.51.100.20' }))
+            .statusCode,
+        ).toBe(200);
+      }
+      expect(
+        (await protectedApp.inject({ url: '/health', remoteAddress: '198.51.100.20' })).statusCode,
+      ).toBe(429);
+    } finally {
+      await protectedApp.close();
+    }
+  });
   it('cleans expired credentials and old audit without deleting live account or property data', async () => {
     const id = randomUUID(),
       expired = randomBytes(32).toString('hex'),

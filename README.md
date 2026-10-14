@@ -116,6 +116,8 @@ API-Tests starten einen isolierten echten PostgreSQL-Cluster auf `127.0.0.1:5543
 
 `mobile:export` erzeugt Android- und iOS-Hermes-Bundles unter `apps/mobile/dist`. Das prüft den vollständigen JavaScript-Build, **keine installierbare APK/IPA und keinen Gerätetest**. Native Compiler/Simulatoren sind auf diesem VPS nicht installiert. CI ist vorbereitet; ihren Laufstatus separat auf GitHub prüfen.
 
+Im isolierten Browser-Testrunner teilen alle Fälle eine Loopback-IP und verwenden deshalb ein höheres globales Anfragelimit. Die echte API behält 240 Anfragen/Minute; ein Fixture-Override ist im öffentlichen Produktionsmodus verboten und dieser Schutz wird gegen PostgreSQL geprüft. Registrierung, Sicherheit und Recherche behalten ihre eigenen Grenzen.
+
 ## GitHub
 
 Lokales Git und das private Repository [LuPetro/estate-atlas](https://github.com/LuPetro/estate-atlas) sind verbunden; der freigegebene erste Push ist erfolgt. GitHub CLI liegt unter `.local/gh` und ist über `./scripts/gh` erreichbar. Details stehen in `docs/github.md`. Weitere Pushes benötigen deine ausdrückliche Freigabe. Zugangsdaten gehören niemals in den Chat oder ins Repository.

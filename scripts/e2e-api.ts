@@ -65,6 +65,7 @@ const accountFixtureRuntime = {
 };
 const app = await createApp(pool, {
   registrationLimit: 100, // Multiple synthetic browser accounts share the same fixture-runner IP.
+  fixtureRequestLimit: 5000,
   accounts: accountFixtureRuntime,
   origin: 'http://localhost:3001',
   analysis,

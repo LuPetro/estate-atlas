@@ -8,7 +8,7 @@ Kontoverwaltung/Verwaltung, Einladungen, E-Mail-Verifizierung/-Reset, Sitzungsve
 
 Neu: optional installierbare PWA ohne private Offline-Daten, lokale Schriftarten/Icons, öffentliche Hilfe-/Betreiber-/Datenschutz-/Nutzungs-/Löschseiten mit echter Laufzeitkonfiguration, Docker-Caddy mit gemeinsamem `/api`, geprüfte Produktionskonfiguration, Objekt-/Speicherquoten einschließlich konkurrierender Zusammenarbeit/Übertragung, datenschutzsparsame Zugriffs-/Fehlerlogs, automatische Ablauf-/Auditbereinigung, Worker-Healthcheck, Überwachung und verschlüsselbarer Wiederherstellungskoffer.
 
-Typprüfungen aller fünf Pakete und **163 Geschäftsregel-/API-/Release-Tests** erfolgreich. **32 verschiedene Browserfälle** (16 Desktop, 16 Smartphone-Viewport) bestanden, darunter bestehende Konten/Portfolio/Recherchen über denselben `/api`-Pfad sowie PWA-Metadaten, Sicherheitsheader, strikt allgemeiner Offline-Cache und verzögerte Antworten bei Kontowechsel. Ein veralteter `.first()`-Kontoselektor wurde an die neue Speicherkarte angepasst und der betroffene Desktop-Test erneut erfolgreich geprüft. Next-Produktionsbuild und native Android-/iOS-Exporte erfolgreich; Safari-Geräte-/Installationsabnahme bleibt offen.
+Typprüfungen aller fünf Pakete und **164 Geschäftsregel-/API-/Release-Tests** erfolgreich. **32 verschiedene Browserfälle** (16 Desktop, 16 Smartphone-Viewport) bestanden, darunter bestehende Konten/Portfolio/Recherchen über denselben `/api`-Pfad sowie PWA-Metadaten, Sicherheitsheader, strikt allgemeiner Offline-Cache und verzögerte Antworten bei Kontowechsel. Ein veralteter `.first()`-Kontoselektor wurde an die neue Speicherkarte angepasst und der betroffene Desktop-Test erneut erfolgreich geprüft. Next-Produktionsbuild und native Android-/iOS-Exporte erfolgreich; Safari-Geräte-/Installationsabnahme bleibt offen.
 
 Die Abhängigkeitsprüfung meldet keine Lücken in den deployten Web/API-Abhängigkeiten; zwei ungepatchte, exakt eingegrenzte Expo-Werkzeugpfade sind dokumentiert. Keine öffentliche Domain/SMTP-/DNS-Konfiguration, kein kostenpflichtiger Recherchetest und keine fingierten Betreiberangaben angelegt. Die Produktionsprüfung blockiert den öffentlichen Start erwartungsgemäß bis zur vollständigen Einrichtung. Konkrete Restarbeit und Startbefehle: [web-launch.md](web-launch.md).
 
@@ -19,6 +19,8 @@ Zusätzlicher Fehlerfall-Test: Ein unerreichbarer Proxy-Upstream lieferte zunäc
 Kontowechsel-Härtung: Ein verzögerter Portfolio-Response konnte im Browser nach Logout und neuer Anmeldung das vorherige Portfolio wieder anzeigen, obwohl die API bereits korrekt das neue leere Portfolio lieferte. Web und native App binden Listenantworten deshalb an die jeweilige Sitzung; Web schützt zusätzlich verspätete Detail-/Aktionsantworten und löscht Such-/Filter-/Modalzustände beim Kontowechsel. Der Fehler wurde mit isolierten synthetischen Konten reproduziert und der Regressionstest danach auf Desktop und Smartphone erfolgreich geprüft.
 
 ## Historischer Verlauf bis 12. Oktober
+
+CI-Testlast: Die schnelle Smartphone-Suite überschritt das reale Limit von 240 Anfragen/Minute über ihre gemeinsame Loopback-IP (HTTP 429). Nur der isolierte Testrunner setzt deshalb 5000/Minute. Ein zusätzlicher PostgreSQL-/API-Test bestätigt 240 erfolgreiche Anfragen, Drosselung der 241. Anfrage und Verbot des Fixture-Overrides im öffentlichen Produktionsmodus. Live-Betrieb und routebezogene Sicherheits-/Recherchelimits behalten ihre bisherigen Werte.
 
 ## Meilensteine
 

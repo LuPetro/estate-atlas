@@ -60,8 +60,12 @@ export async function createApp(
     accounts?: AccountRuntime;
     /** Isolated fixture runners only; production retains ten registrations per 15 minutes. */
     registrationLimit?: number;
+    /** Only isolated fixture runners share thousands of requests across one localhost IP. */
+    fixtureRequestLimit?: number;
   } = {},
 ) {
+  if (options.production && options.fixtureRequestLimit !== undefined)
+    throw new Error('Fixture request limits are forbidden in public production.');
   const analysis = options.analysis ?? disabledRuntime;
   const origin = options.origin ?? 'http://localhost:3000';
   const geocode = options.geocoder ?? createGeocoder({ url: options.geocodingUrl });
@@ -92,7 +96,7 @@ export async function createApp(
   await app.register(cookie);
   await app.register(helmet, { crossOriginResourcePolicy: { policy: 'same-site' } });
   await app.register(rateLimit, {
-    max: 240,
+    max: options.fixtureRequestLimit ?? 240,
     timeWindow: '1 minute',
     errorResponseBuilder: () => ({
       statusCode: 429,
