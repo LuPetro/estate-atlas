@@ -44,3 +44,9 @@ Offizielle Informationen:
 Auf einem echten iPhone prüfen: Anmeldung/Abmeldung, Werte-Tab mit Länder-/Währungs-/Vermietungsfiltern, Dashboard-Bereiche ausblenden und nach Neustart wiederfinden, Karte mit Gesten, Formular bei geöffneter Tastatur, Mietzeitraum, Foto/PDF-Auswahl und Dateifreigabe. KI-Einstellungen öffnen darf keinen Rechercheauftrag starten; erst Zustimmung und Start dürfen ihn auslösen. Rückkehr aus dem Hintergrund muss einen laufenden Auftrag wieder anzeigen.
 
 Für die neuen Arbeitsbereiche zusätzlich prüfen: Unter „Mehr“ Verteilung nach Land/Art/Vermietung und Wert/Anzahl/Fläche, Dokumentensuche und Wechsel zwischen eigenen/geteilten Objekten. Im Objekt Übergabevorlage anlegen, Notizen ändern, zwischen Bereichen wechseln und speichern; beim Zurückwischen dürfen ungespeicherte Eingaben erst nach Bestätigung verworfen werden. Kaufcheck-Währung, Kosten und Finanzierungsbedarf nach App-Neustart kontrollieren. Mit zwei Konten einen Einladungscode über die native Freigabeoberfläche teilen, Leserechte/Bearbeitungsrechte und Widerruf prüfen. Authentifiziertes PDF-Öffnen und das System-Freigabefenster benötigen ebenfalls einen echten Gerätetest.
+
+# Web-V1 und PWA (14.10.2026)
+
+Nach Domain-/HTTPS-Einrichtung wird auf dem iPhone einfach die öffentliche App-Domain in Safari geöffnet; zwei SSH-Tunnel sind dann nicht mehr nötig. Unter `/install` steht die Anleitung „Teilen → Zum Home-Bildschirm“. Die PWA hält ausschließlich einen allgemeinen Offline-Hinweis vor, keine Portfolios oder Dateien. Die bisherigen SSH-Schritte weiter unten gelten weiterhin für die private Loopback-Vorschau.
+
+Native Expo-Builds bleiben eigenständig. Für deren öffentlichen Server `EXPO_PUBLIC_API_URL=https://deine-domain/api` konfigurieren und die Geräte-/Signierungsprüfung aus dieser Anleitung durchführen. V1-Web ersetzt sie nicht.

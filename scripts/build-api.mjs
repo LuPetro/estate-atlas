@@ -11,9 +11,9 @@ await build({
     'reprocess-analysis',
     'bootstrap-admin',
     'recover-admin',
-  ].map(
-    (name) => new URL(`../apps/api/src/${name}.ts`, import.meta.url).pathname,
-  ),
+    'maintenance',
+    'monitor',
+  ].map((name) => new URL(`../apps/api/src/${name}.ts`, import.meta.url).pathname),
   bundle: true,
   platform: 'node',
   format: 'esm',

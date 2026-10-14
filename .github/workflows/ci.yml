@@ -23,6 +23,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Check all workspace types
         run: pnpm typecheck
+      - name: Audit deployed dependencies
+        run: pnpm security:check
       - name: Test business rules and real PostgreSQL API
         run: pnpm test
       - name: Build API and production web app

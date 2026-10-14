@@ -8,6 +8,7 @@ import type pg from 'pg';
 import { createApp } from './app';
 import { database, migrate } from './database';
 import { sampleProperties } from '@estate-atlas/shared';
+import { cleanupExpired } from './maintenance-rules';
 let app: FastifyInstance, pool: pg.Pool, server: EmbeddedPostgres;
 let owner: { authorization: string }, other: { authorization: string };
 let propertyId: string, assetId: string;
@@ -23,6 +24,178 @@ const account = (email: string) => ({
   email,
   password: 'Correct horse battery staple 42',
   name: 'Integration Test',
+});
+describe('public release limits and proxy isolation', () => {
+  it('cleans expired credentials and old audit without deleting live account or property data', async () => {
+    const id = randomUUID(),
+      expired = randomBytes(32).toString('hex'),
+      live = randomBytes(32).toString('hex');
+    await pool.query(
+      "INSERT INTO users(id,email,name,password_hash,mfa_pending_secret,mfa_pending_at) VALUES($1,$2,'Synthetic retention fixture','synthetic-unused-hash','synthetic-pending',now()-interval '2 hours')",
+      [id, `retention-${id}@example.test`],
+    );
+    await pool.query(
+      "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$3,now()-interval '1 hour'),($2,$3,now()+interval '1 hour')",
+      [expired, live, id],
+    );
+    await pool.query(
+      "INSERT INTO account_tokens(token_hash,user_id,purpose,email,expires_at) VALUES($1,$3,'reset','synthetic@example.test',now()-interval '1 hour'),($2,$3,'verify','synthetic@example.test',now()+interval '1 hour')",
+      [expired, live, id],
+    );
+    const oldAudit = randomUUID(),
+      newAudit = randomUUID();
+    await pool.query(
+      "INSERT INTO account_audit(id,action,created_at) VALUES($1,'synthetic',now()-interval '181 days'),($2,'synthetic',now())",
+      [oldAudit, newAudit],
+    );
+    const before = (await pool.query('SELECT count(*)::int AS count FROM properties')).rows[0]
+      .count;
+    await cleanupExpired(pool, 180);
+    expect(
+      (await pool.query('SELECT token_hash FROM sessions WHERE user_id=$1', [id])).rows,
+    ).toEqual([{ token_hash: live }]);
+    expect(
+      (await pool.query('SELECT token_hash FROM account_tokens WHERE user_id=$1', [id])).rows,
+    ).toEqual([{ token_hash: live }]);
+    expect(
+      (await pool.query('SELECT mfa_pending_secret FROM users WHERE id=$1', [id])).rows[0]
+        .mfa_pending_secret,
+    ).toBeNull();
+    expect((await pool.query('SELECT count(*)::int AS count FROM properties')).rows[0].count).toBe(
+      before,
+    );
+    expect(
+      (await pool.query('SELECT id FROM account_audit WHERE id IN ($1,$2)', [oldAudit, newAudit]))
+        .rows,
+    ).toEqual([{ id: newAudit }]);
+  });
+  it('reserves property quota atomically under concurrent creates', async () => {
+    const limited = await createApp(pool, { maxProperties: 1 });
+    try {
+      const registered = (
+        await limited.inject({
+          method: 'POST',
+          url: '/auth/register',
+          payload: account(`quota-${randomUUID()}@example.test`),
+        })
+      ).json();
+      const headers = { authorization: `Bearer ${registered.token}` };
+      const results = await Promise.all(
+        [1, 2].map(() =>
+          limited.inject({
+            method: 'POST',
+            url: '/properties',
+            headers,
+            payload: sampleProperties[0],
+          }),
+        ),
+      );
+      expect(results.map((r) => r.statusCode).sort()).toEqual([201, 409]);
+      const usage = (await limited.inject({ url: '/portfolio/usage', headers })).json();
+      expect(usage).toMatchObject({ properties: 1, propertyLimit: 1, storageBytes: 0 });
+      expect((await limited.inject({ url: '/portfolio/usage' })).statusCode).toBe(401);
+      const count = await pool.query(
+        'SELECT count(*)::int AS count FROM valuations v JOIN properties p ON p.id=v.property_id WHERE p.owner_id=$1',
+        [registered.user.id],
+      );
+      expect(count.rows[0].count).toBe(1);
+    } finally {
+      await limited.close();
+    }
+  });
+  it('charges collaborator uploads to the owner and rolls back account and global overflow', async () => {
+    const bytes = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jF6cAAAAASUVORK5CYII=',
+      'base64',
+    );
+    const baseline = Number(
+      (await pool.query('SELECT COALESCE(sum(size),0)::bigint AS bytes FROM assets')).rows[0].bytes,
+    );
+    const limited = await createApp(pool, {
+      maxAccountStorage: bytes.length,
+      maxTotalStorage: baseline + bytes.length * 2,
+    });
+    const send = (id: string, headers: Record<string, string>) => {
+      const boundary = 'release-quota-fixture';
+      return limited.inject({
+        method: 'POST',
+        url: `/properties/${id}/assets`,
+        headers: { ...headers, 'content-type': `multipart/form-data; boundary=${boundary}` },
+        payload: Buffer.concat([
+          Buffer.from(
+            `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="fixture.png"\r\nContent-Type: image/png\r\n\r\n`,
+          ),
+          bytes,
+          Buffer.from(`\r\n--${boundary}--\r\n`),
+        ]),
+      });
+    };
+    try {
+      const users = await Promise.all(
+        [1, 2, 3].map(async () =>
+          (
+            await limited.inject({
+              method: 'POST',
+              url: '/auth/register',
+              payload: account(`storage-${randomUUID()}@example.test`),
+            })
+          ).json(),
+        ),
+      );
+      const headers = users.map((u) => ({ authorization: `Bearer ${u.token}` }));
+      const properties = await Promise.all(
+        users.map(async (_u, i) =>
+          (
+            await limited.inject({
+              method: 'POST',
+              url: '/properties',
+              headers: headers[i],
+              payload: sampleProperties[0],
+            })
+          ).json(),
+        ),
+      );
+      await pool.query(
+        "INSERT INTO property_members(property_id,user_id,role) VALUES($1,$2,'editor')",
+        [properties[0].id, users[1].user.id],
+      );
+      const first = await send(properties[0].id, headers[1]);
+      expect(first.statusCode).toBe(201);
+      expect(
+        (await limited.inject({ url: '/portfolio/usage', headers: headers[0] })).json()
+          .storageBytes,
+      ).toBe(bytes.length);
+      expect(
+        (await limited.inject({ url: '/portfolio/usage', headers: headers[1] })).json()
+          .storageBytes,
+      ).toBe(0);
+      expect((await send(properties[0].id, headers[1])).statusCode).toBe(409);
+      expect((await send(properties[1].id, headers[1])).statusCode).toBe(201);
+      expect((await send(properties[2].id, headers[2])).statusCode).toBe(503);
+      expect(
+        (await limited.inject({ url: '/portfolio/usage', headers: headers[2] })).json()
+          .storageBytes,
+      ).toBe(0);
+    } finally {
+      await limited.close();
+    }
+  });
+  it('trusts only the nearest controlled hop, and ignores forwarding headers without proxy mode', async () => {
+    for (const proxy of [false, true]) {
+      const check = await createApp(pool, { proxy });
+      check.get('/__fixture/client-ip', async (req) => ({ ip: req.ip }));
+      try {
+        const response = await check.inject({
+          url: '/__fixture/client-ip',
+          remoteAddress: '127.0.0.1',
+          headers: { 'x-forwarded-for': '198.51.100.1, 203.0.113.5' },
+        });
+        expect(response.json().ip).toBe(proxy ? '203.0.113.5' : '127.0.0.1');
+      } finally {
+        await check.close();
+      }
+    }
+  });
 });
 const upload = (
   id: string,

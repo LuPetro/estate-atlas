@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync, existsSync, chmodSync, statSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, chmodSync, statSync, readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -33,6 +33,12 @@ writeFileSync(
   { mode: 0o600 },
 );
 const env = path.join(dir, 'compose.env');
+const site = path.join(dir, 'site.json');
+if (!existsSync(site))
+  writeFileSync(site, readFileSync(path.join(root, 'config/site.example.json')), {
+    flag: 'wx',
+    mode: 0o644,
+  });
 if (!existsSync(env))
   writeFileSync(
     env,

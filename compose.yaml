@@ -41,6 +41,12 @@ services:
       DATABASE_PASSWORD_FILE: /run/secrets/postgres_app_password
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       ALLOW_LOCAL_HTTP: ${ALLOW_LOCAL_HTTP:-true}
+      TRUST_PROXY: ${TRUST_PROXY:-}
+      MAX_PROPERTIES_PER_ACCOUNT: ${MAX_PROPERTIES_PER_ACCOUNT:-100}
+      MAX_ACCOUNT_STORAGE_MB: ${MAX_ACCOUNT_STORAGE_MB:-250}
+      MAX_TOTAL_STORAGE_MB: ${MAX_TOTAL_STORAGE_MB:-2048}
+      AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-180}
+      OPS_ALERT_EMAIL: ${OPS_ALERT_EMAIL:-}
       ACCOUNT_PUBLIC_URL: ${ACCOUNT_PUBLIC_URL:-http://localhost:3000}
       ACCOUNT_ENCRYPTION_KEY_FILE: /run/secrets/account_encryption_key
       ACCOUNT_REQUIRE_VERIFICATION: ${ACCOUNT_REQUIRE_VERIFICATION:-false}
@@ -121,6 +127,10 @@ services:
     restart: unless-stopped
     init: true
     ports: ['127.0.0.1:${WEB_PORT:-3000}:3000']
+    environment:
+      SITE_CONFIG_FILE: /app/config/site.json
+    volumes:
+      - ./.local/docker/site.json:/app/config/site.json:ro
     depends_on:
       api: { condition: service_healthy }
     healthcheck:
@@ -138,6 +148,89 @@ services:
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     mem_limit: 384m
+    logging: *logging
+
+  edge:
+    profiles: [public]
+    image: caddy:2.11.2-alpine
+    restart: unless-stopped
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    ports: ['80:80', '443:443']
+    volumes:
+      - ./config/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api: { condition: service_healthy }
+      web: { condition: service_healthy }
+    mem_limit: 96m
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp]
+    logging: *logging
+
+  maintenance:
+    image: estate-atlas-api:local
+    command: [node, dist/maintenance.mjs]
+    environment: *api_environment
+    secrets: [postgres_app_password]
+    restart: unless-stopped
+    init: true
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "const f=require('fs');try{if(Date.now()-Number(f.readFileSync('/tmp/maintenance-health','utf8'))>120000)process.exit(1)}catch{process.exit(1)}",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 96m
+    logging: *logging
+
+  monitor:
+    image: estate-atlas-api:local
+    user: '${BACKUP_UID:-1000}:${BACKUP_GID:-1000}'
+    command: [node, dist/monitor.mjs]
+    environment: *api_environment
+    secrets: [smtp_password]
+    volumes:
+      - ./.local/backups/automatic:/backups:ro
+    restart: unless-stopped
+    init: true
+    depends_on:
+      api: { condition: service_healthy }
+      web: { condition: service_healthy }
+      worker: { condition: service_healthy }
+      backup: { condition: service_started }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "const f=require('fs');try{if(Date.now()-Number(f.readFileSync('/tmp/monitor-health','utf8'))>180000)process.exit(1)}catch{process.exit(1)}",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 96m
     logging: *logging
 
   mobile:
@@ -234,6 +327,8 @@ services:
 
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:
 
 secrets:
   account_encryption_key:

@@ -54,7 +54,12 @@ export function sessionUser(row: Record<string, any>): User {
     mfaEnabled: !!row.mfa_secret,
   };
 }
-export function createAccounts(app: FastifyInstance, pool: pg.Pool, runtime: AccountRuntime) {
+export function createAccounts(
+  app: FastifyInstance,
+  pool: pg.Pool,
+  runtime: AccountRuntime,
+  limits = { properties: 100, accountStorage: 250 * 1024 * 1024 },
+) {
   const tx = async <T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> => {
     const client = await pool.connect();
     try {
@@ -184,6 +189,7 @@ export function createAccounts(app: FastifyInstance, pool: pg.Pool, runtime: Acc
     }
   };
   const limited = { rateLimit: { max: 8, timeWindow: '15 minutes' } };
+  let activeExports = 0;
   app.get('/auth/config', async () => ({
     registration: await mode(),
     mailEnabled: !!runtime.mail,
@@ -429,7 +435,12 @@ export function createAccounts(app: FastifyInstance, pool: pg.Pool, runtime: Acc
     { preHandler: identity, config: { rateLimit: { max: 2, timeWindow: '15 minutes' } } },
     async (req, reply) => {
       const input = securityInputSchema.parse(req.body);
-      const client = await pool.connect();
+      if (activeExports >= 2) fail(503, 'Datenexport gerade ausgelastet. Bitte kurz warten.');
+      activeExports++;
+      const client = await pool.connect().catch((error) => {
+        activeExports--;
+        throw error;
+      });
       let released = false;
       const release = async (commit: boolean) => {
         if (released) return;
@@ -438,6 +449,7 @@ export function createAccounts(app: FastifyInstance, pool: pg.Pool, runtime: Acc
           await client.query(commit ? 'COMMIT' : 'ROLLBACK');
         } finally {
           client.release();
+          activeExports--;
         }
       };
       try {
@@ -548,6 +560,7 @@ export function createAccounts(app: FastifyInstance, pool: pg.Pool, runtime: Acc
     const id = z.uuid().parse((req.params as { id: string }).id);
     const input = transferOwnerInputSchema.parse(req.body);
     await tx(async (client) => {
+      await client.query('SELECT pg_advisory_xact_lock(428716028)');
       await reauth(client, req, input);
       const recipient = await client.query(
         "SELECT id FROM users WHERE id=$1 AND status='active' FOR UPDATE",
@@ -563,6 +576,15 @@ export function createAccounts(app: FastifyInstance, pool: pg.Pool, runtime: Acc
       );
       if (!member.rowCount)
         fail(400, 'Nur ein aktiver Mitwirkender mit Bearbeitungsrechten kann übernehmen.');
+      const quota = await client.query(
+        'SELECT (SELECT count(*)::int FROM properties WHERE owner_id=$1) AS count,COALESCE((SELECT sum(a.size) FROM assets a JOIN properties p ON p.id=a.property_id WHERE p.owner_id=$1 OR p.id=$2),0)::bigint AS bytes',
+        [input.userId, id],
+      );
+      if (
+        quota.rows[0].count >= limits.properties ||
+        Number(quota.rows[0].bytes) > limits.accountStorage
+      )
+        fail(409, 'Das Empfängerkonto hat nicht genügend Immobilien- oder Dokumentenspeicher.');
       const running = await client.query(
         "SELECT 1 FROM analysis_jobs WHERE property_id=$1 AND status IN ('queued','running')",
         [id],

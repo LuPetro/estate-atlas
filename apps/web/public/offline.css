@@ -1,0 +1,35 @@
+body {
+  margin: 0;
+  background: #f5f7f5;
+  color: #172e35;
+  font:
+    17px system-ui,
+    sans-serif;
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+}
+main {
+  max-width: 440px;
+  padding: 32px;
+}
+span {
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: #14836f;
+}
+h1 {
+  font-size: 32px;
+}
+p {
+  line-height: 1.7;
+}
+a {
+  display: inline-block;
+  margin-top: 20px;
+  padding: 14px 20px;
+  background: #14836f;
+  color: white;
+  border-radius: 12px;
+  text-decoration: none;
+}

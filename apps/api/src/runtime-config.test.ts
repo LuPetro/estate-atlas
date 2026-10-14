@@ -1,9 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { browserSecurity, connectionString } from './runtime-config';
+import { browserSecurity, connectionString, operationLimits } from './runtime-config';
 
 describe('Docker runtime security', () => {
+  it('refuses malformed public origins, uncontrolled proxies and unbounded storage', () => {
+    for (const origin of [
+      'https://example.test/path',
+      'https://user@example.test',
+      'http://example.test',
+    ])
+      expect(() => browserSecurity({ NODE_ENV: 'production', WEB_ORIGIN: origin })).toThrow();
+    expect(operationLimits({}).proxy).toBe(false);
+    expect(operationLimits({ TRUST_PROXY: '1' }).proxy).toBe(true);
+    for (const env of [
+      { TRUST_PROXY: 'true' },
+      { MAX_ACCOUNT_STORAGE_MB: '0' },
+      { MAX_PROPERTIES_PER_ACCOUNT: 'Infinity' },
+    ])
+      expect(() => operationLimits(env)).toThrow();
+  });
   it('keeps production cookie security enabled by default', () => {
     expect(
       browserSecurity({ NODE_ENV: 'production', WEB_ORIGIN: 'https://estate.example' }),

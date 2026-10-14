@@ -1,0 +1,27 @@
+{
+  email {$ACME_EMAIL}
+  admin off
+}
+
+{$PUBLIC_DOMAIN} {
+  encode zstd gzip
+  header {
+    Strict-Transport-Security "max-age=31536000"
+    -Server
+  }
+  # No access log: account codes, searches and resource identifiers must not leak.
+  @api path /api /api/*
+  handle @api {
+    uri strip_prefix /api
+    reverse_proxy api:4000 {
+      # Exactly one trusted hop. Replace spoofed inbound forwarding headers.
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Forwarded-Proto {scheme}
+      header_up X-Forwarded-Host {host}
+      header_up -Forwarded
+    }
+  }
+  handle {
+    reverse_proxy web:3000
+  }
+}

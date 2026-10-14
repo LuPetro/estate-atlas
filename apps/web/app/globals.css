@@ -1,4 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700&family=Manrope:wght@400;500;600;650;700;750;800&display=swap');
+@font-face {
+  font-family: 'DM Sans';
+  src: url('/fonts/dm-sans.ttf') format('truetype');
+  font-weight: 100 1000;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/manrope.ttf') format('truetype');
+  font-weight: 200 800;
+  font-display: swap;
+}
 :root {
   --ink: #172c35;
   --muted: #78878d;
@@ -18,6 +29,104 @@ body {
   background: var(--paper);
   font-family: var(--font);
   font-size: 14px;
+}
+.site-footer {
+  padding: 22px max(24px, env(safe-area-inset-right)) 22px max(24px, env(safe-area-inset-left));
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #53686c;
+  background: #eef2ef;
+}
+.site-footer nav {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.site-footer a {
+  text-decoration: none;
+  padding: 8px 0;
+}
+.site-footer a:hover {
+  text-decoration: underline;
+}
+.info-shell {
+  max-width: 880px;
+  padding: max(24px, env(safe-area-inset-top)) 24px 64px;
+  margin: auto;
+  min-height: calc(100svh - 90px);
+}
+.info-shell header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  padding-bottom: 52px;
+}
+.info-shell main {
+  display: grid;
+  gap: 24px;
+}
+.info-shell section {
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+.info-shell p,
+.info-shell li {
+  line-height: 1.8;
+}
+.info-shell .button {
+  justify-self: start;
+}
+.legal-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.connection-banner {
+  position: sticky;
+  top: 0;
+  z-index: 500;
+  padding: 12px 24px;
+  background: #fff0d2;
+  color: #69501a;
+  text-align: center;
+}
+.account-card progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--green);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+@media (max-width: 600px) {
+  .info-shell h1 {
+    font-size: 28px;
+  }
+  .info-shell section {
+    padding: 20px;
+  }
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+  .site-footer {
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
 }
 button,
 input,

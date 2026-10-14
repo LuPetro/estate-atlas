@@ -26,6 +26,7 @@ import { propertyFor } from './property-access';
 import { registerWorkspaceRoutes } from './workspace-routes';
 import { createAccounts, sessionUser } from './account-routes';
 import type { AccountRuntime } from './account-runtime';
+import { PrivateLogs } from './private-logs';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -49,6 +50,10 @@ export async function createApp(
     origin?: string;
     production?: boolean;
     logging?: boolean;
+    proxy?: boolean;
+    maxProperties?: number;
+    maxAccountStorage?: number;
+    maxTotalStorage?: number;
     geocoder?: ReturnType<typeof createGeocoder>;
     geocodingUrl?: string;
     analysis?: AnalysisRuntime;
@@ -60,6 +65,11 @@ export async function createApp(
   const analysis = options.analysis ?? disabledRuntime;
   const origin = options.origin ?? 'http://localhost:3000';
   const geocode = options.geocoder ?? createGeocoder({ url: options.geocodingUrl });
+  const limits = {
+    properties: options.maxProperties ?? 100,
+    accountStorage: options.maxAccountStorage ?? 250 * 1024 * 1024,
+    totalStorage: options.maxTotalStorage ?? 2048 * 1024 * 1024,
+  };
   if (options.production && !origin.startsWith('https://'))
     throw new Error('Production WEB_ORIGIN must use HTTPS.');
   const app = Fastify({
@@ -70,7 +80,9 @@ export async function createApp(
         }
       : false,
     bodyLimit: 128 * 1024,
-    trustProxy: false,
+    // The public Caddy configuration replaces forwarded headers, never appends user input.
+    trustProxy: options.proxy ? (_address: string, hop: number) => hop === 0 : false,
+    logController: new PrivateLogs(),
   });
   await app.register(cors, {
     origin,
@@ -79,7 +91,21 @@ export async function createApp(
   });
   await app.register(cookie);
   await app.register(helmet, { crossOriginResourcePolicy: { policy: 'same-site' } });
-  await app.register(rateLimit, { max: 240, timeWindow: '1 minute' });
+  await app.register(rateLimit, {
+    max: 240,
+    timeWindow: '1 minute',
+    errorResponseBuilder: () => ({
+      statusCode: 429,
+      message: 'Zu viele Anfragen. Bitte kurz warten und erneut versuchen.',
+    }),
+  });
+  app.addHook('onResponse', async (req, reply) => {
+    // Route templates, not URLs, queries, addresses, tokens, file names or bodies.
+    req.log.info(
+      { route: req.routeOptions.url ?? 'unmatched', method: req.method, status: reply.statusCode },
+      'Request completed',
+    );
+  });
   await app.register(multipart, {
     limits: { fileSize: 10 * 1024 * 1024, files: 1, fields: 0, parts: 1 },
   });
@@ -124,6 +150,7 @@ export async function createApp(
     app,
     pool,
     options.accounts ?? { publicUrl: origin, verificationRequired: false },
+    limits,
   );
   app.setErrorHandler((error, req, reply) => {
     if (error instanceof ZodError)
@@ -138,7 +165,11 @@ export async function createApp(
           'Die Registrierung konnte nicht abgeschlossen werden. Nutze eine andere E-Mail-Adresse oder melde dich an.',
       });
     const status = (error as { statusCode?: number }).statusCode ?? 500;
-    if (status >= 500) req.log.error({ err: error }, 'Request failed');
+    if (status >= 500)
+      req.log.error(
+        { code: /^[A-Z0-9_]{1,40}$/.test(code ?? '') ? code : 'INTERNAL' },
+        'Request failed',
+      );
     return reply.code(status >= 400 && status < 600 ? status : 500).send({
       message:
         status >= 500
@@ -255,7 +286,29 @@ export async function createApp(
     return rows.map(toAsset);
   });
   registerWorkspaceRoutes(app, pool, requireUser);
+  app.get('/portfolio/usage', { preHandler: requireUser }, async (req) => {
+    const result = await pool.query(
+      'SELECT (SELECT count(*)::int FROM properties WHERE owner_id=$1) AS properties,COALESCE((SELECT sum(a.size) FROM assets a JOIN properties p ON p.id=a.property_id WHERE p.owner_id=$1),0)::bigint AS bytes',
+      [req.user!.id],
+    );
+    return {
+      properties: result.rows[0].properties,
+      propertyLimit: limits.properties,
+      storageBytes: Number(result.rows[0].bytes),
+      storageLimitBytes: limits.accountStorage,
+    };
+  });
   const insert = async (client: pg.PoolClient, owner: string, input: PropertyInput) => {
+    await client.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [owner]);
+    const count = await client.query(
+      'SELECT count(*)::int AS count FROM properties WHERE owner_id=$1',
+      [owner],
+    );
+    if (count.rows[0].count >= limits.properties)
+      throw new HttpError(
+        409,
+        `Maximal ${limits.properties} Immobilien pro Konto, einschließlich Archiv.`,
+      );
     const id = randomUUID();
     const { rows } = await client.query(
       'INSERT INTO properties(id,owner_id,data) VALUES($1,$2,$3) RETURNING *',
@@ -372,7 +425,9 @@ export async function createApp(
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await propertyFor(client, id, req.user!.id, 'edit', true);
+      // Serializes quota reservations across properties and collaborators, including different owners.
+      await client.query('SELECT pg_advisory_xact_lock(428716028)');
+      const property = await propertyFor(client, id, req.user!.id, 'edit', true);
       const file = await req.file();
       if (!file) throw new HttpError(400, 'Datei fehlt.');
       const content = await file.toBuffer();
@@ -397,6 +452,20 @@ export async function createApp(
         [id],
       );
       if (total.rows[0].count >= 30) throw new HttpError(400, 'Maximal 30 Anhänge pro Immobilie.');
+      const usage = await client.query(
+        'SELECT COALESCE(sum(a.size),0)::bigint AS total,COALESCE(sum(a.size) FILTER(WHERE p.owner_id=$1),0)::bigint AS account FROM assets a JOIN properties p ON p.id=a.property_id',
+        [property.owner_id],
+      );
+      if (Number(usage.rows[0].account) + content.length > limits.accountStorage)
+        throw new HttpError(
+          409,
+          'Der Dokumentenspeicher dieses Eigentümerkontos ist voll. Entferne nicht mehr benötigte Dateien.',
+        );
+      if (Number(usage.rows[0].total) + content.length > limits.totalStorage)
+        throw new HttpError(
+          503,
+          'Der Dokumentenspeicher ist aktuell ausgelastet. Bitte kontaktiere den Support.',
+        );
       const name =
         file.filename
           .split(/[\\/]/)

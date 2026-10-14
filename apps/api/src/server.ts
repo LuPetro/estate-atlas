@@ -3,16 +3,18 @@ import { analysisRuntime } from './analysis/provider';
 import { database } from './database';
 import { createApp } from './app';
 import { accountRuntime } from './account-runtime';
-import { browserSecurity, connectionString } from './runtime-config';
+import { browserSecurity, connectionString, operationLimits } from './runtime-config';
 dotenv.config({ path: new URL('../../../.env', import.meta.url), quiet: true });
 const pool = database(await connectionString(process.env));
 const app = await createApp(pool, {
   ...browserSecurity(process.env),
+  ...operationLimits(process.env),
   logging: true,
   accounts: await accountRuntime(process.env, browserSecurity(process.env).production),
   geocodingUrl: process.env.GEOCODING_URL,
   analysis: await analysisRuntime(process.env),
 });
+pool.on('error', () => app.log.error('Database connection unavailable'));
 await app.listen({
   host: process.env.API_HOST ?? '127.0.0.1',
   port: Number(process.env.API_PORT ?? 4000),

@@ -2,6 +2,11 @@
   "name": "estate-atlas",
   "version": "0.1.0",
   "private": true,
+  "pnpm": {
+    "overrides": {
+      "xcode>uuid": "11.1.1"
+    }
+  },
   "packageManager": "pnpm@10.34.6",
   "engines": {
     "node": ">=22.13 <23"
@@ -17,12 +22,14 @@
     "dev:api": "./scripts/docker up -d --build --wait api",
     "dev:mobile": "./scripts/mobile-preview",
     "web:check": "node scripts/check-web.mjs",
+    "release:check": "node scripts/production-check.mjs",
+    "security:check": "node scripts/check-dependencies.mjs",
     "db:start": "./scripts/docker up -d --wait db",
     "db:migrate": "./scripts/docker exec api node dist/migrate.mjs",
     "typecheck": "pnpm -r --workspace-concurrency=1 typecheck",
     "build": "pnpm --filter @estate-atlas/api build && pnpm --filter @estate-atlas/web build",
     "test": "vitest run",
-    "build:e2e": "NEXT_DIST_DIR=.next-e2e NEXT_PUBLIC_API_URL=http://localhost:4001 NEXT_PUBLIC_CARTO_MAPS_KEY=estateatlas-e2e-fixture pnpm --filter @estate-atlas/web exec next build --webpack",
+    "build:e2e": "NEXT_DIST_DIR=.next-e2e EA_TEST_PROXY=1 NEXT_PUBLIC_API_URL=/api NEXT_PUBLIC_CARTO_MAPS_KEY=estateatlas-e2e-fixture pnpm --filter @estate-atlas/web exec next build --webpack",
     "test:e2e": "pnpm build:e2e && playwright test --project=desktop && playwright test --project=mobile-web",
     "mobile:export": "pnpm --filter @estate-atlas/mobile export",
     "check": "pnpm typecheck && pnpm test && pnpm build"

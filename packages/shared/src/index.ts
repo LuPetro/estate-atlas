@@ -285,3 +285,9 @@ export const sampleProperties: PropertyInput[] = [
     rental: null,
   },
 ];
+export type PortfolioUsage = {
+  properties: number;
+  propertyLimit: number;
+  storageBytes: number;
+  storageLimitBytes: number;
+};

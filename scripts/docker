@@ -7,6 +7,15 @@ export COMPOSE_PARALLEL_LIMIT=1
 node "$TASK_ROOT/scripts/docker-init.mjs"
 cd "$TASK_ROOT"
 TASK_COMPOSE=(docker compose --project-directory "$TASK_ROOT" --env-file "$TASK_ROOT/.local/docker/compose.env" --env-file "$TASK_ROOT/.local/docker/backup-user.env" -f "$TASK_ROOT/compose.yaml")
+TASK_PUBLIC=false
+TASK_UP=false
+for TASK_ARG in "$@"; do
+  [[ "$TASK_ARG" == public || "$TASK_ARG" == edge ]] && TASK_PUBLIC=true
+  [[ "$TASK_ARG" == up ]] && TASK_UP=true
+done
+if [[ "$TASK_PUBLIC" == true && "$TASK_UP" == true ]]; then
+  node "$TASK_ROOT/scripts/production-check.mjs"
+fi
 # BuildKit can build multiple images in parallel even with Compose concurrency=1.
 # Serialize our two image targets on this 1.8 GB VPS. Other commands pass through.
 if [[ "${1:-}" == build ]]; then
@@ -25,7 +34,7 @@ if [[ "${1:-}" == build ]]; then
   done
   exit 0
 fi
-if [[ "${1:-}" == up ]]; then
+if [[ "$TASK_UP" == true ]]; then
   TASK_UP_ARGS=()
   TASK_BUILD=false
   for TASK_ARG in "$@"; do

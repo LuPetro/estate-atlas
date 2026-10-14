@@ -46,7 +46,7 @@ test('account profile, session list, email verification, export and reset work i
   await page.getByRole('button', { name: 'Bestätigen', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('E-Mail bestätigt');
   await page.goto('/account');
-  await expect(page.locator('.account-card').first()).toContainText('E-Mail bestätigt');
+  await expect(profile).toContainText('E-Mail bestätigt');
   const exporter = page
     .locator('.account-card')
     .filter({ has: page.getByRole('heading', { name: 'Deine Daten mitnehmen' }) });

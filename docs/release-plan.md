@@ -1,4 +1,4 @@
-> Account lifecycle, platform roles, MFA-gated admin panel, beta invitations and automatic local Docker backups are now implemented. See [accounts-admin.md](accounts-admin.md) for tested behavior and pending operator setup. The earlier roadmap below remains a record of broader release work.
+> Aktueller V1-Web-Stand vom 14.10.2026: Konten/Admin, PWA, Produktionsbetrieb und Startprüfung sind implementiert. Die verbindliche Einrichtungsliste steht in [web-launch.md](web-launch.md), der aktuelle Prüfstatus in [status.md](status.md). Der folgende Plan vom 11.10. ist historisch; damalige fehlende Konten-/Docker-/Recherchefunktionen sind inzwischen umgesetzt.
 
 # EstateAtlas: Vorschlag bis zur Veröffentlichung
 

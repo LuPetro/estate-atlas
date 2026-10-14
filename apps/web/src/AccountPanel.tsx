@@ -11,7 +11,13 @@ import {
   Mail,
 } from 'lucide-react';
 import { ApiClient } from '@estate-atlas/api-client';
-import type { AccountInfo, AccountSession, AccountConfig, User } from '@estate-atlas/shared';
+import type {
+  AccountInfo,
+  AccountSession,
+  AccountConfig,
+  User,
+  PortfolioUsage,
+} from '@estate-atlas/shared';
 export function SecurityFields({ mfa = false }: { mfa?: boolean }) {
   return (
     <div className="account-fields">
@@ -58,6 +64,19 @@ export default function AccountPanel({
     [busy, setBusy] = useState(false);
   const [setup, setSetup] = useState<{ secret: string; uri: string } | null>(null),
     [codes, setCodes] = useState<string[]>([]);
+  const [usage, setUsage] = useState<PortfolioUsage | null>(null);
+  useEffect(() => {
+    let active = true;
+    api
+      .portfolioUsage()
+      .then((value) => {
+        if (active) setUsage(value);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [api]);
   async function reload() {
     const [a, s, c] = await Promise.all([api.account(), api.sessions(), api.accountConfig()]);
     setAccount(a);
@@ -141,6 +160,28 @@ export default function AccountPanel({
         </p>
       )}
       <div className="account-grid">
+        {usage && (
+          <section className="account-card">
+            <h2>
+              <Download size={20} /> Dein Speicher
+            </h2>
+            <p>
+              {usage.properties} von {usage.propertyLimit} Immobilien, einschließlich Archiv.
+            </p>
+            <progress
+              aria-label="Dokumentenspeicher"
+              value={usage.storageBytes}
+              max={usage.storageLimitBytes}
+            />
+            <p>
+              {(usage.storageBytes / 1024 / 1024).toLocaleString('de-AT', {
+                maximumFractionDigits: 1,
+              })}{' '}
+              von {usage.storageLimitBytes / 1024 / 1024} MB für Fotos und Dokumente. Geteilte
+              Dateien zählen beim Eigentümer.
+            </p>
+          </section>
+        )}
         <section className="account-card">
           <h2>
             <UserRound size={20} />

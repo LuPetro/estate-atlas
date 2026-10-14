@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+TASK_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Test the real config without publishing host ports or issuing certificates.
+PUBLIC_DOMAIN=http://:8080 ACME_EMAIL=synthetic-check@example.test "$TASK_ROOT/scripts/docker" --profile public run --rm --no-deps edge sh -ec '
+caddy run --config /etc/caddy/Caddyfile >/tmp/edge-check.log 2>&1 &
+for attempt in 1 2 3 4 5; do
+  if wget -q -O /tmp/api-health http://127.0.0.1:8080/api/health 2>/dev/null; then break; fi
+  sleep 1
+done
+test -s /tmp/api-health
+wget -q -O /tmp/manifest http://127.0.0.1:8080/manifest.webmanifest
+wget -q -O /tmp/service-worker http://127.0.0.1:8080/sw.js
+wget -q -O /tmp/apple-icon http://127.0.0.1:8080/icons/apple-touch-icon.png
+test -s /tmp/manifest && test -s /tmp/service-worker && test -s /tmp/apple-icon
+echo "Caddy routing verified: API, manifest, service worker, Apple icon. No public ports or certificates."
+'

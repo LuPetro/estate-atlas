@@ -4,9 +4,20 @@ import { database } from './database';
 import { connectionString } from './runtime-config';
 import { analysisRuntime } from './analysis/provider';
 import { AnalysisRunner } from './analysis/runner';
+import { createServer } from 'node:http';
 const pool = database(await connectionString(process.env));
 const runner = new AnalysisRunner(pool, await analysisRuntime(process.env));
 let stopping = false;
+let heartbeatAt = Date.now();
+// Docker network only; no host port or provider/key information exposed.
+const healthServer = createServer((request, response) => {
+  response.setHeader('Cache-Control', 'no-store');
+  response.writeHead(
+    request.url !== '/health' ? 404 : stopping || Date.now() - heartbeatAt > 20000 ? 503 : 200,
+  );
+  response.end();
+});
+healthServer.listen(4002, '0.0.0.0');
 const stop = () => {
   stopping = true;
   runner.stop();
@@ -20,6 +31,7 @@ pool.on('error', () => {
 const health = async () => {
   try {
     await writeFile('/tmp/analysis-worker-health', String(Date.now()));
+    heartbeatAt = Date.now();
   } catch {
     stop();
   }
@@ -32,6 +44,7 @@ try {
     if (!stopping) await delay(1000);
   }
 } finally {
+  healthServer.close();
   clearInterval(heartbeat);
   await pool.end();
 }

@@ -6,6 +6,11 @@ const build = new URL('../apps/web/.next-e2e/', import.meta.url);
 await cp(new URL('static/', build), new URL('standalone/apps/web/.next-e2e/static/', build), {
   recursive: true,
 });
+await cp(
+  new URL('../apps/web/public/', import.meta.url),
+  new URL('standalone/apps/web/public/', build),
+  { recursive: true },
+);
 process.env.PORT = '3001';
 process.env.HOSTNAME = '127.0.0.1';
 await import(fileURLToPath(new URL('standalone/apps/web/server.js', build)));

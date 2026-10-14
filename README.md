@@ -1,6 +1,6 @@
 # EstateAtlas
 
-Private Immobilienportfolios auf **Next.js Web** und **nativen Expo / React-Native-Apps für Android und iOS**, verbunden mit einer gemeinsamen Fastify-REST-API und echtem PostgreSQL. Keine PWA.
+Private Immobilienportfolios auf **Next.js Web (zusätzlich als PWA installierbar)** und **nativen Expo / React-Native-Apps für Android und iOS**, verbunden mit einer gemeinsamen Fastify-REST-API und echtem PostgreSQL. Die PWA ersetzt die native App nicht.
 
 Projekt auf diesem VPS: `/home/codexdev/projects/estate-atlas`.
 
@@ -54,7 +54,7 @@ Browser-Origin ist exakt `http://localhost:3000`; nicht zwischen `localhost` und
 ssh -N -L 3000:127.0.0.1:3000 -L 4000:127.0.0.1:4000 codexdev@DEIN_VPS
 ```
 
-Danach auf deinem Rechner `http://localhost:3000` öffnen. `DEIN_VPS` durch den vorhandenen Host ersetzen. Die Dienste sind bewusst nicht öffentlich an `0.0.0.0` gebunden. Die Adresssuche sendet den eingegebenen Suchtext an Photon; du kannst stattdessen den Pin oder die GPS-Felder nutzen. Dokumentdateien bleiben in der privaten Projektdatenbank. Die vereinfachte Standardkarte lädt lokale Länderflächen. Erst „Details anzeigen“ lädt externe Kartenkacheln; der Anbieter sieht IP und Kartenausschnitt. Web-Schriftarten werden von Google Fonts geladen; Systemschriften dienen als Fallback.
+Danach auf deinem Rechner `http://localhost:3000` öffnen. `DEIN_VPS` durch den vorhandenen Host ersetzen. Die Dienste sind bewusst nicht öffentlich an `0.0.0.0` gebunden. Die Adresssuche sendet den eingegebenen Suchtext an Photon; du kannst stattdessen den Pin oder die GPS-Felder nutzen. Dokumentdateien bleiben in der privaten Projektdatenbank. Die vereinfachte Standardkarte lädt lokale Länderflächen. Erst „Details anzeigen“ lädt externe Kartenkacheln; der Anbieter sieht IP und Kartenausschnitt. Web-Schriftarten werden lokal mitgeliefert.
 
 ### Direkt auf dem VPS prüfen
 
@@ -136,7 +136,7 @@ Architekturentscheidungen: `docs/architecture.md`. Arbeitsregeln: `AGENTS.md`. K
 
 Portfolio-Werte und anpassbare Dashboard-Bereiche: [docs/portfolio-workspace.md](docs/portfolio-workspace.md).
 
-Als Nächstes: Android-/iOS-Gerätetests und native Build-Konfiguration, bestätigter privater HTTPS-Betrieb mit Backups sowie E-Mail-Verifizierung/Passwort-Reset. Recherchequalität weiter anhand überprüfbarer Vergleichsangebote absichern. Anschließend Mieteinnahmen, Kosten/Cashflow und Erinnerungen ergänzen.
+Die technische Vorbereitung für V1-Web ist in [docs/web-launch.md](docs/web-launch.md) beschrieben: Docker-HTTPS-Edge mit gemeinsamem `/api`, sichere PWA, Betrieb/Überwachung, Speichergrenzen und Produktionsprüfung. Vor öffentlichem Start fehlen Domain/DNS, reale SMTP-Zustellung, Betreibertexte, Admin-E-Mail/2FA und externe Sicherung/Überwachung. `./scripts/pnpm release:check` listet die tatsächlich fehlenden Einstellungen auf. Danach folgen native Geräte-/Storetests; Kosten/Cashflow und Erinnerungen bleiben Erweiterungen.
 
 ## Konten und Verwaltung
 

@@ -1,6 +1,20 @@
 # Umsetzungs- und Prüfstatus
 
-Stand: 12. Oktober 2026 (Europe/Vienna). Projekt: `/home/codexdev/projects/estate-atlas`.
+Stand: 14. Oktober 2026 (Europe/Vienna). Projekt: `/home/codexdev/projects/estate-atlas`.
+
+## Aktueller Meilenstein: V1-Web vorbereiten
+
+Kontoverwaltung/Verwaltung, Einladungen, E-Mail-Verifizierung/-Reset, Sitzungsverwaltung, MFA und Kontoexport/-löschung sind implementiert. Die Einträge weiter unten beschreiben den damaligen Entwicklungsstand, nicht heutige Funktionslücken.
+
+Neu: optional installierbare PWA ohne private Offline-Daten, lokale Schriftarten/Icons, öffentliche Hilfe-/Betreiber-/Datenschutz-/Nutzungs-/Löschseiten mit echter Laufzeitkonfiguration, Docker-Caddy mit gemeinsamem `/api`, geprüfte Produktionskonfiguration, Objekt-/Speicherquoten einschließlich konkurrierender Zusammenarbeit/Übertragung, datenschutzsparsame Zugriffs-/Fehlerlogs, automatische Ablauf-/Auditbereinigung, Worker-Healthcheck, Überwachung und verschlüsselbarer Wiederherstellungskoffer.
+
+Typprüfungen aller fünf Pakete und **163 Geschäftsregel-/API-/Release-Tests** erfolgreich. **30 verschiedene Browserfälle** (15 Desktop, 15 Smartphone-Viewport) bestanden, darunter bestehende Konten/Portfolio/Recherchen über denselben `/api`-Pfad sowie PWA-Metadaten, Sicherheitsheader und strikt allgemeiner Offline-Cache. Ein veralteter `.first()`-Kontoselektor wurde an die neue Speicherkarte angepasst und der betroffene Desktop-Test erneut erfolgreich geprüft. Next-Produktionsbuild und native Android-/iOS-Exporte erfolgreich; Safari-Geräte-/Installationsabnahme bleibt offen.
+
+Die Abhängigkeitsprüfung meldet keine Lücken in den deployten Web/API-Abhängigkeiten; zwei ungepatchte, exakt eingegrenzte Expo-Werkzeugpfade sind dokumentiert. Keine öffentliche Domain/SMTP-/DNS-Konfiguration, kein kostenpflichtiger Recherchetest und keine fingierten Betreiberangaben angelegt. Die Produktionsprüfung blockiert den öffentlichen Start erwartungsgemäß bis zur vollständigen Einrichtung. Konkrete Restarbeit und Startbefehle: [web-launch.md](web-launch.md).
+
+Aktueller Docker-Stand auf diesem VPS: API, Web, DB, Worker, Backup, Maintenance und Monitor gesund. Browser-Smoketest gegen die echten Container erfolgreich. Caddy-Routing mit Manifest/Icons/Service Worker und `/api/health` in einem kurzlebigen Container ohne Hostports erfolgreich geprüft. Fingerprint aller Immobilienzeilen und Anzahl der Benutzer vor/nach Deployment unverändert. Sowohl der vorherige Dump `estateatlas-20261013T164342Z.dump` als auch das aktuelle automatische Backup `estateatlas-20261014T154757Z.dump` wurden erfolgreich in isolierter Docker-DB wiederhergestellt. Kein Live-Restore und keine Schemaänderung in diesem Release.
+
+## Historischer Verlauf bis 12. Oktober
 
 ## Meilensteine
 

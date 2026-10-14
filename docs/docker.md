@@ -40,3 +40,7 @@ On 11 October 2026, the owner granted `codexdev` Docker-group membership after e
 Both images were built using the Docker daemon. PostgreSQL was initialized with the restricted app role. The old host API/Web were paused; the consistent dump was restored into the fresh Compose volume. Row counts and full row fingerprints matched for all seven tables, including attachment bytes, session hashes and migration history. Original `.env`, database directory and private backup remain intact. The old host PostgreSQL was then stopped.
 
 Web, API and database pass their container healthchecks, including after restart; all seven row counts still match the private backup. Services retain the original loopback ports; PostgreSQL has no host port. The server-side Chromium check passed Web/API connectivity and CORS without creating accounts or properties. A separate isolated production-API artifact smoke check passed migrations, registration, localhost-cookie authentication and private-route protection. Device checks remain pending.
+
+# V1-Web-Ergänzung (14.10.2026)
+
+Der normale Loopback-Stack umfasst jetzt zusätzlich `maintenance` (Ablauf-/Auditbereinigung) und `monitor` (Web/API/Worker/Backup-Prüfung). Das optionale Profil `public` startet Caddy auf 80/443 erst nach der Produktionsprüfung. Die API bleibt auf dem Host Loopback-only und ist öffentlich hinter `/api` erreichbar. Einrichtung und Einschränkungen stehen in [web-launch.md](web-launch.md). Bestehende Secrets/Volumes werden beibehalten; die Betreiberkonfiguration liegt unter `.local/docker/site.json`.

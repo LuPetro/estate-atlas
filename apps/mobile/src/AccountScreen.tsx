@@ -11,7 +11,13 @@ import {
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import type { ApiClient } from '@estate-atlas/api-client';
-import type { AccountInfo, AccountSession, AccountConfig, User } from '@estate-atlas/shared';
+import type {
+  AccountInfo,
+  AccountSession,
+  AccountConfig,
+  User,
+  PortfolioUsage,
+} from '@estate-atlas/shared';
 import { Card, Action, Input, ErrorMessage, ui, palette } from './WorkspaceUI';
 export default function AccountScreen({
   api,
@@ -40,6 +46,7 @@ export default function AccountScreen({
     [error, setError] = useState(''),
     [notice, setNotice] = useState('');
   const mounted = useRef(true);
+  const [usage, setUsage] = useState<PortfolioUsage | null>(null);
   async function reload() {
     const [a, c, s] = await Promise.all([api.account(), api.accountConfig(), api.sessions()]);
     if (!mounted.current) return;
@@ -54,6 +61,12 @@ export default function AccountScreen({
     void reload().catch((e) => {
       if (mounted.current) setError(e.message);
     });
+    void api
+      .portfolioUsage()
+      .then((value) => {
+        if (mounted.current) setUsage(value);
+      })
+      .catch(() => {});
     return () => {
       mounted.current = false;
     };
@@ -129,6 +142,18 @@ export default function AccountScreen({
           <Text style={ui.note}>Konto wird geladen …</Text>
         ) : (
           <>
+            {usage && (
+              <Card title="Dein Speicher">
+                <Text style={ui.note}>
+                  {usage.properties} von {usage.propertyLimit} Immobilien, einschließlich Archiv.{' '}
+                  {(usage.storageBytes / 1024 / 1024).toLocaleString('de-AT', {
+                    maximumFractionDigits: 1,
+                  })}{' '}
+                  von {usage.storageLimitBytes / 1024 / 1024} MB für Dokumente. Geteilte Dateien
+                  zählen beim Eigentümer.
+                </Text>
+              </Card>
+            )}
             <Card title="Profil">
               <Input label="Dein Name" value={name} onChange={setName} />
               <Text style={ui.note}>

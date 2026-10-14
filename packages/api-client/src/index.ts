@@ -20,6 +20,7 @@ import type {
   AuditEvent,
   AdminOverview,
   PlatformRole,
+  PortfolioUsage,
 } from '@estate-atlas/shared';
 export class ApiError extends Error {
   constructor(
@@ -44,14 +45,33 @@ export class ApiClient {
     if (options.body && !(options.body instanceof FormData))
       headers.set('Content-Type', 'application/json');
     let response: Response;
+    // AbortSignal.any/timeout are not available in every React Native runtime.
+    const controller = new AbortController();
+    let timedOut = false;
+    const abort = () => controller.abort();
+    if (options.signal?.aborted) abort();
+    options.signal?.addEventListener('abort', abort, { once: true });
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 30000);
     try {
       response = await fetch(`${this.baseUrl}${path}`, {
         ...options,
         headers,
         credentials: 'include',
+        signal: controller.signal,
       });
     } catch {
-      throw new ApiError(0, 'Keine Verbindung zur API. Bitte Verbindung und Serveradresse prüfen.');
+      throw new ApiError(
+        0,
+        timedOut
+          ? 'Der Server antwortet gerade nicht. Bitte erneut versuchen.'
+          : 'Keine Verbindung zur API. Bitte Verbindung und Serveradresse prüfen.',
+      );
+    } finally {
+      clearTimeout(timeout);
+      options.signal?.removeEventListener('abort', abort);
     }
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
@@ -83,6 +103,9 @@ export class ApiClient {
   }
   account() {
     return this.request<AccountInfo>('/account');
+  }
+  portfolioUsage() {
+    return this.request<PortfolioUsage>('/portfolio/usage');
   }
   profile(name: string) {
     return this.request<AccountInfo>('/account/profile', {
