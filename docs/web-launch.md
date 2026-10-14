@@ -68,6 +68,8 @@ Alle Befehle im Repository ausführen; bei veralteter Gruppensitzung `sg docker 
 
 `./scripts/check-edge` prüft die echte Caddy-Konfiguration gegen laufende Docker-Dienste in einem kurzlebigen Container: Web/Manifest/Icons/Service Worker und `/api/health`, ohne Hostports und ohne Zertifikatsausstellung. Die spätere echte HTTPS-Prüfung mit deiner Domain bleibt erforderlich.
 
+`./scripts/check-edge-privacy` simuliert zusätzlich eine ausgefallene API mit einer künstlichen privaten Suchzeichenfolge. Die Prüfung verlangt HTTP 502 und keine Zeichenfolge im Proxy-Log. Caddys rohe HTTP-Fehlerlogs sind ausgeschlossen, da sie trotz deaktivierter Access-Logs URLs/Queries enthalten können. API-Logs mit Routenvorlagen und der Monitor bleiben zur Diagnose aktiv. Diese Prüfung läuft auch in CI, ohne echte Backend-Daten und ohne öffentliche Ports.
+
 ## Recherche im öffentlichen Betrieb
 
 Der aktuelle private Testerbetrieb bleibt unverändert. Vor weiteren Nutzern positive Konto-/Gesamtlimits konfigurieren (Vorlage: fünf/20 Aufträge pro Tag). Die Produktionsprüfung blockiert unbegrenzte öffentliche Recherche. Die per Auftrag erlaubten Modell-/Suchaufrufe, Zustimmung, Eigentümerprüfung und ausdrückliche Wertübernahme bleiben bestehen; keine bezahlten Wiederholungen.

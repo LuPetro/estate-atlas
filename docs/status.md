@@ -14,6 +14,8 @@ Die Abhängigkeitsprüfung meldet keine Lücken in den deployten Web/API-Abhäng
 
 Aktueller Docker-Stand auf diesem VPS: API, Web, DB, Worker, Backup, Maintenance und Monitor gesund. Browser-Smoketest gegen die echten Container erfolgreich. Caddy-Routing mit Manifest/Icons/Service Worker und `/api/health` in einem kurzlebigen Container ohne Hostports erfolgreich geprüft. Fingerprint aller Immobilienzeilen und Anzahl der Benutzer vor/nach Deployment unverändert. Sowohl der vorherige Dump `estateatlas-20261013T164342Z.dump` als auch das aktuelle automatische Backup `estateatlas-20261014T154757Z.dump` wurden erfolgreich in isolierter Docker-DB wiederhergestellt. Kein Live-Restore und keine Schemaänderung in diesem Release.
 
+Zusätzlicher Fehlerfall-Test: Ein unerreichbarer Proxy-Upstream lieferte zunächst rohe Query-Parameter im Caddy-Fehlerlog. Das HTTP-Fehlerlogger-Namespace wurde ausgeschlossen; ein eigener Docker-/CI-Test prüft HTTP 502 bei nicht protokolliertem synthetischem Suchtext. Backend-Routenvorlagen und Monitorwarnungen bleiben aktiv.
+
 ## Historischer Verlauf bis 12. Oktober
 
 ## Meilensteine

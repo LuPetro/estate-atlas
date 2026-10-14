@@ -1,6 +1,11 @@
 {
   email {$ACME_EMAIL}
   admin off
+  # HTTP error entries include raw URLs/queries even with access logging disabled.
+  # API template/status logs and operational monitors cover request failures.
+  log default {
+    exclude http.log.error
+  }
 }
 
 {$PUBLIC_DOMAIN} {

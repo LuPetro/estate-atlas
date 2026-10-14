@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+TASK_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# A synthetic failed upstream probes Caddy error logging without live app data.
+PUBLIC_DOMAIN=http://:8080 ACME_EMAIL=synthetic-check@example.test "$TASK_ROOT/scripts/docker" --profile public run --rm --no-deps edge sh -ec '
+sed "s/api:4000/127.0.0.1:1/" /etc/caddy/Caddyfile >/tmp/probe-Caddyfile
+caddy run --config /tmp/probe-Caddyfile --adapter caddyfile >/tmp/proxy-errors 2>&1 &
+for attempt in 1 2 3 4 5; do
+  wget -S -O /dev/null "http://127.0.0.1:8080/api/health?probe=synthetic-private-query" 2>/tmp/probe-response || true
+  if grep -q "502" /tmp/probe-response; then break; fi
+  sleep 1
+done
+grep -q "502" /tmp/probe-response
+if grep -q synthetic-private-query /tmp/proxy-errors; then
+  echo "Proxy error logging exposed the synthetic private query." >&2
+  exit 1
+fi
+echo "Proxy failure returns 502 without logging the synthetic private query."
+'
