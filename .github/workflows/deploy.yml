@@ -20,7 +20,7 @@ jobs:
       github.repository == 'LuPetro/estate-atlas' &&
       github.ref == 'refs/heads/main' &&
       inputs.production_approval == 'deploy'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     environment:
       name: production
