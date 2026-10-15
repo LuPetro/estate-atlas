@@ -273,6 +273,29 @@ describe('server deployment with real isolated Git repositories and no Docker/pr
 });
 
 describe('SSH transport without making any SSH connection', () => {
+  it('buffers the entire received script before executing commands that consume stdin', async () => {
+    const dir = await mkdtemp(path.join(root, '.local/receiver-fixture-'));
+    try {
+      await mkdir(path.join(dir, '.git'));
+      const proof = path.join(dir, 'completed');
+      const result = spawnSync('bash', [path.join(root, 'scripts/receive-deployment')], {
+        encoding: 'utf8',
+        timeout: 10000,
+        input: 'cat >/dev/null\nprintf complete > "$PROOF"\n',
+        env: { ...process.env, DEPLOY_PATH: dir, PROOF: proof },
+      });
+      expect(result.status, result.stderr).toBe(0);
+      expect(await readFile(proof, 'utf8')).toBe('complete');
+      const incoming = execFileSync(
+        'find',
+        [path.join(dir, '.local/deploy/incoming'), '-type', 'f'],
+        { encoding: 'utf8' },
+      );
+      expect(incoming.trim()).toBe('');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
   it('pins the host key, sends the approved script, handles decimal port 08 and quotes hostile paths literally', async () => {
     const dir = await mkdtemp(path.join(root, '.local/ssh-fixture-'));
     try {
@@ -294,7 +317,8 @@ describe('SSH transport without making any SSH connection', () => {
         '#!/usr/bin/env bash\nprintf "%s" "$DEPLOY_PATH" > "$RECEIVED_PATH"\n',
         { mode: 0o755 },
       );
-      const hostilePath = `/srv/estate atlas/'; touch ${injected}; #`;
+      const hostilePath = `${dir}/estate atlas/'; touch ${injected}; #`;
+      await mkdir(path.join(hostilePath, '.git'), { recursive: true });
       const env = {
         ...process.env,
         PATH: `${bin}:${process.env.PATH}`,

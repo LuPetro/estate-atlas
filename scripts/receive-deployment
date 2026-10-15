@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Read the whole SSH payload before executing it, so child commands cannot eat it.
+set -Eeuo pipefail
+umask 077
+: "${DEPLOY_PATH:?}"
+[[ -d "$DEPLOY_PATH/.git" ]] || { echo 'Deployment checkout is missing.'; exit 1; }
+incoming="$DEPLOY_PATH/.local/deploy/incoming"
+mkdir -p "$incoming"
+script="$(mktemp "$incoming/script-XXXXXXXX")"
+trap 'rm -f "$script"' EXIT
+cat > "$script"
+timeout --signal=TERM --kill-after=30s 28m bash "$script" </dev/null

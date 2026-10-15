@@ -26,7 +26,8 @@ printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$deploy_tmp/known_hosts"
 ssh-keygen -y -P '' -f "$deploy_tmp/key" >/dev/null 2>&1 || { echo 'Deployment key must be valid and usable without an interactive passphrase.'; exit 1; }
 unset DEPLOY_KEY
 # Bash quoting handles spaces and shell metacharacters without evaluating configuration.
-printf -v remote_command 'DEPLOY_PATH=%q RELEASE_SHA=%q DEVELOPMENT_RUN_ID=%q DEVELOPMENT_RUN_ATTEMPT=%q timeout --signal=TERM --kill-after=30s 28m bash -s' "$DEPLOY_PATH" "$RELEASE_SHA" "$DEVELOPMENT_RUN_ID" "$DEVELOPMENT_RUN_ATTEMPT"
+receiver="$(cat "$script_root/scripts/receive-deployment")"
+printf -v remote_command 'DEPLOY_PATH=%q RELEASE_SHA=%q DEVELOPMENT_RUN_ID=%q DEVELOPMENT_RUN_ATTEMPT=%q bash -c %q' "$DEPLOY_PATH" "$RELEASE_SHA" "$DEVELOPMENT_RUN_ID" "$DEVELOPMENT_RUN_ATTEMPT" "$receiver"
 ssh -F /dev/null -i "$deploy_tmp/key" -p "$port" \
   -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
   -o UserKnownHostsFile="$deploy_tmp/known_hosts" -o GlobalKnownHostsFile=/dev/null \

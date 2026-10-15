@@ -10,13 +10,13 @@ case "${1:-}" in
   up)
     install -m 644 "$source_root/config/Caddyfile.gateway" "$EA_GATEWAY_DIR/config/Caddyfile"
     "${gateway[@]}" up -d --wait
-    "${gateway[@]}" exec -T gateway caddy reload --config /etc/estateatlas/Caddyfile --adapter caddyfile
+    "${gateway[@]}" exec -T gateway caddy reload --config /etc/estateatlas/Caddyfile --adapter caddyfile </dev/null
     ;;
   enable-production)
     # The production deploy script calls this only after the full release preflight.
     [[ "${EA_ENVIRONMENT:-}" == production ]] || { echo 'Production context required.'; exit 1; }
     install -m 644 "$source_root/config/Caddyfile.production" "$EA_GATEWAY_DIR/config/production.caddy"
-    "${gateway[@]}" exec -T gateway caddy reload --config /etc/estateatlas/Caddyfile --adapter caddyfile
+    "${gateway[@]}" exec -T gateway caddy reload --config /etc/estateatlas/Caddyfile --adapter caddyfile </dev/null
     ;;
   *) exec "${gateway[@]}" "$@" ;;
 esac
