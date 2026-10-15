@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+: "${DEPLOY_HOST:?Set production variable DEPLOY_SSH_HOST.}"
+: "${DEPLOY_USER:?Set production variable DEPLOY_SSH_USER.}"
+: "${DEPLOY_PATH:?Set production variable DEPLOY_PATH.}"
+: "${DEPLOY_KNOWN_HOSTS:?Set production variable DEPLOY_SSH_KNOWN_HOSTS.}"
+: "${DEPLOY_KEY:?Set production secret DEPLOY_SSH_PRIVATE_KEY.}"
+[[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] || { echo 'Invalid deployment host.'; exit 1; }
+[[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo 'Invalid deployment user.'; exit 1; }
+[[ "$DEPLOY_PATH" == /* && "$DEPLOY_PATH" != *$'\n'* ]] || { echo 'Deployment path must be absolute.'; exit 1; }
+[[ "${RELEASE_SHA:-}" =~ ^[0-9a-f]{40}$ ]] || { echo 'Release SHA is invalid.'; exit 1; }
+port="${DEPLOY_PORT:-22}"
+[[ "$port" =~ ^[0-9]{1,5}$ ]] || { echo 'Invalid SSH port.'; exit 1; }
+port=$((10#$port))
+(( port > 0 && port <= 65535 )) || { echo 'SSH port must be 1–65535.'; exit 1; }
+script_root="$(cd "$(dirname "$0")/.." && pwd)"
+deploy_tmp="$(mktemp -d)"
+trap 'rm -rf "$deploy_tmp"' EXIT
+chmod 700 "$deploy_tmp"
+install -m 600 /dev/null "$deploy_tmp/key"
+printf '%s\n' "$DEPLOY_KEY" > "$deploy_tmp/key"
+printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$deploy_tmp/known_hosts"
+ssh-keygen -y -P '' -f "$deploy_tmp/key" >/dev/null 2>&1 || { echo 'Deployment key must be valid and usable without an interactive passphrase.'; exit 1; }
+unset DEPLOY_KEY
+# Bash quoting handles spaces and shell metacharacters without evaluating configuration.
+printf -v remote_command 'DEPLOY_PATH=%q RELEASE_SHA=%q timeout --signal=TERM --kill-after=30s 28m bash -s' "$DEPLOY_PATH" "$RELEASE_SHA"
+ssh -F /dev/null -i "$deploy_tmp/key" -p "$port" \
+  -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+  -o UserKnownHostsFile="$deploy_tmp/known_hosts" -o GlobalKnownHostsFile=/dev/null \
+  -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+  -o ClearAllForwardings=yes \
+  "$DEPLOY_USER@$DEPLOY_HOST" "$remote_command" < "$script_root/scripts/deploy-production"

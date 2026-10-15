@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Official actionlint release, pinned by SHA-256; tool files stay in ignored .local/.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+tool_dir="$root/.local/actionlint"
+mkdir -p "$tool_dir"
+archive="$tool_dir/actionlint_1.7.12_linux_amd64.tar.gz"
+if [[ ! -f "$archive" ]]; then
+  curl --fail --location --silent --show-error --connect-timeout 15 --max-time 60 \
+    https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+    -o "$archive.tmp"
+  mv "$archive.tmp" "$archive"
+fi
+printf '%s  %s\n' 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 "$archive" | sha256sum --check
+tar -xzf "$archive" -C "$tool_dir" actionlint
+"$tool_dir/actionlint" -shellcheck= -pyflakes= .github/workflows/ci.yml .github/workflows/deploy.yml
+bash -n scripts/deploy-production scripts/deploy-ssh scripts/check-workflows
