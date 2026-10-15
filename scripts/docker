@@ -25,6 +25,10 @@ for TASK_ARG in "$@"; do
   [[ "$TASK_ARG" == public || "$TASK_ARG" == edge ]] && TASK_PUBLIC=true
   [[ "$TASK_ARG" == up ]] && TASK_UP=true
 done
+if [[ "$EA_ENVIRONMENT" == local && "$TASK_UP" == true && -f "$EA_OPERATIONS_ROOT/.local/environments/development/legacy-adopted" ]]; then
+  echo 'The legacy stack is retired. Use EA_ENVIRONMENT=development (or production); never start two databases on the adopted volume.' >&2
+  exit 1
+fi
 if [[ "$TASK_PUBLIC" == true && "$TASK_UP" == true ]]; then
   [[ "$EA_ENVIRONMENT" == local ]] || { echo 'Use scripts/gateway for environment HTTPS.'; exit 1; }
   node "$TASK_ROOT/scripts/production-check.mjs"

@@ -32,6 +32,8 @@ The deploy key has deployment privileges on this VPS; Docker access is powerful.
 
 Operational commands, run at the repository root:
 
+After adoption, legacy `./scripts/docker up` is refused to prevent a second PostgreSQL container from mounting the adopted Dev volume. Always select the intended environment explicitly.
+
 ```bash
 EA_ENVIRONMENT=development ./scripts/docker ps
 EA_ENVIRONMENT=development ./scripts/docker logs --tail=100 api web

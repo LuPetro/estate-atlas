@@ -273,6 +273,42 @@ describe('server deployment with real isolated Git repositories and no Docker/pr
 });
 
 describe('SSH transport without making any SSH connection', () => {
+  it('blocks restarting the retired legacy database after its volume was adopted by Dev', async () => {
+    const dir = await mkdtemp(path.join(root, '.local/legacy-retirement-fixture-'));
+    try {
+      await mkdir(path.join(dir, 'scripts'), { recursive: true });
+      await mkdir(path.join(dir, '.local/node/bin'), { recursive: true });
+      await mkdir(path.join(dir, '.local/environments/development'), { recursive: true });
+      await writeFile(path.join(dir, '.local/environments/development/legacy-adopted'), 'adopted');
+      await writeFile(
+        path.join(dir, 'scripts/docker'),
+        await readFile(path.join(root, 'scripts/docker')),
+      );
+      await writeFile(path.join(dir, '.local/node/bin/node'), '#!/bin/sh\nexit 0\n', {
+        mode: 0o755,
+      });
+      await writeFile(
+        path.join(dir, '.local/node/bin/docker'),
+        '#!/bin/sh\nprintf called > "$DOCKER_CALLED"\n',
+        { mode: 0o755 },
+      );
+      const called = path.join(dir, 'docker-called');
+      const result = spawnSync('bash', [path.join(dir, 'scripts/docker'), 'up', '-d'], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          EA_OPERATIONS_ROOT: dir,
+          EA_ENVIRONMENT: 'local',
+          DOCKER_CALLED: called,
+        },
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('legacy stack is retired');
+      await expect(readFile(called)).rejects.toThrow();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
   it('buffers the entire received script before executing commands that consume stdin', async () => {
     const dir = await mkdtemp(path.join(root, '.local/receiver-fixture-'));
     try {
