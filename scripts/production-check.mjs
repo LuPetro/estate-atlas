@@ -1,4 +1,5 @@
 import { readFile, stat, readdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parse } from 'dotenv';
