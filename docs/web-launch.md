@@ -28,6 +28,18 @@ Die V1 ist eine Web-App für private Immobilienportfolios mit optionaler Install
 
 Keine Anbieter wurden gebucht, Domain registriert oder öffentlichen Ports aktiviert. Bestehende lokale Schlüssel und Portfoliodaten bleiben erhalten.
 
+## GitHub-Deployment mit Freigabe
+
+`.github/workflows/ci.yml` prüft Pushes auf `main` und Pull Requests. Ein Push startet **niemals** automatisch ein Deployment. GitHub hat den separaten Environment-Reviewer-Schutz für dieses private Repository wegen des aktuellen Plans abgelehnt. Deshalb ist die Freigabe selbst eine bewusste manuelle Aktion: **Actions → EstateAtlas production deployment → Run workflow**, Branch `main`, Eingabe `deploy` statt `hold`. Der Deploy-Workflow blockiert zusätzlich, wenn nicht genau dieser `main`-Commit bereits einen erfolgreichen Push-Lauf der vollständigen CI hat. So lösen weder ein grüner Lauf noch ein versehentlicher Push allein eine Veröffentlichung aus. GitHub liefert Workflow-Run-Abfragen mit exakter Commit-SHA und Branchfilter; der Workflow verlangt zusätzlich `event=push` und `conclusion=success` ([GitHub REST API](https://docs.github.com/en/rest/actions/workflow-runs)).
+
+Das GitHub Environment `production` ist angelegt, um Deployment-Einstellungen getrennt von den allgemeinen Repository-Secrets zu halten. Vor dem ersten echten Deployment dort einrichten:
+
+1. Variablen `DEPLOY_SSH_HOST` (VPS-IP oder Hostname), `DEPLOY_SSH_USER` (`codexdev`), `DEPLOY_SSH_PORT` (`22`), `DEPLOY_PATH` (`/home/codexdev/projects/estate-atlas`) und `DEPLOY_SSH_KNOWN_HOSTS` setzen. Der letzte Wert muss den vorher über einen vertrauenswürdigen Admin-Kanal bestätigten SSH-Hostschlüssel enthalten. Nicht ungeprüft die Ausgabe von `ssh-keyscan` übernehmen.
+2. Als Environment-Secret `DEPLOY_SSH_PRIVATE_KEY` einen dedizierten Deployment-Schlüssel hinterlegen. Der öffentliche Schlüssel wird ausschließlich dem VPS-Benutzer zugeordnet. Kein privater Schlüssel oder VPS-Passwort in Git, Workflowdatei oder Chat speichern.
+3. Dem VPS-Checkout muss bereits ein read-only GitHub-Zugang zum privaten Repository zur Verfügung stehen. Der Workflow verwendet diesen Zugang für `git fetch`; er überträgt den Deployment-Schlüssel nicht nach GitHub und legt keine neuen GitHub-Zugangsdaten auf dem VPS ab.
+
+Der VPS akzeptiert ausschließlich den Commit mit grünem CI, verweigert Änderungen an getrackten Serverdateien und prüft vor dem Start die Go-live-Konfiguration. Nach dem Docker-Update prüft er die echten HTTPS-Endpunkte. Pro Repository läuft höchstens ein Deployment gleichzeitig. Bei fehlender Freigabe, falschem Branch, fehlendem grünen CI, fehlenden SSH-Einstellungen oder fehlgeschlagener Go-live-/HTTPS-Prüfung wird kein erfolgreicher Release gemeldet. Der erste echte Lauf benötigt die Domain und die abgeschlossene Produktionskonfiguration. Bei einem Deploymentfehler erscheint der Fehler im Actions-Lauf; automatische Schema-Rückwärtsmigration oder automatischer Code-Rollback ist nicht Bestandteil dieses Freigabeschritts.
+
 ## Einrichtung in der richtigen Reihenfolge
 
 Alle Befehle im Repository ausführen; bei veralteter Gruppensitzung `sg docker -c '…'` verwenden.
