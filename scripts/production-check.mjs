@@ -3,7 +3,13 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parse } from 'dotenv';
-import { sourceRoot as root, configuration, stateRoot, backups } from './environment-paths.mjs';
+import {
+  sourceRoot as root,
+  configuration,
+  stateRoot,
+  backups,
+  environment,
+} from './environment-paths.mjs';
 export function releaseErrors(env, site) {
   const errors = [];
   const domain = env.PUBLIC_DOMAIN ?? '';
@@ -78,6 +84,11 @@ async function run() {
   const env = { ...parse(await readFile(path.join(configuration, 'compose.env'))), ...process.env };
   const site = JSON.parse(await readFile(path.join(configuration, 'site.json'), 'utf8'));
   const errors = releaseErrors(env, site);
+  if (
+    environment === 'production' &&
+    env.POSTGRES_VOLUME_NAME !== 'estate-atlas-production_postgres_data'
+  )
+    errors.push('Production requires its own estate-atlas-production_postgres_data volume.');
   for (const name of [
     'smtp-password',
     'postgres-admin-password',

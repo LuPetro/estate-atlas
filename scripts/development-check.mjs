@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parse } from 'dotenv';
 import { configuration, operationsRoot, environment } from './environment-paths.mjs';
 
@@ -20,8 +21,9 @@ export function developmentErrors(env, gateway) {
   if (!gateway.DEV_ACCESS_USER || !/^\$2[aby]\$\d\d\$.{53}$/.test(gateway.DEV_AUTH_HASH || ''))
     errors.push('Development requires the additional gateway password.');
   if (
-    !env.POSTGRES_VOLUME_NAME ||
-    !/development|^estate-atlas_postgres_data$/.test(env.POSTGRES_VOLUME_NAME)
+    !['estate-atlas-development_postgres_data', 'estate-atlas_postgres_data'].includes(
+      env.POSTGRES_VOLUME_NAME,
+    )
   )
     errors.push('Development cannot use a production database volume.');
   if (env.SMTP_HOST)
@@ -29,7 +31,7 @@ export function developmentErrors(env, gateway) {
   return errors;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === new URL(import.meta.url).pathname) {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     if (environment !== 'development') throw new Error('Development context required.');
     const env = {

@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { operationsRoot, configuration, environment } from './environment-paths.mjs';
 
@@ -21,7 +22,7 @@ export function validatePromotion(record, sha, run, attempt) {
   return { API_IMAGE: record.apiImage, WEB_IMAGE: record.webImage };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === new URL(import.meta.url).pathname) {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     if (environment !== 'production') throw new Error('Production context required.');
     const record = JSON.parse(

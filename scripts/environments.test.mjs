@@ -166,6 +166,7 @@ describe('private Dev allows postponed SMTP without weakening HTTPS or exposing 
       { WEB_ORIGIN: 'http://dev.estateatlas.app' },
       { TRUST_PROXY: '2' },
       { POSTGRES_VOLUME_NAME: 'estate-atlas-production_postgres_data' },
+      { POSTGRES_VOLUME_NAME: 'production-development' },
     ])
       expect(developmentErrors({ ...env, ...change }, gateway)).not.toEqual([]);
   });
