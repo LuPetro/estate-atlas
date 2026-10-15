@@ -5,6 +5,7 @@ export PATH="$root/.local/node/bin:$PATH"
 export DOCKER_CONFIG="$root/.local/docker/cli"
 mkdir -p "$root/.local"
 dir="$(mktemp -d "$root/.local/dev-edge-check-XXXXXX")"
+chmod 755 "$dir"
 container=''
 cleanup() {
   if [[ -n "$container" ]]; then docker rm -f "$container" >/dev/null; fi
@@ -14,7 +15,8 @@ trap cleanup EXIT
 sed -e 's/development-api:4000/127.0.0.1:1/g' -e 's/development-web:3000/127.0.0.1:1/g' "$root/config/Caddyfile.gateway" > "$dir/Caddyfile"
 printf '# Synthetic test; production is disabled.\n' > "$dir/production.caddy"
 hash="$(printf '%s\n' 'estateatlas-synthetic-gateway-test' | docker run --rm -i caddy:2.11.2-alpine caddy hash-password)"
-container="$(docker run --rm -d -p 127.0.0.1::8080 -e DEV_DOMAIN=http://:8080 -e PROD_DOMAIN=synthetic.invalid \
+container="$(docker run --rm -d --cap-drop ALL --cap-add NET_BIND_SERVICE --read-only --tmpfs /tmp \
+  -p 127.0.0.1::8080 -e DEV_DOMAIN=http://:8080 -e PROD_DOMAIN=synthetic.invalid \
   -e ACME_EMAIL=synthetic@example.test -e DEV_ACCESS_USER=synthetic -e "DEV_AUTH_HASH=$hash" \
   -v "$dir:/etc/estateatlas:ro" caddy:2.11.2-alpine caddy run --config /etc/estateatlas/Caddyfile --adapter caddyfile)"
 port="$(docker port "$container" 8080/tcp)"

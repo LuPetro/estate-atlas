@@ -1,5 +1,5 @@
 // One-time adoption of the existing private test data. Never copies Dev data to Prod.
-import { mkdir, readFile, writeFile, copyFile, cp, stat, access } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, copyFile, cp, access, chmod } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
@@ -25,7 +25,10 @@ const old = parse(await readFile(path.join(legacy, 'compose.env')));
 const contact = old.ACME_EMAIL;
 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact || '')) throw new Error('Set ACME_EMAIL first.');
 const gateway = path.join(root, '.local/gateway');
-await mkdir(path.join(gateway, 'config'), { recursive: true, mode: 0o700 });
+await mkdir(gateway, { recursive: true, mode: 0o700 });
+await mkdir(path.join(gateway, 'config'), { recursive: true, mode: 0o755 });
+// Only Caddyfiles are mounted. The root container has no DAC override capability.
+await chmod(path.join(gateway, 'config'), 0o755);
 if (!(await exists(path.join(gateway, 'compose.env')))) {
   const password = randomBytes(24).toString('base64url');
   const hash = run(
