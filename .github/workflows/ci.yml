@@ -35,6 +35,8 @@ jobs:
         run: pnpm security:check
       - name: Check proxy failure log privacy
         run: ./scripts/check-edge-privacy
+      - name: Check private development gateway protection
+        run: ./scripts/check-development-edge
       - name: Test business rules and real PostgreSQL API
         run: pnpm test
       - name: Build API and production web app

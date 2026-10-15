@@ -14,6 +14,9 @@ port="${DEPLOY_PORT:-22}"
 port=$((10#$port))
 (( port > 0 && port <= 65535 )) || { echo 'SSH port must be 1–65535.'; exit 1; }
 script_root="$(cd "$(dirname "$0")/.." && pwd)"
+environment="${DEPLOY_ENVIRONMENT:-production}"
+[[ "$environment" == development || "$environment" == production ]] || { echo 'Invalid deployment environment.'; exit 1; }
+[[ "${DEVELOPMENT_RUN_ID:-}" =~ ^[1-9][0-9]*$ && "${DEVELOPMENT_RUN_ATTEMPT:-}" =~ ^[1-9][0-9]*$ ]] || { echo 'A verified Dev run and attempt are required.'; exit 1; }
 deploy_tmp="$(mktemp -d)"
 trap 'rm -rf "$deploy_tmp"' EXIT
 chmod 700 "$deploy_tmp"
@@ -23,10 +26,10 @@ printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$deploy_tmp/known_hosts"
 ssh-keygen -y -P '' -f "$deploy_tmp/key" >/dev/null 2>&1 || { echo 'Deployment key must be valid and usable without an interactive passphrase.'; exit 1; }
 unset DEPLOY_KEY
 # Bash quoting handles spaces and shell metacharacters without evaluating configuration.
-printf -v remote_command 'DEPLOY_PATH=%q RELEASE_SHA=%q timeout --signal=TERM --kill-after=30s 28m bash -s' "$DEPLOY_PATH" "$RELEASE_SHA"
+printf -v remote_command 'DEPLOY_PATH=%q RELEASE_SHA=%q DEVELOPMENT_RUN_ID=%q DEVELOPMENT_RUN_ATTEMPT=%q timeout --signal=TERM --kill-after=30s 28m bash -s' "$DEPLOY_PATH" "$RELEASE_SHA" "$DEVELOPMENT_RUN_ID" "$DEVELOPMENT_RUN_ATTEMPT"
 ssh -F /dev/null -i "$deploy_tmp/key" -p "$port" \
   -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
   -o UserKnownHostsFile="$deploy_tmp/known_hosts" -o GlobalKnownHostsFile=/dev/null \
   -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
   -o ClearAllForwardings=yes \
-  "$DEPLOY_USER@$DEPLOY_HOST" "$remote_command" < "$script_root/scripts/deploy-production"
+  "$DEPLOY_USER@$DEPLOY_HOST" "$remote_command" < "$script_root/scripts/deploy-$environment"

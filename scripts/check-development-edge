@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+export PATH="$root/.local/node/bin:$PATH"
+export DOCKER_CONFIG="$root/.local/docker/cli"
+mkdir -p "$root/.local"
+dir="$(mktemp -d "$root/.local/dev-edge-check-XXXXXX")"
+container=''
+cleanup() {
+  if [[ -n "$container" ]]; then docker rm -f "$container" >/dev/null; fi
+  rm -rf "$dir"
+}
+trap cleanup EXIT
+sed -e 's/development-api:4000/127.0.0.1:1/g' -e 's/development-web:3000/127.0.0.1:1/g' "$root/config/Caddyfile.gateway" > "$dir/Caddyfile"
+printf '# Synthetic test; production is disabled.\n' > "$dir/production.caddy"
+hash="$(printf '%s\n' 'estateatlas-synthetic-gateway-test' | docker run --rm -i caddy:2.11.2-alpine caddy hash-password)"
+container="$(docker run --rm -d -p 127.0.0.1::8080 -e DEV_DOMAIN=http://:8080 -e PROD_DOMAIN=synthetic.invalid \
+  -e ACME_EMAIL=synthetic@example.test -e DEV_ACCESS_USER=synthetic -e "DEV_AUTH_HASH=$hash" \
+  -v "$dir:/etc/estateatlas:ro" caddy:2.11.2-alpine caddy run --config /etc/estateatlas/Caddyfile --adapter caddyfile)"
+port="$(docker port "$container" 8080/tcp)"
+export GATEWAY_TEST_URL="http://$port"
+node --input-type=module <<'JS'
+import assert from 'node:assert/strict';
+const url = process.env.GATEWAY_TEST_URL;
+const request = (route, headers) => fetch(url + route, { headers, signal: AbortSignal.timeout(5000) });
+let ready = false;
+for (let attempt = 0; attempt < 30; attempt++) {
+  try { await request('/'); ready = true; break; } catch { await new Promise((r) => setTimeout(r, 100)); }
+}
+assert(ready, 'Synthetic gateway did not start.');
+const headers = { Authorization: 'Basic ' + Buffer.from('synthetic:estateatlas-synthetic-gateway-test').toString('base64') };
+for (const route of ['/', '/api/health', '/manifest.webmanifest']) {
+  const anonymous = await request(route);
+  assert.equal(anonymous.status, 401, `Unprotected route ${route}`);
+  assert(anonymous.headers.get('www-authenticate')?.includes('Basic'), 'Browser login challenge missing.');
+  const authenticated = await request(route + '?probe=synthetic-private-query', headers);
+  assert.equal(authenticated.status, 502, 'Authorized request did not reach the failed synthetic upstream.');
+  assert(authenticated.headers.get('x-robots-tag')?.includes('noindex'), 'Noindex header missing.');
+}
+JS
+docker logs "$container" > "$dir/logs" 2>&1
+if grep -q synthetic-private-query "$dir/logs"; then
+  echo 'Dev gateway exposed the synthetic private query in logs.' >&2
+  exit 1
+fi
+echo 'Dev gateway protects page/API/assets and omits private query logs. No public ports used.'

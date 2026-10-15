@@ -8,7 +8,8 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-const root = fileURLToPath(new URL('../', import.meta.url));
+import { stateRoot } from './environment-paths.mjs';
+const root = stateRoot;
 const magic = Buffer.from('EA-BK001');
 const derive = (passphrase, salt) =>
   new Promise((resolve, reject) =>
@@ -105,7 +106,7 @@ async function run() {
   const secret = await passphrase();
   if (secret.length < 20 || secret.length > 1024)
     throw new Error('Passphrase requires 20–1024 characters');
-  const dir = path.join(root, '.local/backups/export');
+  const dir = path.join(root, 'backups/export');
   await mkdir(dir, { recursive: true, mode: 0o700 });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   if (command === 'open') {
@@ -114,7 +115,7 @@ async function run() {
     console.log(`Archive authenticated and decrypted to ${output}. No live data was restored.`);
     return;
   }
-  const backups = (await readdir(path.join(root, '.local/backups/automatic')))
+  const backups = (await readdir(path.join(root, 'backups/automatic')))
     .filter((name) => /^estateatlas-\d{8}T\d{6}Z\.dump$/.test(name))
     .sort();
   if (!backups.length) throw new Error('No database backup found');
@@ -129,14 +130,14 @@ async function run() {
         '-',
         '-C',
         root,
-        `.local/backups/automatic/${backups.at(-1)}`,
+        `backups/automatic/${backups.at(-1)}`,
         ...[
           'account-encryption-key',
           'site.json',
           'compose.env',
           'postgres-admin-password',
           'postgres-app-password',
-        ].map((name) => `.local/docker/${name}`),
+        ].map((name) => `docker/${name}`),
       ],
       { stdio: ['ignore', 'pipe', 'ignore'] },
     );

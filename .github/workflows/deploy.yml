@@ -24,6 +24,9 @@ jobs:
       inputs.production_approval == 'deploy'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    outputs:
+      development_run_id: ${{ steps.development.outputs.run_id }}
+      development_run_attempt: ${{ steps.development.outputs.run_attempt }}
     permissions:
       actions: read
       contents: read
@@ -40,6 +43,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ github.sha }}
         run: node scripts/assert-release-ci.mjs
+      - name: Require this exact commit to have passed Dev deployment and HTTPS checks
+        id: development
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: node scripts/assert-development.mjs
   deploy-production:
     name: Deploy verified main commit
     needs: authorize
@@ -54,6 +63,9 @@ jobs:
       - name: Deploy over pinned SSH and verify HTTPS
         env:
           RELEASE_SHA: ${{ github.sha }}
+          DEVELOPMENT_RUN_ID: ${{ needs.authorize.outputs.development_run_id }}
+          DEVELOPMENT_RUN_ATTEMPT: ${{ needs.authorize.outputs.development_run_attempt }}
+          DEPLOY_ENVIRONMENT: production
           DEPLOY_HOST: ${{ vars.DEPLOY_SSH_HOST }}
           DEPLOY_USER: ${{ vars.DEPLOY_SSH_USER }}
           DEPLOY_PORT: ${{ vars.DEPLOY_SSH_PORT }}

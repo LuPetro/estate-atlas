@@ -1,0 +1,46 @@
+{
+  email {$ACME_EMAIL}
+  admin localhost:2019
+  log default {
+    exclude http.log.error
+  }
+}
+
+{$DEV_DOMAIN} {
+  encode zstd gzip
+  header {
+    Strict-Transport-Security "max-age=31536000"
+    X-Robots-Tag "noindex, nofollow, noarchive"
+    Cache-Control "no-store"
+    -Server
+  }
+  basic_auth {
+    {$DEV_ACCESS_USER} {$DEV_AUTH_HASH}
+  }
+  @api path /api /api/*
+  handle @api {
+    uri strip_prefix /api
+    reverse_proxy development-api:4000 {
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Forwarded-Proto {scheme}
+      header_up X-Forwarded-Host {host}
+      header_up -Forwarded
+      header_up -Authorization
+    }
+  }
+  handle {
+    reverse_proxy development-web:3000 {
+      header_up -Authorization
+    }
+  }
+  handle_errors {
+    header {
+      X-Robots-Tag "noindex, nofollow, noarchive"
+      Cache-Control "no-store"
+      -Server
+    }
+    respond "{err.status_code}" {err.status_code}
+  }
+}
+
+import /etc/estateatlas/production.caddy

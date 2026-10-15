@@ -99,13 +99,27 @@ async function fixture() {
   git(source, 'init', '-b', 'main');
   await writeFile(path.join(source, '.gitignore'), '.local/\n');
   await writeFile(path.join(source, 'property-fixture.txt'), 'Synthetic deployment fixture v1\n');
-  for (const command of ['pnpm', 'docker']) {
+  for (const command of ['pnpm', 'docker', 'gateway']) {
     await writeFile(
       path.join(source, 'scripts', command),
       `#!/usr/bin/env bash\nset -eu\nprintf '%s\\n' '${command} '"$*" >> "$CALL_LOG"\nif [[ "${command}" == docker && "\u0024{FAIL_PHASE:-}" == containers ]] || [[ "${command}" == pnpm && "$*" == release:check && "\u0024{FAIL_PHASE:-}" == preflight ]]; then exit 7; fi\n`,
       { mode: 0o755 },
     );
   }
+  await writeFile(
+    path.join(source, 'scripts/production-check.mjs'),
+    String.raw`
+import { appendFileSync } from 'node:fs';
+const live = process.argv.includes('--live');
+appendFileSync(process.env.CALL_LOG, 'pnpm release:check' + (live ? ' --live' : '') + '\n');
+if (!live && process.env.FAIL_PHASE === 'preflight') process.exit(7);
+`,
+  );
+  await writeFile(
+    path.join(source, 'scripts/promote-images.mjs'),
+    '// Promotion is independently tested against real release records.\n',
+  );
+  await writeFile(path.join(bin, 'docker'), '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
   git(source, 'add', '.');
   git(source, 'commit', '-m', 'Synthetic fixture base');
   const base = git(source, 'rev-parse', 'HEAD');
@@ -160,7 +174,8 @@ describe('server deployment with real isolated Git repositories and no Docker/pr
       expect(git(f.server, 'branch', '--show-current')).toBe('main');
       expect((await readFile(f.log, 'utf8')).trim().split('\n')).toEqual([
         'pnpm release:check',
-        'docker --profile public up -d --build --wait',
+        'docker up -d --no-build --wait',
+        'gateway enable-production',
         'pnpm release:check --live',
       ]);
       expect(
@@ -284,6 +299,8 @@ describe('SSH transport without making any SSH connection', () => {
         ...process.env,
         PATH: `${bin}:${process.env.PATH}`,
         DEPLOY_KEY: await readFile(keyPath, 'utf8'),
+        DEVELOPMENT_RUN_ID: '10',
+        DEVELOPMENT_RUN_ATTEMPT: '1',
         DEPLOY_HOST: 'vps.example.invalid',
         DEPLOY_USER: 'codexdev',
         DEPLOY_PORT: '08',

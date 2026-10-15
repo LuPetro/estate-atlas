@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+umask 077
+export GIT_TERMINAL_PROMPT=0
+: "${DEPLOY_PATH:?}" "${RELEASE_SHA:?}" "${DEVELOPMENT_RUN_ID:?}" "${DEVELOPMENT_RUN_ATTEMPT:?}"
+[[ "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ && "$DEVELOPMENT_RUN_ID" =~ ^[1-9][0-9]*$ && "$DEVELOPMENT_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]] || exit 1
+cd "$DEPLOY_PATH"
+[[ "$(git rev-parse --show-toplevel)" == "$(pwd -P)" ]] || exit 1
+[[ "$(git remote get-url origin)" == https://github.com/LuPetro/estate-atlas.git || "$(git remote get-url origin)" == git@github.com:LuPetro/estate-atlas.git ]] || exit 1
+export EA_OPERATIONS_ROOT="$DEPLOY_PATH"
+export EA_ENVIRONMENT=development
+export PATH="$DEPLOY_PATH/.local/node/bin:$PATH"
+export DOCKER_CONFIG="$DEPLOY_PATH/.local/docker/cli"
+mkdir -p .local/deploy .local/environments/development
+exec 9>.local/deploy/lock
+flock -n 9 || { echo 'Another server deployment is running.'; exit 1; }
+git fetch --no-tags origin refs/heads/main
+[[ "$(git rev-parse FETCH_HEAD)" == "$RELEASE_SHA" ]] || { echo 'main moved; wait for its new Dev pipeline.'; exit 1; }
+release="$DEPLOY_PATH/.local/releases/$RELEASE_SHA"
+[[ ! -e "$release" ]] || { echo 'Removing only the previous immutable source extraction for this commit.'; rm -rf -- "$release"; }
+mkdir -p "$release"
+git archive "$RELEASE_SHA" | tar -x -C "$release"
+# Operational checks use the locked host dependencies; app builds stay inside Docker.
+ln -s "$DEPLOY_PATH/node_modules" "$release/node_modules"
+export API_IMAGE="estate-atlas-api:$RELEASE_SHA"
+export WEB_IMAGE="estate-atlas-web:$RELEASE_SHA"
+cd "$release"
+node scripts/development-check.mjs
+marker="$DEPLOY_PATH/.local/environments/development/last-release.json"
+printf '{"commit":"%s","result":"running"}\n' "$RELEASE_SHA" > "$marker.tmp"
+mv "$marker.tmp" "$marker"
+./scripts/docker build api web
+legacy="$DEPLOY_PATH/.local/environments/development"
+if [[ -f "$legacy/adopt-legacy" && ! -f "$legacy/legacy-adopted" ]]; then
+  EA_ENVIRONMENT=local ./scripts/docker stop
+fi
+./scripts/docker up -d --no-build --wait
+touch "$legacy/legacy-adopted"
+./scripts/gateway up
+node scripts/development-check.mjs --live
+node --input-type=module <<'JS'
+import { writeFile, rename, readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+const inspect = (image) => execFileSync('docker', ['image', 'inspect', '--format', '{{.Id}}', image], { encoding: 'utf8' }).trim();
+const record = { commit: process.env.RELEASE_SHA, result: 'success',
+  runId: Number(process.env.DEVELOPMENT_RUN_ID), runAttempt: Number(process.env.DEVELOPMENT_RUN_ATTEMPT),
+  apiImage: inspect(process.env.API_IMAGE), webImage: inspect(process.env.WEB_IMAGE), at: new Date().toISOString() };
+const state = `${process.env.EA_OPERATIONS_ROOT}/.local/environments/development`;
+const file = `${state}/docker/compose.env`;
+let text = await readFile(file, 'utf8');
+for (const [key, value] of Object.entries({ API_IMAGE: record.apiImage, WEB_IMAGE: record.webImage })) {
+  text = text.replace(new RegExp(`^${key}=.*(?:\\n|$)`, 'gm'), '');
+  text = text.trimEnd() + `\n${key}=${value}\n`;
+}
+await writeFile(file, text, { mode: 0o600 });
+await writeFile(`${state}/last-release.json.tmp`, JSON.stringify(record) + '\n', { mode: 0o600 });
+await rename(`${state}/last-release.json.tmp`, `${state}/last-release.json`);
+JS
+echo 'Dev deployed and HTTPS checked. Prod is eligible only for this commit and these image IDs.'

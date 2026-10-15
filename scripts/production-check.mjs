@@ -1,10 +1,8 @@
 import { readFile, stat, readdir } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parse } from 'dotenv';
-const root = fileURLToPath(new URL('../', import.meta.url));
-const configuration = path.join(root, '.local/docker');
+import { sourceRoot as root, configuration, stateRoot, backups } from './environment-paths.mjs';
 export function releaseErrors(env, site) {
   const errors = [];
   const domain = env.PUBLIC_DOMAIN ?? '';
@@ -90,7 +88,7 @@ async function run() {
       errors.push(`Secret ${name} fehlt oder ist ungültig.`);
   }
   if (!process.argv.includes('--config-only')) {
-    const dir = path.join(root, '.local/backups/automatic');
+    const dir = backups;
     const dumps = (await readdir(dir))
       .filter((name) => /^estateatlas-\d{8}T\d{6}Z\.dump$/.test(name))
       .sort();
@@ -99,7 +97,7 @@ async function run() {
       Date.now() - (await stat(path.join(dir, dumps.at(-1)))).mtimeMs > 26 * 3600000
     )
       errors.push('Kein frisches lokales Datenbankbackup (höchstens 26 Stunden).');
-    const proof = await readFile(path.join(root, '.local/backups/restore-check.json'), 'utf8')
+    const proof = await readFile(path.join(stateRoot, 'backups/restore-check.json'), 'utf8')
       .then(JSON.parse)
       .catch(() => null);
     if (

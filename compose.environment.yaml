@@ -1,0 +1,22 @@
+# Only selected by scripts/docker for development/production, never local tests.
+services:
+  api:
+    networks:
+      default: {}
+      edge:
+        aliases: ['${EA_ENVIRONMENT}-api']
+  web:
+    networks:
+      default: {}
+      edge:
+        aliases: ['${EA_ENVIRONMENT}-web']
+  edge:
+    profiles: [legacy-public-disabled]
+volumes:
+  postgres_data:
+    external: true
+    name: ${POSTGRES_VOLUME_NAME:?Set a separate environment database volume}
+networks:
+  edge:
+    external: true
+    name: estate-atlas-edge

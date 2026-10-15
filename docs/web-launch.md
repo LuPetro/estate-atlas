@@ -1,5 +1,7 @@
 # EstateAtlas V1 · Web-Veröffentlichung
 
+> Dev/Prod deployment update: see [development-deployment.md](development-deployment.md). Dev has a separate protected preview pipeline; Prod promotes only a successfully tested Dev commit/image pair. Production configuration now lives under `.local/environments/production/`, selected with `EA_ENVIRONMENT=production`. The `.local/docker/` paths below describe the earlier single-stack setup.
+
 Die V1 ist eine Web-App für private Immobilienportfolios mit optionaler Installation als PWA. Die native Expo-App bleibt bestehen und wird weiterhin für Android/iOS exportiert. Die PWA ersetzt weder die native App noch deren spätere Geräte-/Storeabnahme.
 
 ## Was für die Veröffentlichung vorbereitet ist

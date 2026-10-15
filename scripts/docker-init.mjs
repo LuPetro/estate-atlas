@@ -1,9 +1,11 @@
 import { mkdirSync, writeFileSync, existsSync, chmodSync, statSync, readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-const root = fileURLToPath(new URL('../', import.meta.url));
-const dir = path.join(root, '.local/docker');
+import {
+  sourceRoot as root,
+  configuration as dir,
+  backups as backupDir,
+} from './environment-paths.mjs';
 // A key entered from an administrator shell may have a different owner.
 // Avoid requiring ownership just to read an already correctly protected secret.
 const ensureMode = (file, mode) => {
@@ -25,7 +27,6 @@ ensureMode(openai, 0o644);
 const smtp = path.join(dir, 'smtp-password');
 if (!existsSync(smtp)) writeFileSync(smtp, '', { flag: 'wx', mode: 0o644 });
 ensureMode(smtp, 0o644);
-const backupDir = path.join(root, '.local/backups/automatic');
 mkdirSync(backupDir, { recursive: true, mode: 0o700 });
 writeFileSync(
   path.join(dir, 'backup-user.env'),

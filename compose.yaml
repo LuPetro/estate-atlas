@@ -26,7 +26,7 @@ services:
       options: { max-size: 10m, max-file: '3' }
 
   api:
-    image: estate-atlas-api:local
+    image: ${API_IMAGE:-estate-atlas-api:local}
     build: { context: ., target: api }
     restart: unless-stopped
     init: true
@@ -89,7 +89,7 @@ services:
     logging: *logging
 
   worker:
-    image: estate-atlas-api:local
+    image: ${API_IMAGE:-estate-atlas-api:local}
     command: [node, dist/worker.mjs]
     environment: *api_environment
     secrets: [postgres_app_password, openai_api_key]
@@ -117,7 +117,7 @@ services:
     logging: *logging
 
   web:
-    image: estate-atlas-web:local
+    image: ${WEB_IMAGE:-estate-atlas-web:local}
     build:
       context: .
       target: web
@@ -130,7 +130,7 @@ services:
     environment:
       SITE_CONFIG_FILE: /app/config/site.json
     volumes:
-      - ./.local/docker/site.json:/app/config/site.json:ro
+      - ${EA_DOCKER_DIR:-./.local/docker}/site.json:/app/config/site.json:ro
     depends_on:
       api: { condition: service_healthy }
     healthcheck:
@@ -174,7 +174,7 @@ services:
     logging: *logging
 
   maintenance:
-    image: estate-atlas-api:local
+    image: ${API_IMAGE:-estate-atlas-api:local}
     command: [node, dist/maintenance.mjs]
     environment: *api_environment
     secrets: [postgres_app_password]
@@ -201,13 +201,13 @@ services:
     logging: *logging
 
   monitor:
-    image: estate-atlas-api:local
+    image: ${API_IMAGE:-estate-atlas-api:local}
     user: '${BACKUP_UID:-1000}:${BACKUP_GID:-1000}'
     command: [node, dist/monitor.mjs]
     environment: *api_environment
     secrets: [smtp_password]
     volumes:
-      - ./.local/backups/automatic:/backups:ro
+      - ${EA_BACKUP_DIR:-./.local/backups/automatic}:/backups:ro
     restart: unless-stopped
     init: true
     depends_on:
@@ -286,7 +286,7 @@ services:
     entrypoint: [sh, /scripts/backup.sh]
     volumes:
       - ./scripts/backup.sh:/scripts/backup.sh:ro
-      - ./.local/backups/automatic:/backups
+      - ${EA_BACKUP_DIR:-./.local/backups/automatic}:/backups
     depends_on:
       api: { condition: service_healthy }
     read_only: true
@@ -316,7 +316,7 @@ services:
       PGDATA: /var/lib/postgresql/18/docker
     secrets: [postgres_admin_password]
     volumes:
-      - ./.local/backups/automatic:/backups:ro
+      - ${EA_BACKUP_DIR:-./.local/backups/automatic}:/backups:ro
     tmpfs: [/var/lib/postgresql, /tmp]
     mem_limit: 128m
     healthcheck:
@@ -332,12 +332,12 @@ volumes:
 
 secrets:
   account_encryption_key:
-    file: ./.local/docker/account-encryption-key
+    file: ${EA_DOCKER_DIR:-./.local/docker}/account-encryption-key
   smtp_password:
-    file: ./.local/docker/smtp-password
+    file: ${EA_DOCKER_DIR:-./.local/docker}/smtp-password
   postgres_admin_password:
-    file: ./.local/docker/postgres-admin-password
+    file: ${EA_DOCKER_DIR:-./.local/docker}/postgres-admin-password
   postgres_app_password:
-    file: ./.local/docker/postgres-app-password
+    file: ${EA_DOCKER_DIR:-./.local/docker}/postgres-app-password
   openai_api_key:
-    file: ./.local/docker/openai-api-key
+    file: ${EA_DOCKER_DIR:-./.local/docker}/openai-api-key

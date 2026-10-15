@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 TASK_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TASK_BACKUPS=("$TASK_ROOT"/.local/backups/automatic/estateatlas-*.dump)
+case "${EA_ENVIRONMENT:-local}" in
+  local) TASK_STATE="${EA_OPERATIONS_ROOT:-$TASK_ROOT}/.local" ;;
+  development|production) TASK_STATE="${EA_OPERATIONS_ROOT:-$TASK_ROOT}/.local/environments/$EA_ENVIRONMENT" ;;
+  *) exit 1 ;;
+esac
+TASK_BACKUPS=("$TASK_STATE"/backups/automatic/estateatlas-*.dump)
 TASK_BACKUP="${TASK_BACKUPS[-1]}"
 [[ -f "$TASK_BACKUP" ]] || { echo 'No automatic backup found.' >&2; exit 1; }
 TASK_FILE="$(basename "$TASK_BACKUP")"
@@ -14,4 +19,4 @@ cleanup
 "$TASK_ROOT/scripts/docker" exec -T restore-check pg_restore --exit-on-error --no-owner --no-acl -U postgres -d estateatlas_restore "/backups/$TASK_FILE"
 "$TASK_ROOT/scripts/docker" exec -T restore-check psql -U postgres -d estateatlas_restore -X -v ON_ERROR_STOP=1 -c "SELECT 'users' AS resource,count(*) FROM users UNION ALL SELECT 'properties',count(*) FROM properties UNION ALL SELECT 'assets',count(*) FROM assets UNION ALL SELECT 'migrations',count(*) FROM schema_migrations;"
 echo "Backup restored successfully in an isolated disposable database: $TASK_FILE"
-printf '{"backup":"%s","checkedAt":"%s"}\n' "$TASK_FILE" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$TASK_ROOT/.local/backups/restore-check.json"
+printf '{"backup":"%s","checkedAt":"%s"}\n' "$TASK_FILE" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$TASK_STATE/backups/restore-check.json"

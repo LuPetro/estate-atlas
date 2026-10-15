@@ -1,0 +1,63 @@
+name: EstateAtlas development deployment
+on:
+  workflow_run:
+    workflows: [EstateAtlas checks]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: estateatlas-development-deploy
+  cancel-in-progress: false
+jobs:
+  authorize:
+    if: >-
+      github.repository == 'LuPetro/estate-atlas' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        github.event.workflow_run.head_sha == github.sha))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Require successful push CI for the exact main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: node scripts/assert-release-ci.mjs
+  deploy-development:
+    needs: authorize
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    environment:
+      name: development
+      url: https://dev.estateatlas.app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Deploy Dev and verify protected HTTPS
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+          DEPLOY_ENVIRONMENT: development
+          DEVELOPMENT_RUN_ID: ${{ github.run_id }}
+          DEVELOPMENT_RUN_ATTEMPT: ${{ github.run_attempt }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_SSH_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_SSH_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_SSH_PORT }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_SSH_KNOWN_HOSTS }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+        run: ./scripts/deploy-ssh

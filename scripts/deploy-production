@@ -8,6 +8,9 @@ export GIT_TERMINAL_PROMPT=0
 [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'Release SHA is invalid.'; exit 1; }
 [[ -d "$DEPLOY_PATH/.git" ]] || { echo 'Deployment checkout is missing.'; exit 1; }
 cd "$DEPLOY_PATH"
+export EA_OPERATIONS_ROOT="$DEPLOY_PATH"
+export EA_ENVIRONMENT=production
+export PATH="$DEPLOY_PATH/.local/node/bin:$PATH"
 [[ "$(git rev-parse --show-toplevel)" == "$(pwd -P)" ]] || { echo 'Deployment path must be the repository root.'; exit 1; }
 mkdir -p .local/deploy
 exec 9>.local/deploy/lock
@@ -31,10 +34,13 @@ trap record_result EXIT
 # Fast-forward preserves unpublished commits and refuses conflicting untracked files.
 git merge --ff-only "$RELEASE_SHA"
 phase=preflight
-./scripts/pnpm release:check
+node scripts/promote-images.mjs
+node scripts/production-check.mjs
 phase=containers
-./scripts/docker --profile public up -d --build --wait
+docker volume inspect estate-atlas-production_postgres_data >/dev/null 2>&1 || docker volume create estate-atlas-production_postgres_data >/dev/null
+./scripts/docker up -d --no-build --wait
+./scripts/gateway enable-production
 phase=https
-./scripts/pnpm release:check --live
+node scripts/production-check.mjs --live
 phase=complete
 result=success

@@ -14,5 +14,5 @@ if [[ ! -f "$archive" ]]; then
 fi
 printf '%s  %s\n' 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 "$archive" | sha256sum --check
 tar -xzf "$archive" -C "$tool_dir" actionlint
-"$tool_dir/actionlint" -shellcheck= -pyflakes= .github/workflows/ci.yml .github/workflows/deploy.yml
-bash -n scripts/deploy-production scripts/deploy-ssh scripts/check-workflows
+"$tool_dir/actionlint" -shellcheck= -pyflakes= .github/workflows/*.yml
+bash -n scripts/deploy-production scripts/deploy-development scripts/deploy-ssh scripts/gateway scripts/docker scripts/check-workflows

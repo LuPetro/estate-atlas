@@ -1,12 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 TASK_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-export PATH="$TASK_ROOT/.local/node/bin:$PATH"
-export DOCKER_CONFIG="$TASK_ROOT/.local/docker/cli"
+export EA_OPERATIONS_ROOT="${EA_OPERATIONS_ROOT:-$TASK_ROOT}"
+export EA_ENVIRONMENT="${EA_ENVIRONMENT:-local}"
+export PATH="$EA_OPERATIONS_ROOT/.local/node/bin:$PATH"
+export DOCKER_CONFIG="$EA_OPERATIONS_ROOT/.local/docker/cli"
 export COMPOSE_PARALLEL_LIMIT=1
+case "$EA_ENVIRONMENT" in
+  local) TASK_STATE="$EA_OPERATIONS_ROOT/.local" ;;
+  development|production) TASK_STATE="$EA_OPERATIONS_ROOT/.local/environments/$EA_ENVIRONMENT" ;;
+  *) echo 'Invalid EA_ENVIRONMENT.'; exit 1 ;;
+esac
+export EA_DOCKER_DIR="$TASK_STATE/docker"
+export EA_BACKUP_DIR="$TASK_STATE/backups/automatic"
 node "$TASK_ROOT/scripts/docker-init.mjs"
 cd "$TASK_ROOT"
-TASK_COMPOSE=(docker compose --project-directory "$TASK_ROOT" --env-file "$TASK_ROOT/.local/docker/compose.env" --env-file "$TASK_ROOT/.local/docker/backup-user.env" -f "$TASK_ROOT/compose.yaml")
+TASK_COMPOSE=(docker compose --project-directory "$TASK_ROOT" --env-file "$EA_DOCKER_DIR/compose.env" --env-file "$EA_DOCKER_DIR/backup-user.env" -f "$TASK_ROOT/compose.yaml")
+if [[ "$EA_ENVIRONMENT" != local ]]; then
+  TASK_COMPOSE+=(--project-name "estate-atlas-$EA_ENVIRONMENT" -f "$TASK_ROOT/compose.environment.yaml")
+fi
 TASK_PUBLIC=false
 TASK_UP=false
 for TASK_ARG in "$@"; do
@@ -14,6 +26,7 @@ for TASK_ARG in "$@"; do
   [[ "$TASK_ARG" == up ]] && TASK_UP=true
 done
 if [[ "$TASK_PUBLIC" == true && "$TASK_UP" == true ]]; then
+  [[ "$EA_ENVIRONMENT" == local ]] || { echo 'Use scripts/gateway for environment HTTPS.'; exit 1; }
   node "$TASK_ROOT/scripts/production-check.mjs"
 fi
 # BuildKit can build multiple images in parallel even with Compose concurrency=1.
