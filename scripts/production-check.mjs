@@ -170,7 +170,7 @@ async function run() {
     }
   }
   console.log(
-    'Produktionsprüfung bestanden. DNS, TLS, echte Zustellung und externe Sicherung separat bestätigen; --live nach dem HTTPS-Start ausführen.',
+    'Produktionsprüfung bestanden. Öffentliche DNS-/TLS-Erreichbarkeit nach Freischaltung mit --live prüfen; externe Sicherung und externer Uptime-Monitor bleiben vorerst zurückgestellt.',
   );
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
