@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import PwaStatus from '../src/PwaStatus';
 import SiteFooter from '../src/SiteFooter';
+import LanguageControl from '../src/LanguageControl';
 import './globals.css';
 export const metadata: Metadata = {
   title: 'EstateAtlas · Dein Immobilienportfolio',
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="de">
       <body>
         <PwaStatus />
+        <LanguageControl />
         {children}
         <SiteFooter />
       </body>

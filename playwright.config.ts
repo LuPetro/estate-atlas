@@ -10,9 +10,9 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 1000 } },
+      use: { ...devices['Desktop Chrome'], locale: 'de-DE', viewport: { width: 1440, height: 1000 } },
     },
-    { name: 'mobile-web', use: { ...devices['iPhone 13'], defaultBrowserType: 'chromium' } },
+    { name: 'mobile-web', use: { ...devices['iPhone 13'], locale: 'de-DE', defaultBrowserType: 'chromium' } },
   ],
   webServer: [
     {

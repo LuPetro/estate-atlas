@@ -4585,3 +4585,33 @@ main {
 .admin-header .brand span {
   color: #146f68;
 }
+.language-control {
+  position: fixed;
+  z-index: 1200;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid rgb(255 255 255 / 22%);
+  border-radius: 999px;
+  background: rgb(19 43 49 / 88%);
+  box-shadow: 0 5px 18px rgb(12 31 34 / 18%);
+  backdrop-filter: blur(12px);
+}
+.language-control button {
+  min-width: 34px;
+  min-height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #eaf3f2;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.language-control button[aria-pressed='true'] {
+  background: #eaf3f2;
+  color: #17343a;
+}
