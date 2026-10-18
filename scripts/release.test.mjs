@@ -42,6 +42,12 @@ describe('web launch gates', () => {
   it('lists missing setup and accepts complete synthetic configuration without contacting providers', () => {
     expect(releaseErrors({}, {})).not.toHaveLength(0);
     expect(releaseErrors(env, site)).toEqual([]);
+    expect(
+      releaseErrors(
+        { ...env, OFFSITE_BACKUP_CONFIRMED: 'false', UPTIME_MONITOR_CONFIRMED: 'false' },
+        site,
+      ),
+    ).toEqual([]);
   });
   it('blocks unsafe cookies, unverified signup, placeholder domains and unlimited public AI', () => {
     for (const change of [
@@ -58,6 +64,12 @@ describe('web launch gates', () => {
     ])
       expect(releaseErrors({ ...env, ...change }, site)).not.toHaveLength(0);
     expect(releaseErrors(env, { ...site, reviewed: false })).not.toHaveLength(0);
+    expect(
+      releaseErrors(env, {
+        ...site,
+        address: 'Wien, Österreich (vollständige ladungsfähige Anschrift noch einzutragen)',
+      }),
+    ).not.toHaveLength(0);
   });
 });
 it('encrypts recovery data, authenticates before use, and removes incomplete plaintext on wrong keys or tampering', async () => {

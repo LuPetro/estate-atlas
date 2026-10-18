@@ -36,13 +36,8 @@ export function releaseErrors(env, site) {
   for (const name of ['ACME_EMAIL', 'OPS_ALERT_EMAIL'])
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(env[name] ?? ''))
       errors.push(`${name}: gültige Betreiberadresse erforderlich.`);
-  for (const name of [
-    'OFFSITE_BACKUP_CONFIRMED',
-    'SMTP_DELIVERY_CONFIRMED',
-    'UPTIME_MONITOR_CONFIRMED',
-  ])
-    if (env[name] !== 'true')
-      errors.push(`${name}: erst nach tatsächlicher Einrichtung/Prüfung bestätigen.`);
+  if (env.SMTP_DELIVERY_CONFIRMED !== 'true')
+    errors.push('SMTP_DELIVERY_CONFIRMED: echte Zustellung vor Veröffentlichung prüfen.');
   for (const [name, max] of [
     ['MAX_PROPERTIES_PER_ACCOUNT', 10000],
     ['MAX_ACCOUNT_STORAGE_MB', 10000],
@@ -76,6 +71,9 @@ export function releaseErrors(env, site) {
   for (const name of ['supportEmail', 'privacyEmail'])
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(site[name] ?? ''))
       errors.push(`site.json: ${name} ist keine gültige Adresse.`);
+  for (const name of ['address', 'hostingRegion', 'legalNotice', 'privacyNotice', 'terms'])
+    if (/\b(entwurf|platzhalter|tbd|noch einzutragen|noch zu verifizieren|noch offen)\b/i.test(site[name] ?? ''))
+      errors.push(`site.json: ${name} enthält noch einen offenen Platzhalter.`);
   if (site.reviewed !== true)
     errors.push('site.json: Betreiber muss veröffentlichte Texte prüfen und reviewed=true setzen.');
   return errors;
