@@ -418,7 +418,7 @@ test('logout isolates accounts; invitations grant read access and revocation rem
   await page.getByRole('button', { name: 'Schließen', exact: true }).click();
   await logout(page);
   await expect(page.getByRole('button', { name: 'Anmelden', exact: true })).toBeVisible();
-  await expect(page.locator('.auth-form .error')).toHaveCount(0);
+  await expect(page.locator('[data-auth-screen] [role="alert"]')).toHaveCount(0);
   expect((await page.request.get('http://localhost:4001/properties')).status()).toBe(401);
   const recipientEmail = await register(page);
   await expect(page.locator('.property-card')).toHaveCount(0);

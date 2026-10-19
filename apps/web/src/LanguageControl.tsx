@@ -6,6 +6,13 @@ type Language = 'de' | 'en';
 
 const translations: Record<string, string> = {
   'EstateAtlas · Dein Immobilienportfolio': 'EstateAtlas · Your property portfolio',
+  'Ein Ort für deinen Überblick.': 'A place for a clearer view.',
+  'Anmeldung und Registrierung': 'Sign in and registration',
+  'Zugang wählen': 'Choose access',
+  'Passwort anzeigen': 'Show password',
+  'Passwort verbergen': 'Hide password',
+  'Code oder Wiederherstellungscode': 'Code or recovery code',
+  'Nur nötig, wenn du die Zwei-Faktor-Anmeldung aktiviert hast.': 'Only needed if you enabled two-factor authentication.',
   'App installieren': 'Install app', 'Hilfe': 'Help', 'Datenschutz': 'Privacy', 'Impressum': 'Legal notice',
   'Nutzung': 'Terms', 'Konto löschen': 'Delete account', 'Service und Rechtliches': 'Support and legal',
   'EstateAtlas': 'EstateAtlas', 'Deine Immobilien. Eine klare Perspektive. Private Portfolios auf Web, Android und iOS.': 'Your properties. A clearer perspective. Private portfolios on web, Android and iOS.',
