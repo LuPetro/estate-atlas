@@ -32,6 +32,7 @@ services:
     init: true
     environment: &api_environment
       NODE_ENV: production
+      ESTATEATLAS_ENVIRONMENT: ${EA_ENVIRONMENT:-production}
       API_HOST: 0.0.0.0
       API_PORT: 4000
       DATABASE_HOST: db

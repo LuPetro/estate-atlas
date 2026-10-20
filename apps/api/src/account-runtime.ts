@@ -78,7 +78,11 @@ export async function accountRuntime(
   }
   if (runtime.verificationRequired && !runtime.mail)
     throw new Error('Verification requires configured mail delivery');
-  if (production && (!runtime.mail || !runtime.verificationRequired))
+  if (
+    production &&
+    env.ESTATEATLAS_ENVIRONMENT !== 'development' &&
+    (!runtime.mail || !runtime.verificationRequired)
+  )
     throw new Error(
       'Public production signup requires mail delivery and email verification',
     );
