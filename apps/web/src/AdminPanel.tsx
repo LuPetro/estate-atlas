@@ -10,6 +10,7 @@ import type {
   BetaInvitation,
 } from '@estate-atlas/shared';
 import { SecurityFields, security } from './AccountPanel';
+import Brand from './Brand';
 const api = new ApiClient(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000');
 const date = (value: string | null) => (value ? new Date(value).toLocaleString('de-AT') : '—');
 export default function AdminPanel() {
@@ -114,9 +115,7 @@ export default function AdminPanel() {
   return (
     <div className="admin-shell">
       <header className="admin-header">
-        <a href="/" className="brand">
-          EstateAtlas <span>Verwaltung</span>
-        </a>
+        <Brand />
         <a href="/">
           <ArrowLeft size={16} />
           Zum Portfolio

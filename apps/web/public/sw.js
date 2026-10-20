@@ -1,5 +1,5 @@
 /* Only the generic offline page is cached. No app HTML, API, files, maps or mail links. */
-const CACHE = 'estateatlas-offline-v1';
+const CACHE = 'estateatlas-offline-v2';
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches

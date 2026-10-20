@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { ApiClient } from '@estate-atlas/api-client';
 import AccountPanel from './AccountPanel';
+import Brand from './Brand';
 import type { User } from '@estate-atlas/shared';
 const api = new ApiClient(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000');
 export default function AccountPage() {
@@ -16,9 +17,7 @@ export default function AccountPage() {
   return (
     <div className="admin-shell">
       <header className="admin-header">
-        <a className="brand" href="/">
-          EstateAtlas
-        </a>
+        <Brand />
         <a href="/">Zum Portfolio</a>
       </header>
       <main>

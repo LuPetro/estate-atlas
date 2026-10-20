@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { ApiClient } from '@estate-atlas/api-client';
+import Brand from './Brand';
 const api = new ApiClient(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000');
 export default function AccountActions({ onBack }: { onBack?: () => void }) {
   const [mode, setMode] = useState('forgot'),
@@ -25,9 +26,7 @@ export default function AccountActions({ onBack }: { onBack?: () => void }) {
   }, []);
   return (
     <div className="account-action-shell">
-      <a className="brand" href="/">
-        EstateAtlas
-      </a>
+      <Brand />
       <section className="account-card">
         <p className="eyebrow">DEIN ZUGANG</p>
         <h1>

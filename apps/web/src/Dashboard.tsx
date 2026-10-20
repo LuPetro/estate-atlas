@@ -54,6 +54,8 @@ import {
   type User,
 } from '@estate-atlas/shared';
 import PropertyEditor from './PropertyEditor';
+import Brand from './Brand';
+import PropertyArtwork from './PropertyArtwork';
 import AccountPanel from './AccountPanel';
 import Auth from './AuthScreen';
 import AnalysisPanel from './AnalysisPanel';
@@ -123,6 +125,20 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
+  useEffect(() => {
+    if (!mobileNav) return;
+    document.querySelector<HTMLButtonElement>('.nav-item.active')?.focus();
+    const close = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMobileNav(false);
+      }
+    };
+    document.addEventListener('keydown', close);
+    return () => {
+      document.removeEventListener('keydown', close);
+      document.querySelector<HTMLButtonElement>('.mobile-menu')?.focus();
+    };
+  }, [mobileNav]);
   const clearPrivateState = () => {
     accountEpoch.current++;
     setProperties([]);
@@ -304,19 +320,26 @@ export default function Dashboard() {
   };
   return (
     <div className="app-shell">
-      <aside className={`sidebar ${mobileNav ? 'open' : ''}`} inert={Boolean(editor || detail)}>
-        <a className="brand" href="/" aria-label="EstateAtlas Startseite">
-          <span className="brand-mark">
-            <Compass size={24} />
-          </span>
-          Estate<span>Atlas</span>
-        </a>
+      {mobileNav && (
+        <button
+          className="nav-scrim"
+          aria-label="Navigation schließen"
+          onClick={() => setMobileNav(false)}
+        />
+      )}
+      <aside
+        id="workspace-navigation"
+        className={`sidebar ${mobileNav ? 'open' : ''}`}
+        inert={Boolean(editor || detail)}
+      >
+        <Brand />
         <p className="sidebar-label">DEIN PORTFOLIO</p>
-        <nav>
+        <nav aria-label="Portfolio">
           {nav.map((n) => (
             <button
               key={n.key}
               className={`nav-item ${section === n.key ? 'active' : ''}`}
+              aria-current={section === n.key ? 'page' : undefined}
               onClick={() => goto(n.key)}
             >
               <n.icon size={19} />
@@ -370,6 +393,8 @@ export default function Dashboard() {
             <button
               className="mobile-menu icon-button"
               aria-label="Navigation öffnen"
+              aria-expanded={mobileNav}
+              aria-controls="workspace-navigation"
               onClick={() => setMobileNav(!mobileNav)}
             >
               <Menu size={21} />
@@ -880,10 +905,9 @@ export default function Dashboard() {
                         {filtered.map((p) => (
                           <button className="property-card" key={p.id} onClick={() => select(p.id)}>
                             <div className={`property-art art-${p.type}`}>
-                              <Building2 size={52} strokeWidth={1} />
+                              <PropertyArtwork type={p.type} />
                               <span className="location-badge">{p.country}</span>
                               {p.isTestData && <span className="sample-badge">TESTDATEN</span>}
-                              <span className="art-lines" />
                             </div>
                             <div className="property-content">
                               <div className="property-type">

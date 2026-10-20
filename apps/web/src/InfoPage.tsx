@@ -1,3 +1,5 @@
+import Brand from './Brand';
+
 export default function InfoPage({
   title,
   children,
@@ -8,9 +10,7 @@ export default function InfoPage({
   return (
     <div className="info-shell">
       <header>
-        <a className="brand" href="/">
-          EstateAtlas
-        </a>
+        <Brand />
         <a href="/">Zum Portfolio</a>
       </header>
       <main>

@@ -9,14 +9,14 @@ import {
 } from '@estate-atlas/shared';
 
 const colors = [
-  '#153e47',
-  '#438e86',
-  '#94b6a5',
-  '#ccb68d',
-  '#929fae',
-  '#d8cfc0',
-  '#8a7769',
-  '#bacace',
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+  'var(--chart-6)',
+  'var(--chart-7)',
+  'var(--chart-8)',
 ];
 export default function PortfolioDistribution({
   properties,

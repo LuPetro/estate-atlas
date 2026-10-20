@@ -3,6 +3,7 @@ import PwaStatus from '../src/PwaStatus';
 import SiteFooter from '../src/SiteFooter';
 import LanguageControl from '../src/LanguageControl';
 import './globals.css';
+import './platform.css';
 export const metadata: Metadata = {
   title: 'EstateAtlas · Dein Immobilienportfolio',
   description:
@@ -16,7 +17,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#172e35',
+  themeColor: '#f5f3ed',
 };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

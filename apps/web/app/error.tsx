@@ -1,4 +1,5 @@
 'use client';
+import InfoPage from '../src/InfoPage';
 export default function ErrorPage({
   retry,
 }: {
@@ -6,13 +7,12 @@ export default function ErrorPage({
   retry: () => void;
 }) {
   return (
-    <main className="info-shell">
-      <h1>Das hat gerade nicht funktioniert.</h1>
+    <InfoPage title="Das hat gerade nicht funktioniert.">
       <p>Bitte versuche es erneut. Bereits gespeicherte Daten bleiben erhalten.</p>
       <button className="button primary" onClick={retry}>
         Erneut versuchen
       </button>
       <a href="/">Zur Startseite</a>
-    </main>
+    </InfoPage>
   );
 }

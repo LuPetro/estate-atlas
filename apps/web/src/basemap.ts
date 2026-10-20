@@ -11,7 +11,7 @@ export function addBasemap(L: typeof Leaflet, map: Leaflet.Map, onFallback: () =
   let generation = 0;
   const simple = () =>
     L.geoJSON(worldCountries, {
-      style: { color: '#ffffff', weight: 1.25, fillColor: '#dce8df', fillOpacity: 1 },
+      style: { color: '#fffefa', weight: 1.25, fillColor: '#e0e3d3', fillOpacity: 1 },
       interactive: false,
       attribution: '<a href="https://www.naturalearthdata.com/">Natural Earth</a>',
     });
