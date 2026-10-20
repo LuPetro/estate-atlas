@@ -155,6 +155,43 @@
 .buildingFront {
   animation: construct 1100ms 340ms both;
 }
+.houseMotionBack {
+  animation: house-float 8600ms -1800ms ease-in-out infinite;
+}
+.houseMotionFront {
+  animation: house-float 7200ms -4200ms ease-in-out infinite reverse;
+}
+.roofTrace {
+  stroke-dasharray: 14 86;
+  stroke-dashoffset: 0;
+  animation: roof-trace 9s linear infinite;
+}
+.houseMotionBack .roofTrace {
+  animation-duration: 12s;
+  animation-delay: -4s;
+}
+.windowLights > path {
+  fill-opacity: 0.22;
+  animation: window-glow 8s ease-in-out infinite;
+}
+.windowLights > path:nth-child(2) {
+  animation-delay: -2800ms;
+}
+.windowLights > path:nth-child(3) {
+  animation-delay: -5300ms;
+}
+.houseMotionBack .windowLights > path {
+  animation-duration: 11s;
+}
+.treeSway {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: tree-sway 6s -1s ease-in-out infinite;
+}
+.treeRight {
+  animation-duration: 7400ms;
+  animation-delay: -3500ms;
+}
 .drawingNotes {
   opacity: 1;
 }
@@ -474,6 +511,39 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+@keyframes house-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+@keyframes roof-trace {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+@keyframes window-glow {
+  0%,
+  100% {
+    fill-opacity: 0.15;
+  }
+  45%,
+  60% {
+    fill-opacity: 0.72;
+  }
+}
+@keyframes tree-sway {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
   }
 }
 
