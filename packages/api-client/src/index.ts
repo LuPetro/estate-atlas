@@ -16,7 +16,6 @@ import type {
   AccountConfig,
   AccountSession,
   AdminUser,
-  BetaInvitation,
   AuditEvent,
   AdminOverview,
   PlatformRole,
@@ -83,7 +82,7 @@ export class ApiClient {
   me() {
     return this.request<User>('/auth/me');
   }
-  register(input: { email: string; password: string; name: string; invitation?: string }) {
+  register(input: { email: string; password: string; name: string }) {
     return this.request<{ user: User; token?: string }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(input),
@@ -141,12 +140,6 @@ export class ApiClient {
     return this.request<{ users: AdminUser[]; total: number; page: number }>(
       `/admin/users?${params}`,
     );
-  }
-  adminInvitations() {
-    return this.request<BetaInvitation[]>('/admin/invitations');
-  }
-  revokeBetaInvitation(id: string) {
-    return this.request<void>(`/admin/invitations/${id}`, { method: 'DELETE' });
   }
   adminAudit(page = 1) {
     return this.request<AuditEvent[]>(`/admin/audit?page=${page}`);

@@ -5,10 +5,10 @@ import LanguageControl from '../src/LanguageControl';
 import './globals.css';
 import './platform.css';
 export const metadata: Metadata = {
-  title: 'EstateAtlas · Dein Immobilienportfolio',
+  metadataBase: new URL('https://estateatlas.app'),
+  title: { default: 'EstateAtlas · Dein Immobilienportfolio', template: '%s | EstateAtlas' },
   description:
-    'Deine Immobilien. Eine klare Perspektive. Private Portfolios auf Web, Android und iOS.',
-  robots: { index: false, follow: false },
+    'Ordne Immobilien, eigene Wertnotizen, Mietzeiträume und Unterlagen in deinem privaten Portfolio.',
   applicationName: 'EstateAtlas',
   appleWebApp: { capable: true, title: 'EstateAtlas', statusBarStyle: 'default' },
   icons: { icon: '/icons/icon-192.png', apple: '/icons/apple-touch-icon.png' },

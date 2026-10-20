@@ -12,8 +12,6 @@ import {
   deleteAccountInputSchema,
   transferOwnerInputSchema,
   adminActionInputSchema,
-  betaInvitationInputSchema,
-  registrationModeInputSchema,
   auditQuerySchema,
   adminUserQuerySchema,
   profileInputSchema,
@@ -87,10 +85,6 @@ export function createAccounts(
       [randomUUID(), actor, target, action, reason ?? null, JSON.stringify(metadata)],
     );
   };
-  const mode = async () =>
-    runtime.registration ??
-    ((await pool.query('SELECT registration FROM account_settings WHERE singleton=true')).rows[0]
-      .registration as 'open' | 'invite');
   app.addHook('onResponse', async (req, reply) => {
     if (req.routeOptions.url === '/auth/login' && reply.statusCode === 401)
       await audit(pool, null, null, 'account.login-failed');
@@ -191,7 +185,6 @@ export function createAccounts(
   const limited = { rateLimit: { max: 8, timeWindow: '15 minutes' } };
   let activeExports = 0;
   app.get('/auth/config', async () => ({
-    registration: await mode(),
     mailEnabled: !!runtime.mail,
     verificationRequired: runtime.verificationRequired,
     mfaAvailable: !!runtime.encryptionKey,
@@ -620,13 +613,8 @@ export function createAccounts(
     const result = await pool.query(
       "SELECT count(*)::int AS users,count(*) FILTER(WHERE status='suspended')::int AS suspended,count(*) FILTER(WHERE email_verified_at IS NULL)::int AS unverified FROM users",
     );
-    const invitations = await pool.query(
-      'SELECT count(*)::int AS count FROM beta_invitations WHERE accepted_at IS NULL AND revoked_at IS NULL AND expires_at>now()',
-    );
     return {
       ...result.rows[0],
-      invitations: invitations.rows[0].count,
-      registration: await mode(),
       mailEnabled: !!runtime.mail,
     };
   });
@@ -724,65 +712,6 @@ export function createAccounts(
     if (input.action === 'reset-password') await issue(id, mailTarget.email, 'reset');
     return { message: 'Aktion ausgeführt.' };
   });
-  app.get('/admin/invitations', { preHandler: staff }, async () => {
-    const { rows } = await pool.query(
-      'SELECT id,email,created_at,expires_at,accepted_at,revoked_at FROM beta_invitations ORDER BY created_at DESC LIMIT 100',
-    );
-    return rows.map((r) => ({
-      id: r.id,
-      email: r.email,
-      createdAt: iso(r.created_at),
-      expiresAt: iso(r.expires_at),
-      acceptedAt: iso(r.accepted_at),
-      revokedAt: iso(r.revoked_at),
-    }));
-  });
-  app.post('/admin/invitations', { preHandler: admin, config: limited }, async (req) => {
-    const input = betaInvitationInputSchema.parse(req.body);
-    return tx(async (client) => {
-      await reauthAdmin(client, req, input);
-      const token = newToken(),
-        id = randomUUID();
-      const expiresAt = new Date(Date.now() + input.days * 86400000).toISOString();
-      await client.query(
-        'INSERT INTO beta_invitations(id,token_hash,email,created_by,expires_at) VALUES($1,$2,$3,$4,$5)',
-        [id, tokenHash(token), input.email ?? null, req.user!.id, expiresAt],
-      );
-      await audit(client, req.user!.id, null, 'beta.invited');
-      return { id, code: token, expiresAt, email: input.email ?? null };
-    });
-  });
-  app.delete('/admin/invitations/:id', { preHandler: admin }, async (req, reply) => {
-    const id = z.uuid().parse((req.params as { id: string }).id);
-    await tx(async (client) => {
-      const actor = await lockedUser(client, req.user!.id);
-      if (actor.role !== 'admin') fail(403, 'Keine Verwaltungsberechtigung.');
-      await client.query(
-        'UPDATE beta_invitations SET revoked_at=now() WHERE id=$1 AND accepted_at IS NULL',
-        [id],
-      );
-      await audit(client, req.user!.id, null, 'beta.invitation-revoked');
-    });
-    return reply.code(204).send();
-  });
-  app.patch('/admin/registration', { preHandler: admin, config: limited }, async (req) => {
-    const input = registrationModeInputSchema.parse(req.body);
-    if (runtime.registration)
-      fail(409, 'Der Registrierungsmodus wird durch die Deployment-Konfiguration festgelegt.');
-    if (input.mode === 'open' && (!runtime.mail || !runtime.verificationRequired))
-      fail(
-        409,
-        'Öffentliche Registrierung benötigt Mailversand und verpflichtende E-Mail-Bestätigung.',
-      );
-    await tx(async (client) => {
-      await reauthAdmin(client, req, input);
-      await client.query('UPDATE account_settings SET registration=$1', [input.mode]);
-      await audit(client, req.user!.id, null, 'registration.changed', input.reason, {
-        mode: input.mode,
-      });
-    });
-    return { message: 'Registrierungsmodus geändert.' };
-  });
   app.get('/admin/audit', { preHandler: admin }, async (req) => {
     const { page } = auditQuerySchema.parse(req.query);
     const result = await pool.query(
@@ -802,33 +731,12 @@ export function createAccounts(
   return {
     runtime,
     async register(req: FastifyRequest) {
-      const input = registerSchema.parse(req.body),
-        registration = await mode();
+      const input = registerSchema.parse(req.body);
       const row = await tx(async (client) => {
-        const invite = input.invitation
-          ? (
-              await client.query('SELECT * FROM beta_invitations WHERE token_hash=$1 FOR UPDATE', [
-                tokenHash(input.invitation),
-              ])
-            ).rows[0]
-          : null;
-        if (
-          registration === 'invite' &&
-          (!invite ||
-            invite.revoked_at ||
-            invite.accepted_at ||
-            invite.expires_at.getTime() <= Date.now() ||
-            (invite.email && invite.email !== input.email))
-        )
-          fail(400, 'Gültige Einladung für diese E-Mail-Adresse erforderlich.');
         const result = await client.query(
           'INSERT INTO users(id,email,name,password_hash) VALUES($1,$2,$3,$4) RETURNING *',
           [randomUUID(), input.email, input.name, await hashPassword(input.password)],
         );
-        if (registration === 'invite')
-          await client.query('UPDATE beta_invitations SET accepted_at=now() WHERE id=$1', [
-            invite.id,
-          ]);
         await audit(client, result.rows[0].id, result.rows[0].id, 'account.registered');
         return result.rows[0];
       });

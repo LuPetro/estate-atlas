@@ -20,7 +20,7 @@ test('account profile, session list, email verification, export and reset work i
   request,
 }) => {
   const email = `account-browser-${Date.now()}@example.test`;
-  await page.goto('/');
+  await page.goto('/portfolio');
   await page.getByRole('button', { name: 'Konto erstellen', exact: true }).click();
   await page.getByLabel('Dein Name').fill('Synthetic account browser');
   await page.getByLabel('E-Mail-Adresse').fill(email);
@@ -70,10 +70,10 @@ test('account profile, session list, email verification, export and reset work i
   await page.goto('/account');
   await expect(page.locator('main > p[role="alert"]')).toContainText('Bitte anmelden');
 });
-test('admin MFA login, search, invitations and audit are usable without exposing property contents', async ({
+test('admin MFA login, search and audit are usable without exposing property contents', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/portfolio');
   await page.getByLabel('E-Mail-Adresse').fill('admin-browser@example.test');
   await page.getByLabel('Passwort', { exact: true }).fill('Browser fixture password 1234');
   await page.getByLabel('Zwei-Faktor-Code (falls eingerichtet)').fill(mfaCode());
@@ -85,18 +85,8 @@ test('admin MFA login, search, invitations and audit are usable without exposing
   await expect(page.locator('.admin-user')).toHaveCount(1);
   await page.locator('.admin-user').click();
   await expect(page.locator('.admin-details')).toContainText('Zwei-Faktor-Anmeldung');
-  await page.getByRole('button', { name: 'Einladungen', exact: true }).click();
-  const creator = page
-    .locator('.account-card')
-    .filter({ has: page.getByRole('heading', { name: 'Beta-Einladungen', exact: true }) });
-  await creator.getByLabel('E-Mail-Bindung (optional)').fill('invited-browser@example.test');
-  await creator.getByLabel('Aktuelles Passwort').fill('Browser fixture password 1234');
-  await creator.getByLabel('Zwei-Faktor- oder Wiederherstellungscode').fill(mfaCode());
-  await creator.getByRole('button', { name: 'Einladung erstellen' }).click();
-  await expect(page.locator('.secret-code')).toBeVisible();
-  await expect(page.locator('.account-session')).toContainText('invited-browser@example.test');
   await page.getByRole('button', { name: 'Auditprotokoll' }).click();
-  await expect(page.locator('.audit-event').filter({ hasText: 'beta.invited' })).toBeVisible();
+  await expect(page.locator('.audit-event').first()).toBeVisible();
   await page.screenshot({ path: `work/admin-${test.info().project.name}.png`, fullPage: true });
 });
 test('mandatory verification guides signup to account settings and unlocks the portfolio after confirmation', async ({
@@ -109,7 +99,7 @@ test('mandatory verification guides signup to account settings and unlocks the p
   });
   try {
     const email = `verification-browser-${Date.now()}@example.test`;
-    await page.goto('/');
+    await page.goto('/portfolio');
     await page.getByRole('button', { name: 'Konto erstellen', exact: true }).click();
     await page.getByLabel('Dein Name').fill('Synthetic verification browser');
     await page.getByLabel('E-Mail-Adresse').fill(email);
@@ -124,7 +114,7 @@ test('mandatory verification guides signup to account settings and unlocks the p
     await page.goto(`/account-action#purpose=verify&token=${token}`);
     await page.getByRole('button', { name: 'Bestätigen', exact: true }).click();
     await expect(page.getByRole('status')).toContainText('E-Mail bestätigt');
-    await page.goto('/');
+    await page.goto('/portfolio');
     await expect(page.getByRole('heading', { name: 'Portfolioübersicht' })).toBeVisible();
   } finally {
     await request.post('http://localhost:4001/__fixtures/verification', {
@@ -137,7 +127,7 @@ test('a delayed profile response cannot restore the account interface after logo
   page,
 }) => {
   const email = `late-profile-${Date.now()}@example.test`;
-  await page.goto('/');
+  await page.goto('/portfolio');
   await page.getByRole('button', { name: 'Konto erstellen', exact: true }).click();
   await page.getByLabel('Dein Name').fill('Synthetic late profile');
   await page.getByLabel('E-Mail-Adresse').fill(email);

@@ -1,6 +1,6 @@
 # Accounts and platform administration
 
-The existing PostgreSQL-backed sessions and scrypt password hashes are retained. Migration `005_accounts` adds roles, status, verification, MFA, account action tokens, beta invitations, registration settings and an audit log without rewriting existing identities or property content.
+The existing PostgreSQL-backed sessions and scrypt password hashes are retained. Migration `005_accounts` adds roles, status, verification, MFA, account action tokens and an audit log without rewriting existing identities or property content. Migration `006_open_registration` removes the closed-beta account invitation tables; existing accounts and property data are preserved.
 
 ## User-facing flows
 
@@ -24,15 +24,15 @@ An existing, active registered account is required. A future `admin@...` mailbox
 
 The command refuses to run when an admin already exists, revokes this account's old sessions and audits the promotion. Log in again, open **Mein Konto**, enroll an authenticator by entering the provided secret, confirm its six-digit code and save the recovery codes. Then `/admin` is accessible. Further role changes use the admin panel and require password/MFA plus an audit reason. If Docker group state is stale, prefix the command with `sg docker -c '...'` as described in AGENTS.md.
 
-Roles are `user`, `support` and `admin`, separate from property `owner`, `editor` and `viewer`. Admin access requires an MFA-authenticated session even in the localhost test deployment. Admins get account metadata and aggregate counts, not automatic access to private property details or files. Support can inspect metadata, revoke ordinary user sessions and send recovery/verification emails; it cannot change roles, suspend/delete accounts, create beta invites, view the complete audit log, or act on another staff account. There is no impersonation/backdoor or unimplemented promise of support content access.
+Roles are `user`, `support` and `admin`, separate from property `owner`, `editor` and `viewer`. Admin access requires an MFA-authenticated session even in the localhost test deployment. Admins get account metadata and aggregate counts, not automatic access to private property details or files. Support can inspect metadata, revoke ordinary user sessions and send recovery/verification emails; it cannot change roles, suspend/delete accounts, view the complete audit log, or act on another staff account. There is no impersonation/backdoor or unimplemented promise of support content access.
 
-## Closed beta and registration
+## Open registration
 
-Docker defaults to `REGISTRATION_MODE=invite`; existing accounts continue to work. Admin creates a 1–30 day, one-time invitation, optionally tied to an email. Its code appears only at creation. Users enter it during registration. Admin can revoke it and view expiry/usage.
+New users can register directly with their email address and a password. Public production startup requires configured TLS mail delivery and mandatory email verification; the API refuses to start if either safeguard is missing. Unverified accounts can manage account settings and request another verification email, but cannot access portfolio APIs. Registration remains rate-limited and passwords must meet the shared minimum policy.
 
-An explicit `REGISTRATION_MODE` deployment setting overrides the database setting. To let the panel control it, set `REGISTRATION_MODE=` in `.local/docker/compose.env`, then recreate API/worker. The panel will only allow open signup when SMTP is configured and `ACCOUNT_REQUIRE_VERIFICATION=true`. Full production mode also refuses unsafe public signup without verification or an explicit invite-only override. With verification required, an unverified account can manage its account and resend verification but cannot access portfolio APIs.
+The private Dev preview is protected by its separate gateway password and `noindex`; signup there does not expose the service publicly. Production registration does not use beta invitation codes or an administrator-controlled registration mode.
 
-On a fresh empty localhost-only deployment, temporarily use `REGISTRATION_MODE=open` to register the initial operator, bootstrap and enroll MFA, then return to `invite`. Never use this temporary onboarding configuration for public deployment.
+On a fresh deployment, create the initial administrator by registering an account, confirming its email, then running the one-time bootstrap command above and enrolling MFA.
 
 ## Mail adapter and secrets
 

@@ -10,8 +10,8 @@ export default function InfoPage({
   return (
     <div className="info-shell">
       <header>
-        <Brand />
-        <a href="/">Zum Portfolio</a>
+        <Brand href="/" />
+        <a href="/portfolio">Zum Portfolio</a>
       </header>
       <main>
         <p className="eyebrow">DEIN IMMOBILIEN-WORKSPACE</p>

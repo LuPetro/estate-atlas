@@ -1,12 +1,12 @@
 import type { MetadataRoute } from 'next';
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    id: '/',
+    id: '/portfolio',
     name: 'EstateAtlas · Dein Immobilienportfolio',
     short_name: 'EstateAtlas',
-    description: 'Deine Immobilien, Werte und Dokumente in einem privaten Workspace.',
+    description: 'Deine Immobilien, Werte und Dokumente in einem privaten Portfolio.',
     lang: 'de',
-    start_url: '/',
+    start_url: '/portfolio',
     scope: '/',
     display: 'standalone',
     background_color: '#f5f3ed',

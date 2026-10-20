@@ -138,7 +138,6 @@ describe('account lifecycle and platform administration on real PostgreSQL', () 
       '/account/sessions',
       '/admin/overview',
       '/admin/users',
-      '/admin/invitations',
       '/admin/audit',
     ])
       expect((await call('GET', path, {})).statusCode).toBe(401);
@@ -465,96 +464,6 @@ describe('account lifecycle and platform administration on real PostgreSQL', () 
       (await call('POST', '/auth/login', {}, { email: 'suspend-new@example.test', password }))
         .statusCode,
     ).toBe(200);
-  });
-  it('creates bound single-use beta invitations and rejects revoked, expired and wrong-email invitations', async () => {
-    const created = await call('POST', '/admin/invitations', admin, {
-      ...security(),
-      email: 'invited@example.test',
-      days: 1,
-    });
-    expect(created.statusCode).toBe(200);
-    const { code, id } = created.json();
-    await app.close();
-    app = await createApp(pool, { accounts: { ...runtime, registration: 'invite' } });
-    expect(
-      (await call('POST', '/auth/register', {}, payload('no-invite@example.test'))).statusCode,
-    ).toBe(400);
-    expect(
-      (
-        await call(
-          'POST',
-          '/auth/register',
-          {},
-          { ...payload('wrong@example.test'), invitation: code },
-        )
-      ).statusCode,
-    ).toBe(400);
-    expect(
-      (
-        await call(
-          'POST',
-          '/auth/register',
-          {},
-          { ...payload('invited@example.test'), invitation: code },
-        )
-      ).statusCode,
-    ).toBe(201);
-    expect(
-      (
-        await call(
-          'POST',
-          '/auth/register',
-          {},
-          { ...payload('invited@example.test'), invitation: code },
-        )
-      ).statusCode,
-    ).toBe(400);
-    expect(
-      (await pool.query('SELECT accepted_at FROM beta_invitations WHERE id=$1', [id])).rows[0]
-        .accepted_at,
-    ).toBeTruthy();
-    const revoked = (
-      await call('POST', '/admin/invitations', admin, { ...security(), days: 1 })
-    ).json();
-    await call('DELETE', `/admin/invitations/${revoked.id}`, admin);
-    expect(
-      (
-        await call(
-          'POST',
-          '/auth/register',
-          {},
-          { ...payload('revoked@example.test'), invitation: revoked.code },
-        )
-      ).statusCode,
-    ).toBe(400);
-    const expired = (
-      await call('POST', '/admin/invitations', admin, { ...security(), days: 1 })
-    ).json();
-    await pool.query(
-      "UPDATE beta_invitations SET expires_at=now()-interval '1 second' WHERE id=$1",
-      [expired.id],
-    );
-    expect(
-      (
-        await call(
-          'POST',
-          '/auth/register',
-          {},
-          { ...payload('expired@example.test'), invitation: expired.code },
-        )
-      ).statusCode,
-    ).toBe(400);
-  });
-  it('refuses public signup settings without mandatory verification', async () => {
-    expect(
-      (
-        await call('PATCH', '/admin/registration', admin, {
-          ...security(),
-          mode: 'open',
-          reason: 'Public launch without verification',
-        })
-      ).statusCode,
-    ).toBe(409);
   });
   it('requires email verification on portfolio routes when configured while keeping account settings accessible', async () => {
     await app.close();

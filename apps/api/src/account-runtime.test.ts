@@ -9,23 +9,13 @@ describe('account configuration gates', () => {
   it('refuses unsafe production account URLs and unverified public signup', async () => {
     await expect(
       accountRuntime(
-        { ACCOUNT_PUBLIC_URL: 'http://example.test', REGISTRATION_MODE: 'invite' },
+        { ACCOUNT_PUBLIC_URL: 'http://example.test' },
         true,
       ),
     ).rejects.toThrow();
     await expect(
       accountRuntime({ ACCOUNT_PUBLIC_URL: 'https://example.test' }, true),
     ).rejects.toThrow('Public production signup');
-  });
-  it('allows an explicitly private production beta without fabricated mail delivery', async () => {
-    expect(
-      (
-        await accountRuntime(
-          { ACCOUNT_PUBLIC_URL: 'https://example.test', REGISTRATION_MODE: 'invite' },
-          true,
-        )
-      ).registration,
-    ).toBe('invite');
   });
   it('requires mail for verification and refuses plaintext production SMTP', async () => {
     await expect(accountRuntime({ ACCOUNT_REQUIRE_VERIFICATION: 'true' }, false)).rejects.toThrow(

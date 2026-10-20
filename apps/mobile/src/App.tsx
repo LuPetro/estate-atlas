@@ -343,15 +343,7 @@ function Auth({
 }) {
   const [register, setRegister] = useState(false);
   const [recover, setRecover] = useState(false);
-  const [invitation, setInvitation] = useState('');
   const [code, setCode] = useState('');
-  const [mode, setMode] = useState('open');
-  useEffect(() => {
-    api
-      .accountConfig()
-      .then((c) => setMode(c.registration))
-      .catch(() => {});
-  }, []);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -362,7 +354,7 @@ function Auth({
     setError('');
     try {
       const result = register
-        ? await api.register({ name, email, password, invitation })
+        ? await api.register({ name, email, password })
         : await api.login({ email, password, code });
       await onSuccess(result);
     } catch (e) {
@@ -404,9 +396,6 @@ function Auth({
             onChange={setPassword}
             secure
           />
-          {register && mode === 'invite' && (
-            <Field label="Einladungscode" value={invitation} onChange={setInvitation} />
-          )}
           {!register && (
             <>
               <Field

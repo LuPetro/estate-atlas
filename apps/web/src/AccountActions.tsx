@@ -131,7 +131,7 @@ export default function AccountActions({ onBack }: { onBack?: () => void }) {
             Zurück zur Anmeldung
           </button>
         ) : (
-          <a href="/">Zurück zu EstateAtlas</a>
+          <a href="/portfolio">Zurück zu EstateAtlas</a>
         )}
       </section>
     </div>

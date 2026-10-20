@@ -18,14 +18,14 @@ export default function AccountPage() {
     <div className="admin-shell">
       <header className="admin-header">
         <Brand />
-        <a href="/">Zum Portfolio</a>
+        <a href="/portfolio">Zum Portfolio</a>
       </header>
       <main>
         {user ? (
-          <AccountPanel api={api} onUser={setUser} onExit={() => window.location.assign('/')} />
+          <AccountPanel api={api} onUser={setUser} onExit={() => window.location.assign('/portfolio')} />
         ) : (
           <p role={error ? 'alert' : 'status'}>
-            {error || 'Konto wird geladen …'} <a href="/">Zur Anmeldung</a>
+            {error || 'Konto wird geladen …'} <a href="/portfolio">Zur Anmeldung</a>
           </p>
         )}
       </main>

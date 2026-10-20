@@ -21,7 +21,6 @@ export type AccountInfo = {
   lastLoginAt: string | null;
 };
 export type AccountConfig = {
-  registration: 'open' | 'invite';
   mailEnabled: boolean;
   verificationRequired: boolean;
   mfaAvailable: boolean;
@@ -35,14 +34,6 @@ export type AccountSession = {
   current: boolean;
 };
 export type AdminUser = AccountInfo & { properties: number; shared: number; sessions: number };
-export type BetaInvitation = {
-  id: string;
-  email: string | null;
-  createdAt: string;
-  expiresAt: string;
-  acceptedAt: string | null;
-  revokedAt: string | null;
-};
 export type AuditEvent = {
   id: string;
   actorId: string | null;
@@ -56,8 +47,6 @@ export type AdminOverview = {
   users: number;
   suspended: number;
   unverified: number;
-  invitations: number;
-  registration: 'open' | 'invite';
   mailEnabled: boolean;
 };
 export const forgotPasswordInputSchema = z.object({ email: emailSchema }).strict();
@@ -84,14 +73,6 @@ export const adminActionInputSchema = securityInputSchema.extend({
   role: z.enum(platformRoles).optional(),
   reason: z.string().trim().min(5).max(500),
   confirmation: z.string().max(80).optional(),
-});
-export const betaInvitationInputSchema = securityInputSchema.extend({
-  email: emailSchema.optional(),
-  days: z.number().int().min(1).max(30).default(7),
-});
-export const registrationModeInputSchema = securityInputSchema.extend({
-  mode: z.enum(['open', 'invite']),
-  reason: z.string().trim().min(5).max(500),
 });
 export const auditQuerySchema = z
   .object({ page: z.coerce.number().int().min(1).max(100000).default(1) })

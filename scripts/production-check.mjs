@@ -27,8 +27,6 @@ export function releaseErrors(env, site) {
     errors.push('HTTPS-Cookies und genau ein kontrollierter Proxy-Hop erforderlich.');
   if (env.ACCOUNT_REQUIRE_VERIFICATION !== 'true')
     errors.push('E-Mail-Verifizierung muss für den öffentlichen Betrieb aktiv sein.');
-  if (!['invite', 'open'].includes(env.REGISTRATION_MODE))
-    errors.push('REGISTRATION_MODE ausdrücklich festlegen; invite für die erste V1 empfohlen.');
   if (!env.SMTP_HOST || !env.SMTP_FROM || !env.SMTP_USER || env.SMTP_ALLOW_INSECURE === 'true')
     errors.push('Authentifizierten SMTP-Versand mit TLS einrichten.');
   if (env.SMTP_SECURE === 'true' ? env.SMTP_PORT !== '465' : env.SMTP_PORT !== '587')

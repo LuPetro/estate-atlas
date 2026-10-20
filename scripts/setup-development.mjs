@@ -87,10 +87,10 @@ for (const environment of ['development', 'production']) {
         API_PORT: '4100',
         ALLOW_LOCAL_HTTP: 'false',
         TRUST_PROXY: '1',
-        REGISTRATION_MODE: 'invite',
         ACCOUNT_REQUIRE_VERIFICATION: 'false',
         POSTGRES_VOLUME_NAME: 'estate-atlas_postgres_data',
       };
+      delete env.REGISTRATION_MODE;
       for (const name of Object.keys(env)) if (name.startsWith('SMTP_')) delete env[name];
       await writeFile(path.join(config, 'compose.env'), serialize(env), {
         flag: 'wx',

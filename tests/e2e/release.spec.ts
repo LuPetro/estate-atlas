@@ -31,7 +31,7 @@ test('offline fallback caches only generic assets and never portfolio data or ma
   page,
   context,
 }) => {
-  await page.goto('/');
+  await page.goto('/portfolio');
   await expect(page.getByRole('heading', { name: 'Schön, dass du da bist.' })).toBeVisible();
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
@@ -51,10 +51,11 @@ test('offline fallback caches only generic assets and never portfolio data or ma
   );
   expect(urls.sort()).toEqual(['/offline.css', '/offline.html']);
   await context.setOffline(true);
-  await page.goto('/');
+  await page.goto('/portfolio');
   await expect(page.getByRole('heading', { name: 'Gerade ohne Verbindung.' })).toBeVisible();
   await expect(page.locator('body')).not.toContainText('synthetic-never-cache-code');
   await context.setOffline(false);
   await page.getByRole('link', { name: 'Erneut versuchen' }).click();
+  await page.goto('/portfolio');
   await expect(page.getByRole('heading', { name: 'Schön, dass du da bist.' })).toBeVisible();
 });

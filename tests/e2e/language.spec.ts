@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test.use({ locale: 'en-US' });
 
 test('detects browser language and allows a remembered manual language choice', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/portfolio');
   const english = page.getByRole('button', { name: 'EN', exact: true });
   const german = page.getByRole('button', { name: 'DE', exact: true });
 
@@ -27,7 +27,7 @@ test('uses the primary browser language when a fallback language is also enabled
     Object.defineProperty(navigator, 'languages', { get: () => ['de-AT', 'en-US'] });
   });
 
-  await page.goto('/');
+  await page.goto('/portfolio');
   await expect(page.locator('html')).toHaveAttribute('lang', 'de');
   await expect(page.getByRole('heading', { name: 'Schön, dass du da bist.' })).toBeVisible();
   await context.close();

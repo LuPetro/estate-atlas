@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
 });
 async function register(page: Page) {
   const email = `browser-${Date.now()}-${Math.random().toString(16).slice(2)}@example.test`;
-  await page.goto('/');
+  await page.goto('/portfolio');
   await page.getByRole('button', { name: 'Konto erstellen', exact: true }).click();
   await page.getByLabel('Dein Name').fill('Browser Test');
   await page.getByLabel('E-Mail-Adresse').fill(email);

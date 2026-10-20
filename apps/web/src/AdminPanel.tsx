@@ -1,13 +1,12 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { ShieldCheck, Users, Mail, Activity, ArrowLeft, Search, Plus } from 'lucide-react';
+import { ShieldCheck, Users, Mail, ArrowLeft, Search } from 'lucide-react';
 import { ApiClient } from '@estate-atlas/api-client';
 import type {
   User,
   AdminOverview,
   AdminUser,
   AuditEvent,
-  BetaInvitation,
 } from '@estate-atlas/shared';
 import { SecurityFields, security } from './AccountPanel';
 import Brand from './Brand';
@@ -16,32 +15,28 @@ const date = (value: string | null) => (value ? new Date(value).toLocaleString('
 export default function AdminPanel() {
   const [user, setUser] = useState<User | null>(null),
     [overview, setOverview] = useState<AdminOverview | null>(null),
-    [tab, setTab] = useState<'users' | 'invitations' | 'audit'>('users');
+    [tab, setTab] = useState<'users' | 'audit'>('users');
   const [query, setQuery] = useState(''),
     [status, setStatus] = useState(''),
     [verified, setVerified] = useState(''),
     [page, setPage] = useState(1),
     [total, setTotal] = useState(0);
   const [users, setUsers] = useState<AdminUser[]>([]),
-    [invitations, setInvitations] = useState<BetaInvitation[]>([]),
     [events, setEvents] = useState<AuditEvent[]>([]),
     [selected, setSelected] = useState<AdminUser | null>(null);
   const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [busy, setBusy] = useState(false),
-    [inviteCode, setInviteCode] = useState(''),
     [auditPage, setAuditPage] = useState(1);
   const [action, setAction] = useState('revoke-sessions');
   const reload = useCallback(async () => {
-    const [o, list, i] = await Promise.all([
+    const [o, list] = await Promise.all([
       api.adminOverview(),
       api.adminUsers(query, status, verified, page),
-      api.adminInvitations(),
     ]);
     setOverview(o);
     setUsers(list.users);
     setTotal(list.total);
-    setInvitations(i);
   }, [query, status, verified, page]);
   useEffect(() => {
     let active = true;
@@ -108,7 +103,7 @@ export default function AdminPanel() {
           <p role="alert">{error || 'Zugangsberechtigung wird geprüft …'}</p>
           <p>Verwaltungskonten benötigen eine eingerichtete Zwei-Faktor-Anmeldung.</p>
           <a href="/account">Mein Konto öffnen</a>
-          <a href="/">Zurück zum Portfolio</a>
+          <a href="/portfolio">Zurück zum Portfolio</a>
         </section>
       </div>
     );
@@ -116,7 +111,7 @@ export default function AdminPanel() {
     <div className="admin-shell">
       <header className="admin-header">
         <Brand />
-        <a href="/">
+        <a href="/portfolio">
           <ArrowLeft size={16} />
           Zum Portfolio
         </a>
@@ -145,7 +140,6 @@ export default function AdminPanel() {
             [Users, 'Nutzer', overview.users],
             [ShieldCheck, 'Gesperrt', overview.suspended],
             [Mail, 'Unbestätigt', overview.unverified],
-            [Activity, 'Offene Einladungen', overview.invitations],
           ].map(([Icon, label, value]) => {
             const I = Icon as typeof Users;
             return (
@@ -158,13 +152,13 @@ export default function AdminPanel() {
           })}
         </div>
         <nav className="admin-tabs" aria-label="Verwaltungsbereiche">
-          {(['users', 'invitations', ...(isAdmin ? ['audit'] : [])] as const).map((t) => (
+          {(['users', ...(isAdmin ? ['audit'] : [])] as const).map((t) => (
             <button
               className={`button ${tab === t ? 'primary' : 'secondary'}`}
               key={t}
               onClick={() => setTab(t as typeof tab)}
             >
-              {t === 'users' ? 'Nutzer' : t === 'invitations' ? 'Einladungen' : 'Auditprotokoll'}
+              {t === 'users' ? 'Nutzer' : 'Auditprotokoll'}
             </button>
           ))}
         </nav>
@@ -368,134 +362,6 @@ export default function AdminPanel() {
               </section>
             )}
           </>
-        )}
-        {tab === 'invitations' && (
-          <div className="account-grid">
-            <section className="account-card">
-              <h2>Beta-Einladungen</h2>
-              <p>
-                Registrierung: {overview.registration === 'invite' ? 'Nur mit Einladung' : 'Offen'}.
-                Einladungen sind einmal verwendbar.
-              </p>
-              {isAdmin && (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const d = new FormData(e.currentTarget);
-                    void run(async () => {
-                      const result = await api.accountPost<{ code: string }>('/admin/invitations', {
-                        ...security(d),
-                        ...(String(d.get('email')).trim()
-                          ? { email: String(d.get('email')).trim() }
-                          : {}),
-                        days: Number(d.get('days')),
-                      });
-                      setInviteCode(result.code);
-                    });
-                  }}
-                >
-                  <label>
-                    E-Mail-Bindung (optional)
-                    <input name="email" type="email" maxLength={254} />
-                  </label>
-                  <label>
-                    Gültigkeit in Tagen
-                    <input name="days" type="number" min={1} max={30} defaultValue={7} required />
-                  </label>
-                  <SecurityFields mfa />
-                  <button className="button primary" disabled={busy}>
-                    <Plus size={16} />
-                    Einladung erstellen
-                  </button>
-                </form>
-              )}
-              {inviteCode && (
-                <div className="recovery-box">
-                  <strong>Einladungscode · nur jetzt sichtbar</strong>
-                  <code className="secret-code">{inviteCode}</code>
-                  <button className="button secondary" onClick={() => setInviteCode('')}>
-                    Weitergegeben
-                  </button>
-                </div>
-              )}
-            </section>
-            <section className="account-card">
-              <h2>Letzte Einladungen</h2>
-              {invitations.map((i) => (
-                <div className="account-session" key={i.id}>
-                  <div>
-                    <strong>{i.email ?? 'Ohne E-Mail-Bindung'}</strong>
-                    <p>
-                      {i.acceptedAt
-                        ? 'Verwendet'
-                        : i.revokedAt
-                          ? 'Widerrufen'
-                          : new Date(i.expiresAt) < new Date()
-                            ? 'Abgelaufen'
-                            : 'Offen'}{' '}
-                      · bis {date(i.expiresAt)}
-                    </p>
-                  </div>
-                  {isAdmin && !i.acceptedAt && !i.revokedAt && (
-                    <button
-                      className="button secondary"
-                      disabled={busy}
-                      onClick={() =>
-                        run(async () => {
-                          await api.revokeBetaInvitation(i.id);
-                          setNotice('Einladung widerrufen.');
-                        })
-                      }
-                    >
-                      Widerrufen
-                    </button>
-                  )}
-                </div>
-              ))}
-            </section>
-            {isAdmin && (
-              <section className="account-card">
-                <h2>Registrierung steuern</h2>
-                <p>
-                  Öffnen ist erst mit verpflichtender E-Mail-Bestätigung und eingerichtetem
-                  Mailversand möglich. Deployment-Vorgaben haben Vorrang.
-                </p>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const d = new FormData(e.currentTarget);
-                    void run(async () => {
-                      const result = await api.request<{ message: string }>('/admin/registration', {
-                        method: 'PATCH',
-                        body: JSON.stringify({
-                          ...security(d),
-                          mode: String(d.get('mode')),
-                          reason: String(d.get('reason')),
-                        }),
-                      });
-                      setNotice(result.message);
-                    });
-                  }}
-                >
-                  <label>
-                    Modus
-                    <select name="mode" defaultValue={overview.registration}>
-                      <option value="invite">Nur mit Einladung</option>
-                      <option value="open">Öffentliche Registrierung</option>
-                    </select>
-                  </label>
-                  <label>
-                    Begründung
-                    <input name="reason" required minLength={5} maxLength={500} />
-                  </label>
-                  <SecurityFields mfa />
-                  <button className="button secondary" disabled={busy}>
-                    Registrierungsmodus ändern
-                  </button>
-                </form>
-              </section>
-            )}
-          </div>
         )}
         {tab === 'audit' && (
           <section className="account-card">

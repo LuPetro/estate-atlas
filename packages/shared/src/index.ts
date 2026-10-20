@@ -87,7 +87,6 @@ export const loginInputSchema = credentialsSchema.extend({
 });
 export const registerSchema = credentialsSchema.extend({
   name: z.string().trim().min(2).max(80),
-  invitation: z.string().trim().max(128).optional(),
 });
 export const archiveSchema = z.object({ archived: z.boolean() }).strict();
 export const geocodingQuerySchema = z.object({ query: z.string().trim().min(4).max(300) }).strict();

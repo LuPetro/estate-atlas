@@ -11,7 +11,6 @@ export type AccountRuntime = {
   mail?: (message: AccountMail) => Promise<void>;
   encryptionKey?: Buffer;
   verificationRequired: boolean;
-  registration?: 'open' | 'invite';
 };
 export async function accountRuntime(
   env: NodeJS.ProcessEnv,
@@ -32,11 +31,6 @@ export async function accountRuntime(
     publicUrl: url.origin,
     verificationRequired: env.ACCOUNT_REQUIRE_VERIFICATION === 'true',
   };
-  if (env.REGISTRATION_MODE) {
-    if (!['open', 'invite'].includes(env.REGISTRATION_MODE))
-      throw new Error('Invalid REGISTRATION_MODE');
-    runtime.registration = env.REGISTRATION_MODE as 'open' | 'invite';
-  }
   if (env.ACCOUNT_ENCRYPTION_KEY_FILE) {
     const key = (await readFile(env.ACCOUNT_ENCRYPTION_KEY_FILE, 'utf8')).trim();
     if (!/^[a-f0-9]{64}$/.test(key)) throw new Error('Invalid account encryption key');
@@ -84,13 +78,9 @@ export async function accountRuntime(
   }
   if (runtime.verificationRequired && !runtime.mail)
     throw new Error('Verification requires configured mail delivery');
-  if (
-    production &&
-    (!runtime.mail || !runtime.verificationRequired) &&
-    runtime.registration !== 'invite'
-  )
+  if (production && (!runtime.mail || !runtime.verificationRequired))
     throw new Error(
-      'Public production signup requires mail and email verification, or explicit invite-only mode',
+      'Public production signup requires mail delivery and email verification',
     );
   return runtime;
 }

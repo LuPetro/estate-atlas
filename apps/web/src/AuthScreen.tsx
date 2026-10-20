@@ -124,15 +124,11 @@ export default function AuthScreen({
   const [register, setRegister] = useState(false);
   const [recover, setRecover] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [registrationMode, setRegistrationMode] = useState('open');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api
-      .accountConfig()
-      .then((config) => setRegistrationMode(config.registration))
-      .catch(() => {});
+    if (new URLSearchParams(window.location.search).get('register') === '1') setRegister(true);
   }, []);
 
   function changeMode(next: boolean) {
@@ -160,7 +156,6 @@ export default function AuthScreen({
         ? await api.register({
             ...input,
             name: String(form.get('name')),
-            invitation: String(form.get('invitation') ?? ''),
           })
         : await api.login({ ...input, code: String(form.get('code') ?? '') });
       await onSuccess(result.user);
@@ -176,7 +171,7 @@ export default function AuthScreen({
   return (
     <div className={styles.shell} data-auth-screen>
       <header className={styles.header}>
-        <a href="/" className={styles.brand} aria-label="EstateAtlas Startseite">
+        <a href="/portfolio" className={styles.brand} aria-label="EstateAtlas Portfolio">
           <span className={styles.brandMark}>
             <Compass size={23} strokeWidth={1.5} />
           </span>
@@ -308,18 +303,6 @@ export default function AuthScreen({
                     </button>
                   </div>
                 </div>
-                {register && registrationMode === 'invite' && (
-                  <div className={styles.field}>
-                    <label htmlFor="auth-invitation">Einladungscode</label>
-                    <input
-                      id="auth-invitation"
-                      name="invitation"
-                      required
-                      maxLength={128}
-                      autoComplete="off"
-                    />
-                  </div>
-                )}
                 {!register && (
                   <div className={`${styles.field} ${styles.codeField}`}>
                     <label htmlFor="auth-code">

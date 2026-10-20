@@ -50,7 +50,6 @@ services:
       ACCOUNT_PUBLIC_URL: ${ACCOUNT_PUBLIC_URL:-http://localhost:3000}
       ACCOUNT_ENCRYPTION_KEY_FILE: /run/secrets/account_encryption_key
       ACCOUNT_REQUIRE_VERIFICATION: ${ACCOUNT_REQUIRE_VERIFICATION:-false}
-      REGISTRATION_MODE: ${REGISTRATION_MODE:-invite}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_FROM: ${SMTP_FROM:-}

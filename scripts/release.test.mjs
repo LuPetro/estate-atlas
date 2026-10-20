@@ -11,7 +11,6 @@ const env = {
   ALLOW_LOCAL_HTTP: 'false',
   TRUST_PROXY: '1',
   ACCOUNT_REQUIRE_VERIFICATION: 'true',
-  REGISTRATION_MODE: 'invite',
   SMTP_HOST: 'smtp.fixture.invalid',
   SMTP_FROM: 'Fixture <noreply@estateatlas.at>',
   SMTP_USER: 'fixture',

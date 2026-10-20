@@ -17,7 +17,6 @@ export function developmentErrors(env, gateway) {
     env.NEXT_PUBLIC_API_URL !== '/api'
   )
     errors.push('Development requires HTTPS cookies, /api and exactly one proxy hop.');
-  if (env.REGISTRATION_MODE !== 'invite') errors.push('Development remains invite-only.');
   if (!gateway.DEV_ACCESS_USER || !/^\$2[aby]\$\d\d\$.{53}$/.test(gateway.DEV_AUTH_HASH || ''))
     errors.push('Development requires the additional gateway password.');
   if (

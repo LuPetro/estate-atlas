@@ -147,7 +147,6 @@ describe('private Dev allows postponed SMTP without weakening HTTPS or exposing 
     ALLOW_LOCAL_HTTP: 'false',
     TRUST_PROXY: '1',
     NEXT_PUBLIC_API_URL: '/api',
-    REGISTRATION_MODE: 'invite',
     POSTGRES_VOLUME_NAME: 'estate-atlas-development_postgres_data',
   };
   const gateway = {
@@ -158,10 +157,9 @@ describe('private Dev allows postponed SMTP without weakening HTTPS or exposing 
   it('does not require fake legal texts, mail confirmations or verified admin data', () => {
     expect(developmentErrors(env, gateway)).toEqual([]);
   });
-  it('blocks missing perimeter protection, public signup, HTTP and production volumes', () => {
+  it('blocks missing perimeter protection, HTTP and production volumes', () => {
     expect(developmentErrors(env, { ...gateway, DEV_AUTH_HASH: '' })).not.toEqual([]);
     for (const change of [
-      { REGISTRATION_MODE: 'open' },
       { ALLOW_LOCAL_HTTP: 'true' },
       { WEB_ORIGIN: 'http://dev.estateatlas.app' },
       { TRUST_PROXY: '2' },

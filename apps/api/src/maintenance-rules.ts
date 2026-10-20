@@ -7,7 +7,6 @@ export async function cleanupExpired(pool: pg.Pool, retention: number) {
     await client.query('BEGIN');
     await client.query('DELETE FROM sessions WHERE expires_at<=now()');
     await client.query('DELETE FROM account_tokens WHERE expires_at<=now()');
-    await client.query("DELETE FROM beta_invitations WHERE expires_at<now()-interval '30 days'");
     await client.query(
       "DELETE FROM property_invitations WHERE expires_at<now()-interval '30 days'",
     );
