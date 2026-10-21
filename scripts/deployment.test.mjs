@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import path from 'node:path';
-import { approvedRun, assertReleaseCi } from './assert-release-ci.mjs';
+import { approvedRun, assertReleaseCi, requiredJobs } from './assert-release-ci.mjs';
 
 const root = process.cwd();
 const sha = 'a'.repeat(40);
@@ -13,12 +13,18 @@ const green = {
   head_sha: sha,
   head_branch: 'main',
   event: 'push',
-  path: '.github/workflows/ci.yml',
+  path: '.github/workflows/main.yml',
   head_repository: { full_name: 'LuPetro/estate-atlas' },
   status: 'completed',
   conclusion: 'success',
 };
-const verifyJob = { name: 'verify', head_sha: sha, status: 'completed', conclusion: 'success' };
+const verifyJobs = requiredJobs.map((name) => ({
+  name,
+  head_sha: sha,
+  status: 'completed',
+  conclusion: 'success',
+}));
+const verifyJob = verifyJobs[0];
 
 describe('release CI authorization', () => {
   it.each(['failure', 'cancelled', 'skipped', 'timed_out', null])(
@@ -47,7 +53,7 @@ describe('release CI authorization', () => {
     const request = async (url) => {
       seen.push(url);
       if (url.includes('/workflows/')) return { workflow_runs: [green] };
-      if (url.includes('/jobs')) return { jobs: [verifyJob] };
+      if (url.includes('/jobs')) return { jobs: verifyJobs };
       return green;
     };
     expect(await assertReleaseCi(sha, request)).toEqual(green);
@@ -67,7 +73,7 @@ describe('release CI authorization', () => {
     await expect(
       assertReleaseCi(sha, async (url) => {
         if (url.includes('/workflows/')) return { workflow_runs: [green] };
-        if (url.includes('/jobs')) return { jobs: [verifyJob] };
+        if (url.includes('/jobs')) return { jobs: verifyJobs };
         return { ...green, run_attempt: 2, status: 'in_progress' };
       }),
     ).rejects.toThrow('changed during approval');
@@ -119,7 +125,17 @@ if (!live && process.env.FAIL_PHASE === 'preflight') process.exit(7);
     path.join(source, 'scripts/promote-images.mjs'),
     '// Promotion is independently tested against real release records.\n',
   );
-  await writeFile(path.join(bin, 'docker'), '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+  await writeFile(
+    path.join(source, 'scripts/development-check.mjs'),
+    "import { appendFileSync } from 'node:fs'; appendFileSync(process.env.CALL_LOG, 'development-check ' + process.argv.slice(2).join(' ') + '\\n');\n",
+  );
+  await writeFile(
+    path.join(bin, 'docker'),
+    '#!/usr/bin/env bash\nif [[ "$1 $2" == "image inspect" ]]; then printf "sha256:' +
+      'a'.repeat(64) +
+      '\\n"; fi\nexit 0\n',
+    { mode: 0o755 },
+  );
   git(source, 'add', '.');
   git(source, 'commit', '-m', 'Synthetic fixture base');
   const base = git(source, 'rev-parse', 'HEAD');
@@ -128,13 +144,14 @@ if (!live && process.env.FAIL_PHASE === 'preflight') process.exit(7);
   git(source, 'add', '.');
   git(source, 'commit', '-am', 'Synthetic fixture release');
   const release = git(source, 'rev-parse', 'HEAD');
+  git(source, 'branch', 'dev');
   git(dir, 'clone', '--bare', source, remote);
   git(dir, 'clone', remote, server);
   git(server, 'reset', '--hard', base);
   git(server, 'remote', 'set-url', 'origin', 'https://github.com/LuPetro/estate-atlas.git');
   await writeFile(
     path.join(bin, 'git'),
-    '#!/usr/bin/env bash\nif [[ "$1" == fetch ]]; then exec "$REAL_GIT" fetch --no-tags "$FIXTURE_REMOTE" refs/heads/main; fi\nexec "$REAL_GIT" "$@"\n',
+    '#!/usr/bin/env bash\nif [[ "$1" == fetch ]]; then exec "$REAL_GIT" fetch --no-tags "$FIXTURE_REMOTE" "${@: -1}"; fi\nexec "$REAL_GIT" "$@"\n',
     { mode: 0o755 },
   );
   const log = path.join(dir, 'calls');
@@ -146,10 +163,15 @@ if (!live && process.env.FAIL_PHASE === 'preflight') process.exit(7);
     CALL_LOG: log,
     DEPLOY_PATH: server,
     RELEASE_SHA: release,
+    DEVELOPMENT_SHA: release,
+    DEVELOPMENT_RUN_ID: '20',
+    DEVELOPMENT_RUN_ATTEMPT: '1',
   };
   return {
     dir,
     server,
+    source,
+    remote,
     base,
     release,
     log,
@@ -160,17 +182,116 @@ if (!live && process.env.FAIL_PHASE === 'preflight') process.exit(7);
         encoding: 'utf8',
         timeout: 10000,
       }),
+    runDev: () =>
+      spawnSync('bash', [path.join(root, 'scripts/deploy-development')], {
+        env,
+        encoding: 'utf8',
+        timeout: 10000,
+      }),
     clean: () => rm(dir, { recursive: true, force: true }),
   };
 }
 
 describe('server deployment with real isolated Git repositories and no Docker/provider calls', () => {
-  it('fast-forwards main, runs preflight before Docker and HTTPS afterwards, and records success', async () => {
+  it('deploys dev independently of the working branch and records tested source and immutable images', async () => {
+    const f = await fixture();
+    try {
+      const state = path.join(f.server, '.local/environments/development');
+      await mkdir(path.join(state, 'docker'), { recursive: true });
+      await writeFile(
+        path.join(state, 'docker/compose.env'),
+        'PUBLIC_DOMAIN=dev.estateatlas.app\n',
+      );
+      await writeFile(path.join(f.server, 'property-fixture.txt'), 'Synthetic local owner edits');
+      const result = f.runDev();
+      expect(result.status, result.stderr + result.stdout).toBe(0);
+      const record = JSON.parse(
+        await readFile(path.join(state, 'releases', `${f.release}.json`), 'utf8'),
+      );
+      expect(record).toMatchObject({
+        commit: f.release,
+        branch: 'dev',
+        tree: git(f.server, 'rev-parse', `${f.release}^{tree}`),
+        result: 'success',
+        runId: 20,
+        runAttempt: 1,
+        apiImage: 'sha256:' + 'a'.repeat(64),
+      });
+      expect(JSON.parse(await readFile(path.join(state, 'last-release.json'), 'utf8'))).toEqual(
+        record,
+      );
+      expect(await readFile(path.join(f.server, 'property-fixture.txt'), 'utf8')).toBe(
+        'Synthetic local owner edits',
+      );
+      expect(git(f.server, 'rev-parse', 'HEAD')).toBe(f.base);
+    } finally {
+      await f.clean();
+    }
+  });
+  it('refuses a stale dev commit even when main still points to it', async () => {
+    const f = await fixture();
+    try {
+      git(f.remote, 'update-ref', 'refs/heads/dev', f.base);
+      const result = f.runDev();
+      expect(result.status).not.toBe(0);
+      expect(result.stdout).toContain('dev moved');
+      await expect(readFile(f.log, 'utf8')).rejects.toThrow();
+    } finally {
+      await f.clean();
+    }
+  });
+  it.each(['dirty', 'unpublished', 'branch', 'untracked-conflict'])(
+    'preserves %s development work while deploying the immutable main archive',
+    async (state) => {
+      const f = await fixture();
+      try {
+        if (state === 'dirty')
+          await writeFile(path.join(f.server, 'property-fixture.txt'), 'Synthetic owner edits');
+        if (state === 'unpublished') {
+          await writeFile(path.join(f.server, 'owner-work.txt'), 'Synthetic owner commit');
+          git(f.server, 'add', '.');
+          git(f.server, 'commit', '-m', 'Synthetic unpublished work');
+        }
+        if (state === 'branch') git(f.server, 'switch', '-c', 'dev');
+        if (state === 'untracked-conflict')
+          await writeFile(
+            path.join(f.server, 'release-only.txt'),
+            'Synthetic untracked owner work',
+          );
+        const before = git(f.server, 'rev-parse', 'HEAD');
+        const status = git(f.server, 'status', '--porcelain');
+        const branch = git(f.server, 'branch', '--show-current');
+        const result = f.run();
+        expect(result.status, result.stderr + result.stdout).toBe(0);
+        expect(git(f.server, 'rev-parse', 'HEAD')).toBe(before);
+        expect(git(f.server, 'status', '--porcelain')).toBe(status);
+        expect(git(f.server, 'branch', '--show-current')).toBe(branch);
+        expect(
+          await readFile(
+            path.join(f.server, '.local/releases', f.release, 'property-fixture.txt'),
+            'utf8',
+          ),
+        ).toBe('Synthetic deployment fixture v2\n');
+      } finally {
+        await f.clean();
+      }
+    },
+  );
+  it('blocks promotion of a source tree different from the approved Dev commit', async () => {
+    const f = await fixture();
+    try {
+      expect(f.run({ DEVELOPMENT_SHA: f.base }).status).not.toBe(0);
+      await expect(readFile(f.log, 'utf8')).rejects.toThrow();
+    } finally {
+      await f.clean();
+    }
+  });
+  it('deploys an immutable main archive, runs preflight before Docker and HTTPS afterwards, and preserves the checkout', async () => {
     const f = await fixture();
     try {
       const result = f.run();
       expect(result.status, result.stdout + result.stderr).toBe(0);
-      expect(git(f.server, 'rev-parse', 'HEAD')).toBe(f.release);
+      expect(git(f.server, 'rev-parse', 'HEAD')).toBe(f.base);
       expect(git(f.server, 'branch', '--show-current')).toBe('main');
       expect((await readFile(f.log, 'utf8')).trim().split('\n')).toEqual([
         'pnpm release:check',
@@ -180,12 +301,12 @@ describe('server deployment with real isolated Git repositories and no Docker/pr
       ]);
       expect(
         JSON.parse(await readFile(path.join(f.server, '.local/deploy/last-release.json'), 'utf8')),
-      ).toMatchObject({ result: 'success', previousCommit: f.base, commit: f.release });
+      ).toMatchObject({ result: 'success', checkoutCommit: f.base, commit: f.release });
     } finally {
       await f.clean();
     }
   });
-  it.each(['dirty', 'unpublished', 'branch', 'origin', 'moved', 'untracked-conflict'])(
+  it.each(['origin', 'moved'])(
     'refuses %s server state without touching containers or losing work',
     async (state) => {
       const f = await fixture();

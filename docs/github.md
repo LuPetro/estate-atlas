@@ -2,7 +2,7 @@
 
 ## Aktueller Stand
 
-- Git-Repository auf Branch `main` lokal vorhanden.
+- `dev` ist der Integrationsbranch und bildet die private Dev-Vorschau ab; `main` ist der Produktionsbranch. Siehe [CONTRIBUTING.md](../CONTRIBUTING.md).
 - GitHub CLI projektlokal installiert; `./scripts/gh --version` zeigt die Version.
 - `./scripts/gh auth status`: Anmeldung als `LuPetro` bestätigt.
 - Privates Repository nach ausdrücklicher Freigabe erstellt: [LuPetro/estate-atlas](https://github.com/LuPetro/estate-atlas).
@@ -49,4 +49,4 @@ Ausdrücklich freigegebener erster Push:
 git push -u origin main
 ```
 
-Falls ein Repository dieses Namens schon existiert, zunächst Eigentümer, Sichtbarkeit und Inhalt prüfen, statt es zu ersetzen oder neu anzulegen. Nach dem ersten Push läuft die vorbereitete CI aus `.github/workflows/ci.yml`.
+Falls ein Repository dieses Namens schon existiert, zunächst Eigentümer, Sichtbarkeit und Inhalt prüfen, statt es zu ersetzen oder neu anzulegen. Die Branch-Pipelines liegen in `.github/workflows/development.yml` und `.github/workflows/main.yml`; `.github/workflows/ci.yml` enthält die gemeinsam verwendeten Checks.

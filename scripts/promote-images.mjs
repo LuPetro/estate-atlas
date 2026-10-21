@@ -1,13 +1,17 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import { operationsRoot, configuration, environment } from './environment-paths.mjs';
 
-export function validatePromotion(record, sha, run, attempt) {
+export function validatePromotion(record, sha, run, attempt, sourceSha, tree) {
   if (
     !/^[a-f0-9]{40}$/.test(sha || '') ||
-    record?.commit !== sha ||
+    !/^[a-f0-9]{40}$/.test(sourceSha || '') ||
+    !/^[a-f0-9]{40}$/.test(tree || '') ||
+    record?.commit !== sourceSha ||
+    record?.branch !== 'dev' ||
+    record?.tree !== tree ||
     record?.result !== 'success' ||
     !/^\d+$/.test(run || '') ||
     Number(run) < 1 ||
@@ -25,9 +29,20 @@ export function validatePromotion(record, sha, run, attempt) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     if (environment !== 'production') throw new Error('Production context required.');
+    const sourceSha = process.env.DEVELOPMENT_SHA ?? '';
+    if (!/^[a-f0-9]{40}$/.test(sourceSha) || !/^[a-f0-9]{40}$/.test(process.env.RELEASE_SHA ?? ''))
+      throw new Error('Invalid promotion commit.');
+    const treeOf = (sha) =>
+      execFileSync('git', ['rev-parse', `${sha}^{tree}`], {
+        cwd: operationsRoot,
+        encoding: 'utf8',
+      }).trim();
+    const tree = treeOf(process.env.RELEASE_SHA);
+    if (tree !== treeOf(sourceSha))
+      throw new Error('Main source differs from the tested Dev source.');
     const record = JSON.parse(
       await readFile(
-        path.join(operationsRoot, '.local/environments/development/last-release.json'),
+        path.join(operationsRoot, `.local/environments/development/releases/${sourceSha}.json`),
       ),
     );
     const images = validatePromotion(
@@ -35,6 +50,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       process.env.RELEASE_SHA,
       process.env.DEVELOPMENT_RUN_ID,
       process.env.DEVELOPMENT_RUN_ATTEMPT,
+      sourceSha,
+      tree,
     );
     for (const id of Object.values(images)) {
       const result = spawnSync('docker', ['image', 'inspect', '--format', '{{.Id}}', id], {

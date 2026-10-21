@@ -1,70 +1,77 @@
-name: EstateAtlas production deployment
+name: EstateAtlas Main pipeline
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       production_approval:
-        description: Explicitly authorize deployment of the latest main commit
+        description: Deploy this checked main release to production
         required: true
         type: choice
         default: hold
-        options:
-          - hold
-          - deploy
+        options: [hold, deploy]
 permissions:
   contents: read
 concurrency:
-  group: estateatlas-production-deploy
+  group: estateatlas-main-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 jobs:
-  authorize:
-    name: Verify latest CI before accessing production
+  checks:
+    uses: ./.github/workflows/ci.yml
+  authorize-production:
+    needs: checks
     if: >-
-      github.repository == 'LuPetro/estate-atlas' &&
-      github.ref == 'refs/heads/main' &&
-      inputs.production_approval == 'deploy'
+      github.repository == 'LuPetro/estate-atlas' && github.ref == 'refs/heads/main' &&
+      github.event_name == 'workflow_dispatch' && inputs.production_approval == 'deploy'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    outputs:
-      development_run_id: ${{ steps.development.outputs.run_id }}
-      development_run_attempt: ${{ steps.development.outputs.run_attempt }}
     permissions:
       actions: read
       contents: read
+    outputs:
+      development_sha: ${{ steps.development.outputs.source_sha }}
+      development_run_id: ${{ steps.development.outputs.run_id }}
+      development_run_attempt: ${{ steps.development.outputs.run_attempt }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           package-manager-cache: false
-      - name: Require the latest successful CI attempt for this commit
+      - name: Require successful push checks for the exact main commit
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ github.sha }}
+          RELEASE_BRANCH: main
         run: node scripts/assert-release-ci.mjs
-      - name: Require this exact commit to have passed Dev deployment and HTTPS checks
+      - name: Find and verify the identical source already tested on Dev
         id: development
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ github.sha }}
         run: node scripts/assert-development.mjs
   deploy-production:
-    name: Deploy verified main commit
-    needs: authorize
+    needs: authorize-production
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     environment:
       name: production
+      url: https://estateatlas.app
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Deploy over pinned SSH and verify HTTPS
+      - name: Promote tested images and verify production HTTPS
         env:
           RELEASE_SHA: ${{ github.sha }}
-          DEVELOPMENT_RUN_ID: ${{ needs.authorize.outputs.development_run_id }}
-          DEVELOPMENT_RUN_ATTEMPT: ${{ needs.authorize.outputs.development_run_attempt }}
+          DEVELOPMENT_SHA: ${{ needs.authorize-production.outputs.development_sha }}
+          DEVELOPMENT_RUN_ID: ${{ needs.authorize-production.outputs.development_run_id }}
+          DEVELOPMENT_RUN_ATTEMPT: ${{ needs.authorize-production.outputs.development_run_attempt }}
           DEPLOY_ENVIRONMENT: production
           DEPLOY_HOST: ${{ vars.DEPLOY_SSH_HOST }}
           DEPLOY_USER: ${{ vars.DEPLOY_SSH_USER }}

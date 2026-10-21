@@ -1,44 +1,23 @@
-name: EstateAtlas development deployment
+name: EstateAtlas Dev pipeline
 on:
-  workflow_run:
-    workflows: [EstateAtlas checks]
-    types: [completed]
-    branches: [main]
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: estateatlas-development-deploy
+  group: estateatlas-dev-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 jobs:
-  authorize:
-    if: >-
-      github.repository == 'LuPetro/estate-atlas' && github.ref == 'refs/heads/main' &&
-      (github.event_name == 'workflow_dispatch' ||
-       (github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.event == 'push' &&
-        github.event.workflow_run.head_repository.full_name == github.repository &&
-        github.event.workflow_run.head_sha == github.sha))
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      actions: read
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '22'
-          package-manager-cache: false
-      - name: Require successful push CI for the exact main commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_SHA: ${{ github.sha }}
-        run: node scripts/assert-release-ci.mjs
+  checks:
+    uses: ./.github/workflows/ci.yml
   deploy-development:
-    needs: authorize
+    needs: checks
+    if: >-
+      github.repository == 'LuPetro/estate-atlas' && github.ref == 'refs/heads/dev' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     environment:
@@ -48,7 +27,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Deploy Dev and verify protected HTTPS
+      - name: Deploy the checked dev commit and verify protected HTTPS
         env:
           RELEASE_SHA: ${{ github.sha }}
           DEPLOY_ENVIRONMENT: development

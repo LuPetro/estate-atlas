@@ -5,34 +5,42 @@ umask 077
 export GIT_TERMINAL_PROMPT=0
 : "${DEPLOY_PATH:?DEPLOY_PATH is required}"
 : "${RELEASE_SHA:?RELEASE_SHA is required}"
+: "${DEVELOPMENT_SHA:?DEVELOPMENT_SHA is required}"
+[[ "$DEVELOPMENT_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'Dev source SHA is invalid.'; exit 1; }
 [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'Release SHA is invalid.'; exit 1; }
 [[ -d "$DEPLOY_PATH/.git" ]] || { echo 'Deployment checkout is missing.'; exit 1; }
 cd "$DEPLOY_PATH"
 export EA_OPERATIONS_ROOT="$DEPLOY_PATH"
 export EA_ENVIRONMENT=production
 export PATH="$DEPLOY_PATH/.local/node/bin:$PATH"
+export DOCKER_CONFIG="$DEPLOY_PATH/.local/docker/cli"
 [[ "$(git rev-parse --show-toplevel)" == "$(pwd -P)" ]] || { echo 'Deployment path must be the repository root.'; exit 1; }
 mkdir -p .local/deploy
 exec 9>.local/deploy/lock
 flock -n 9 || { echo 'Another server deployment is running.'; exit 1; }
-[[ "$(git symbolic-ref --quiet --short HEAD)" == main ]] || { echo 'Server checkout must be on main.'; exit 1; }
 origin="$(git remote get-url origin)"
 [[ "$origin" == 'https://github.com/LuPetro/estate-atlas.git' || "$origin" == 'git@github.com:LuPetro/estate-atlas.git' ]] || { echo 'Unexpected Git origin; refusing deployment.'; exit 1; }
-[[ -z "$(git status --porcelain --untracked-files=no)" ]] || { echo 'Tracked server changes exist; refusing to overwrite them.'; exit 1; }
 git fetch --no-tags origin refs/heads/main
 [[ "$(git rev-parse FETCH_HEAD)" == "$RELEASE_SHA" ]] || { echo 'main moved after approval; approve its latest verified commit.'; exit 1; }
-git merge-base --is-ancestor HEAD "$RELEASE_SHA" || { echo 'Server checkout contains unpublished commits; refusing deployment.'; exit 1; }
 previous_sha="$(git rev-parse HEAD)"
 phase=source
 result=failed
 record_result() {
-  printf '{"commit":"%s","previousCommit":"%s","phase":"%s","result":"%s","at":"%s"}\n' \
-    "$RELEASE_SHA" "$previous_sha" "$phase" "$result" "$(date -u +%FT%TZ)" > .local/deploy/last-release.json.tmp
-  mv .local/deploy/last-release.json.tmp .local/deploy/last-release.json
+  printf '{"commit":"%s","developmentCommit":"%s","checkoutCommit":"%s","phase":"%s","result":"%s","at":"%s"}\n' \
+    "$RELEASE_SHA" "$DEVELOPMENT_SHA" "$previous_sha" "$phase" "$result" "$(date -u +%FT%TZ)" > "$DEPLOY_PATH/.local/deploy/last-release.json.tmp"
+  mv "$DEPLOY_PATH/.local/deploy/last-release.json.tmp" "$DEPLOY_PATH/.local/deploy/last-release.json"
 }
 trap record_result EXIT
-# Fast-forward preserves unpublished commits and refuses conflicting untracked files.
-git merge --ff-only "$RELEASE_SHA"
+# Deploy immutable source without checking out over the shared development workspace.
+[[ "$(git rev-parse "$RELEASE_SHA^{tree}")" == "$(git rev-parse "$DEVELOPMENT_SHA^{tree}")" ]] || { echo 'Main source differs from the verified Dev source.'; exit 1; }
+release="$DEPLOY_PATH/.local/releases/$RELEASE_SHA"
+# Dev may be running images built from this same immutable extraction; the image IDs
+# and database are independent of these source files.
+[[ ! -e "$release" ]] || rm -rf -- "$release"
+mkdir -p "$release"
+git archive "$RELEASE_SHA" | tar -x -C "$release"
+ln -s "$DEPLOY_PATH/node_modules" "$release/node_modules"
+cd "$release"
 phase=preflight
 node scripts/promote-images.mjs
 node scripts/production-check.mjs

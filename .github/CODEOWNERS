@@ -1,0 +1,9 @@
+# Keep deployment and security changes visible to the repository owner.
+/.github/ @LuPetro
+/config/github-branches.json @LuPetro
+/scripts/deploy-* @LuPetro
+/scripts/receive-deployment @LuPetro
+/scripts/assert-* @LuPetro
+/scripts/promote-images.mjs @LuPetro
+/scripts/configure-github.mjs @LuPetro
+/AGENTS.md @LuPetro

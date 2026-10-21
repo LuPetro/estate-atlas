@@ -1,5 +1,7 @@
 # EstateAtlas engineering instructions
 
+`dev` is the integration branch and deploys to dev.estateatlas.app after checks. Start normal work on a feature branch from `dev` and target `dev` with pull requests. `main` is the production release branch; release pull requests come from `dev`. Production requires explicit GitHub workflow approval and the exact source already tested on Dev. See CONTRIBUTING.md. Both deployments use immutable source archives and must preserve the shared VPS checkout and any unfinished development work.
+
 Work only inside this repository. Never use playground or change global software, SSH, firewall, AppArmor, or user accounts. Toolchains, caches and local PostgreSQL live under ignored `.local/`. Use `./scripts/pnpm`.
 
 The owner's default for all app/server operation is Docker Compose, including development previews. Use `./scripts/docker` and compose.yaml; do not offer direct-host app launchers as the normal workflow. Existing host PostgreSQL is retained only as a migration source. If daemon access is blocked, prepare and validate the container configuration, explain the access block, and wait for the necessary server access rather than silently reverting to host operation. Isolated test/toolchain checks may run locally without changing system configuration.

@@ -1,17 +1,35 @@
 import { pathToFileURL } from 'node:url';
 import { appendFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+
+/** Match full source trees, so both merge commits and squash releases can promote tested images. */
+export function developmentSource(sha, cwd = process.cwd()) {
+  if (!/^[a-f0-9]{40}$/.test(sha || '')) throw new Error('Invalid release SHA.');
+  const git = (...args) =>
+    execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const tree = git('rev-parse', `${sha}^{tree}`);
+  const source = git('log', '--format=%H:%T', '--max-count=1000', 'refs/remotes/origin/dev')
+    .split('\n')
+    .map((line) => line.split(':'))
+    .find(([, candidateTree]) => candidateTree === tree)?.[0];
+  if (!source || !/^[a-f0-9]{40}$/.test(source))
+    throw new Error(
+      'Main must contain the identical source tree already tested on dev. Merge dev into main first.',
+    );
+  return source;
+}
 
 export async function assertDevelopment(sha, request) {
   if (!/^[a-f0-9]{40}$/.test(sha || '')) throw new Error('Invalid release SHA.');
   const data = await request(
-    `/actions/workflows/development.yml/runs?head_sha=${sha}&branch=main&per_page=100`,
+    `/actions/workflows/development.yml/runs?head_sha=${sha}&branch=dev&per_page=100`,
   );
   const runs = (data.workflow_runs || [])
     .filter(
       (run) =>
         run.head_sha === sha &&
-        run.head_branch === 'main' &&
-        ['workflow_run', 'workflow_dispatch'].includes(run.event) &&
+        run.head_branch === 'dev' &&
+        ['push', 'workflow_dispatch'].includes(run.event) &&
         run.head_repository?.full_name === 'LuPetro/estate-atlas' &&
         run.path?.split('@')[0] === '.github/workflows/development.yml',
     )
@@ -52,7 +70,8 @@ export async function assertDevelopment(sha, request) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     if (!process.env.GH_TOKEN) throw new Error('GitHub read token is missing.');
-    const run = await assertDevelopment(process.env.RELEASE_SHA, async (suffix) => {
+    const sourceSha = developmentSource(process.env.RELEASE_SHA);
+    const run = await assertDevelopment(sourceSha, async (suffix) => {
       const response = await fetch(`https://api.github.com/repos/LuPetro/estate-atlas${suffix}`, {
         headers: {
           Authorization: `Bearer ${process.env.GH_TOKEN}`,
@@ -67,7 +86,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (process.env.GITHUB_OUTPUT)
       await appendFile(
         process.env.GITHUB_OUTPUT,
-        `run_id=${run.id}\nrun_attempt=${run.run_attempt}\n`,
+        `source_sha=${sourceSha}\nrun_id=${run.id}\nrun_attempt=${run.run_attempt}\n`,
       );
     console.log(`Verified Dev run ${run.id}, attempt ${run.run_attempt}.`);
   } catch (error) {

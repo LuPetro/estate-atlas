@@ -8,13 +8,14 @@ import path from 'node:path';
 import { parse } from 'dotenv';
 
 const sha = 'a'.repeat(40);
+const tree = 'd'.repeat(40);
 const run = {
   id: 20,
   run_attempt: 2,
   head_sha: sha,
-  head_branch: 'main',
+  head_branch: 'dev',
   head_repository: { full_name: 'LuPetro/estate-atlas' },
-  event: 'workflow_run',
+  event: 'push',
   path: '.github/workflows/development.yml',
   status: 'completed',
   conclusion: 'success',
@@ -70,6 +71,8 @@ describe('Dev is required before Prod', () => {
 describe('promotion uses the Dev images and never Dev data/configuration', () => {
   const record = {
     commit: sha,
+    branch: 'dev',
+    tree,
     result: 'success',
     runId: 20,
     runAttempt: 2,
@@ -77,7 +80,7 @@ describe('promotion uses the Dev images and never Dev data/configuration', () =>
     webImage: 'sha256:' + 'c'.repeat(64),
   };
   it('returns immutable image IDs from the matching successful run', () => {
-    expect(validatePromotion(record, sha, '20', '2')).toEqual({
+    expect(validatePromotion(record, sha, '20', '2', sha, tree)).toEqual({
       API_IMAGE: record.apiImage,
       WEB_IMAGE: record.webImage,
     });
@@ -85,14 +88,18 @@ describe('promotion uses the Dev images and never Dev data/configuration', () =>
   it('blocks wrong commits, reruns, failed checks and missing or mutable image references', () => {
     for (const change of [
       { result: 'running' },
+      { branch: 'main' },
+      { tree: 'b'.repeat(40) },
       { commit: 'b'.repeat(40) },
       { runId: 21 },
       { runAttempt: 3 },
       { apiImage: 'estate-atlas-api:latest' },
       { webImage: '' },
     ])
-      expect(() => validatePromotion({ ...record, ...change }, sha, '20', '2')).toThrow();
-    expect(() => validatePromotion(record, sha, '', '2')).toThrow();
+      expect(() =>
+        validatePromotion({ ...record, ...change }, sha, '20', '2', sha, tree),
+      ).toThrow();
+    expect(() => validatePromotion(record, sha, '', '2', sha, tree)).toThrow();
   });
   it('writes valid, reusable Dev release JSON and environment lines from the actual deploy script', async () => {
     const dir = await mkdtemp(path.resolve('.local/dev-record-fixture-'));
@@ -119,6 +126,7 @@ describe('promotion uses the Dev images and never Dev data/configuration', () =>
           PATH: `${dir}/bin:${process.env.PATH}`,
           EA_OPERATIONS_ROOT: dir,
           RELEASE_SHA: sha,
+          RELEASE_TREE: tree,
           DEVELOPMENT_RUN_ID: '20',
           DEVELOPMENT_RUN_ATTEMPT: '2',
           API_IMAGE: 'api-fixture',

@@ -14,8 +14,10 @@ export DOCKER_CONFIG="$DEPLOY_PATH/.local/docker/cli"
 mkdir -p .local/deploy .local/environments/development
 exec 9>.local/deploy/lock
 flock -n 9 || { echo 'Another server deployment is running.'; exit 1; }
-git fetch --no-tags origin refs/heads/main
-[[ "$(git rev-parse FETCH_HEAD)" == "$RELEASE_SHA" ]] || { echo 'main moved; wait for its new Dev pipeline.'; exit 1; }
+git fetch --no-tags origin refs/heads/dev
+[[ "$(git rev-parse FETCH_HEAD)" == "$RELEASE_SHA" ]] || { echo 'dev moved; wait for its new Dev pipeline.'; exit 1; }
+export RELEASE_TREE
+RELEASE_TREE="$(git rev-parse "$RELEASE_SHA^{tree}")"
 release="$DEPLOY_PATH/.local/releases/$RELEASE_SHA"
 [[ ! -e "$release" ]] || { echo 'Removing only the previous immutable source extraction for this commit.'; rm -rf -- "$release"; }
 mkdir -p "$release"
@@ -39,13 +41,15 @@ touch "$legacy/legacy-adopted"
 ./scripts/gateway up
 node scripts/development-check.mjs --live
 node --input-type=module <<'JS'
-import { writeFile, rename, readFile } from 'node:fs/promises';
+import { writeFile, rename, readFile, mkdir } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 const inspect = (image) => execFileSync('docker', ['image', 'inspect', '--format', '{{.Id}}', image], { encoding: 'utf8' }).trim();
 const record = { commit: process.env.RELEASE_SHA, result: 'success',
+  branch: 'dev', tree: process.env.RELEASE_TREE,
   runId: Number(process.env.DEVELOPMENT_RUN_ID), runAttempt: Number(process.env.DEVELOPMENT_RUN_ATTEMPT),
   apiImage: inspect(process.env.API_IMAGE), webImage: inspect(process.env.WEB_IMAGE), at: new Date().toISOString() };
 const state = `${process.env.EA_OPERATIONS_ROOT}/.local/environments/development`;
+await mkdir(`${state}/releases`, { recursive: true, mode: 0o700 });
 const file = `${state}/docker/compose.env`;
 let text = await readFile(file, 'utf8');
 for (const [key, value] of Object.entries({ API_IMAGE: record.apiImage, WEB_IMAGE: record.webImage })) {
@@ -53,7 +57,9 @@ for (const [key, value] of Object.entries({ API_IMAGE: record.apiImage, WEB_IMAG
   text = text.trimEnd() + `\n${key}=${value}\n`;
 }
 await writeFile(file, text, { mode: 0o600 });
+await writeFile(`${state}/releases/${record.commit}.json.tmp`, JSON.stringify(record) + '\n', { mode: 0o600 });
+await rename(`${state}/releases/${record.commit}.json.tmp`, `${state}/releases/${record.commit}.json`);
 await writeFile(`${state}/last-release.json.tmp`, JSON.stringify(record) + '\n', { mode: 0o600 });
 await rename(`${state}/last-release.json.tmp`, `${state}/last-release.json`);
 JS
-echo 'Dev deployed and HTTPS checked. Prod is eligible only for this commit and these image IDs.'
+echo 'dev deployed and HTTPS checked. Production can promote only identical source and these image IDs.'

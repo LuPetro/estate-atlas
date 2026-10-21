@@ -1,8 +1,29 @@
-# Dev before Prod
+# Branches and deployments
 
-`main` is the integration branch. A push runs **EstateAtlas checks**. After successful push CI, **EstateAtlas development deployment** builds and deploys the exact current `main` commit to `https://dev.estateatlas.app`. Pull requests and fork workflows cannot deploy. A newer failed, pending or skipped CI attempt blocks deployment.
+| Branch | Pipeline                  | Deployment                                                           |
+| ------ | ------------------------- | -------------------------------------------------------------------- |
+| `dev`  | EstateAtlas Dev pipeline  | Automatic after successful checks: https://dev.estateatlas.app       |
+| `main` | EstateAtlas Main pipeline | Production after explicit workflow approval: https://estateatlas.app |
 
-Prod is a manual promotion: **Actions → EstateAtlas production deployment → Run workflow → main → production_approval=deploy**. The workflow requires successful CI and the latest successful Dev deployment attempt for this exact commit. The VPS additionally checks the Dev release record, run ID/attempt and local immutable Docker image IDs. Prod reuses those API/Web images with `--no-build`. It never copies Dev accounts, data, secrets or configuration. A newer main commit needs its own CI and Dev pass. Both server deployments share a lock. A failed/unfinished Dev deployment cannot authorize Prod.
+Features and fixes target `dev`. A release pull request merges `dev` into `main`. Each branch has its own workflow and runs the shared checks from `.github/workflows/ci.yml`: workflow/shell validation, full-history secret scanning, types, dependency audit, real PostgreSQL API tests, proxy/gateway checks, production builds, Android/iOS exports and desktop/mobile browser tests. `checks / Required checks` fails if any check fails, is cancelled or is skipped. Pull requests, including forks, cannot access deployment secrets or deploy. There are no path filters that can silently skip required checks.
+
+The Dev pipeline runs on pushes to `dev`, pull requests targeting `dev`, and manual runs. Only a trusted push/manual run on `refs/heads/dev` can deploy. The VPS checks that the approved commit is still the remote `dev` head before building. A push to `main` never deploys Dev.
+
+For production use **Actions → EstateAtlas Main pipeline → Run workflow → main → production_approval=deploy**. The latest push checks for this exact `main` commit must have succeeded. The workflow locates the identical full Git source tree in `dev` history and verifies its latest successful Dev pipeline/deployment attempt. This supports both merge commits and squash releases. Any extra source change must pass through Dev first.
+
+The VPS checks the source trees again, plus the Dev release record, run ID/attempt and immutable Docker image IDs. Production reuses those API/Web images with `--no-build`; it never copies Dev accounts, data, secrets or configuration. Both deployments use `.local/releases/<commit>` archives and share a server lock. Neither deployment changes the branch, commits or unfinished edits in the shared VPS checkout.
+
+## GitHub policies
+
+The intended policy lives in `config/github-branches.json`: pull requests and the GitHub Actions `checks / Required checks` result are required for `dev` and `main`; force pushes and branch deletion are forbidden. Zero required third-party approvals keeps the sole maintainer able to merge their own reviewed changes. Deployment environments are restricted to `dev` and `main`, respectively. Workflow tokens default to read-only, and permanent branches are retained after merges.
+
+Review the policy with `./scripts/pnpm exec node scripts/configure-github.mjs`. Apply it using the already authenticated local CLI:
+
+```bash
+GH_BIN=./scripts/gh ./scripts/pnpm exec node scripts/configure-github.mjs --apply
+```
+
+GitHub may reject protection rules for a private repository depending on its plan; the script reports each rejected operation and never changes visibility or secrets. Reapply after the repository becomes public if needed. See [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Namecheap
 
@@ -45,10 +66,10 @@ EA_ENVIRONMENT=production ./scripts/pnpm exec node scripts/recovery-kit.mjs expo
 ./scripts/gateway logs --tail=100
 ```
 
-Dev deployment records live in `.local/environments/development/last-release.json`; image IDs become promotable only after authenticated HTTPS checks pass and unauthenticated access returns 401. Source archives live under `.local/releases/<commit>`. Keep the tested images while a release is eligible for promotion; pruning them makes promotion fail explicitly. Failed deployment records do not imply the previous stack was rolled back.
+Dev deployment records live in `.local/environments/development/releases/<source-commit>.json`; `last-release.json` also identifies the currently deployed Dev version. Records include branch, source tree, workflow run/attempt and immutable image IDs. Image IDs become promotable only after authenticated HTTPS checks pass and unauthenticated access returns 401. Retaining records lets an older tested release be promoted while development continues. Source archives live under `.local/releases/<commit>`. Keep the tested images while a release is eligible for promotion; pruning them makes promotion fail explicitly. Failed deployment records do not imply the previous stack was rolled back.
 
 ## First production launch later
 
-Complete the production state, not the legacy `.local/docker` files: SMTP, real operator/legal texts, verified administrator with MFA, offsite backup, restore proof and external monitoring. Production needs private initial onboarding before the first full release preflight; do not enable its public gateway route to bypass onboarding. Use the procedure in `web-launch.md`, adapted to the isolated production state. Root `estateatlas.app` remains unpublished until this is done and the manual Prod workflow succeeds. Dev success alone never publishes Prod.
+Complete the production state, not the legacy `.local/docker` files: SMTP, real operator/legal texts, verified administrator with MFA, offsite backup, restore proof and external monitoring. Production needs private initial onboarding before the first full release preflight; do not enable its public gateway route to bypass onboarding. Use the procedure in `web-launch.md`, adapted to the isolated production state. Root `estateatlas.app` remains unpublished until this is done and the approved Main pipeline succeeds. Dev success alone never publishes Prod.
 
 Both app stacks share the resources of this small VPS. Watch memory/disk before running both under load; upgrade capacity or split hosts before a wider release. Cross-host deployment would require transporting the already-tested images through a registry or verified image archive; this implementation intentionally promotes local image IDs on the same VPS.

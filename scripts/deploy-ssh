@@ -16,6 +16,9 @@ port=$((10#$port))
 script_root="$(cd "$(dirname "$0")/.." && pwd)"
 environment="${DEPLOY_ENVIRONMENT:-production}"
 [[ "$environment" == development || "$environment" == production ]] || { echo 'Invalid deployment environment.'; exit 1; }
+development_sha="${DEVELOPMENT_SHA:-$RELEASE_SHA}"
+[[ "$development_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'Dev source SHA is invalid.'; exit 1; }
+[[ "$environment" != development || "$development_sha" == "$RELEASE_SHA" ]] || { echo 'Dev must deploy its exact source SHA.'; exit 1; }
 [[ "${DEVELOPMENT_RUN_ID:-}" =~ ^[1-9][0-9]*$ && "${DEVELOPMENT_RUN_ATTEMPT:-}" =~ ^[1-9][0-9]*$ ]] || { echo 'A verified Dev run and attempt are required.'; exit 1; }
 deploy_tmp="$(mktemp -d)"
 trap 'rm -rf "$deploy_tmp"' EXIT
@@ -27,7 +30,7 @@ ssh-keygen -y -P '' -f "$deploy_tmp/key" >/dev/null 2>&1 || { echo 'Deployment k
 unset DEPLOY_KEY
 # Bash quoting handles spaces and shell metacharacters without evaluating configuration.
 receiver="$(cat "$script_root/scripts/receive-deployment")"
-printf -v remote_command 'DEPLOY_PATH=%q RELEASE_SHA=%q DEVELOPMENT_RUN_ID=%q DEVELOPMENT_RUN_ATTEMPT=%q bash -c %q' "$DEPLOY_PATH" "$RELEASE_SHA" "$DEVELOPMENT_RUN_ID" "$DEVELOPMENT_RUN_ATTEMPT" "$receiver"
+printf -v remote_command 'DEPLOY_PATH=%q RELEASE_SHA=%q DEVELOPMENT_SHA=%q DEVELOPMENT_RUN_ID=%q DEVELOPMENT_RUN_ATTEMPT=%q bash -c %q' "$DEPLOY_PATH" "$RELEASE_SHA" "$development_sha" "$DEVELOPMENT_RUN_ID" "$DEVELOPMENT_RUN_ATTEMPT" "$receiver"
 ssh -F /dev/null -i "$deploy_tmp/key" -p "$port" \
   -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
   -o UserKnownHostsFile="$deploy_tmp/known_hosts" -o GlobalKnownHostsFile=/dev/null \

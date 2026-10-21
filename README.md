@@ -1,5 +1,7 @@
 # EstateAtlas
 
+Entwicklung: **`dev` → [dev.estateatlas.app](https://dev.estateatlas.app)**. Produktion: **`main` → Freigabe → [estateatlas.app](https://estateatlas.app)**. Beiträge und Release-Ablauf: [CONTRIBUTING.md](CONTRIBUTING.md).
+
 Private Immobilienportfolios auf **Next.js Web (zusätzlich als PWA installierbar)** und **nativen Expo / React-Native-Apps für Android und iOS**, verbunden mit einer gemeinsamen Fastify-REST-API und echtem PostgreSQL. Die PWA ersetzt die native App nicht.
 
 Projekt auf diesem VPS: `/home/codexdev/projects/estate-atlas`.
