@@ -1,37 +1,20 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Download, FileText, X } from 'lucide-react';
 import type { Property } from '@estate-atlas/shared';
 import { portfolioReportPdf } from '@estate-atlas/shared/report';
 
 export default function PortfolioReportDialog({
   properties,
-  open,
   onClose,
 }: {
   properties: Property[];
-  open: boolean;
   onClose: () => void;
 }) {
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState(() =>
+    properties.filter((property) => !property.archivedAt).map((property) => property.id),
+  );
   const [includeAddresses, setIncludeAddresses] = useState(false);
-  useEffect(() => {
-    if (open) {
-      setSelectedIds(
-        properties.filter((property) => !property.archivedAt).map((property) => property.id),
-      );
-      setIncludeAddresses(false);
-    }
-  }, [open, properties]);
-  useEffect(() => {
-    if (!open) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [open, onClose]);
-  if (!open) return null;
   const toggle = (id: string) =>
     setSelectedIds((current) =>
       current.includes(id) ? current.filter((selected) => selected !== id) : [...current, id],
@@ -110,7 +93,9 @@ export default function PortfolioReportDialog({
             </button>
             <button className="button primary" disabled={!selected.length} onClick={download}>
               {selected.length ? <Download size={16} /> : <FileText size={16} />}
-              {selected.length ? `${selected.length} Immobilien als PDF` : 'Immobilien auswählen'}
+              {selected.length
+                ? `${selected.length} ${selected.length === 1 ? 'Immobilie' : 'Immobilien'} als PDF`
+                : 'Immobilien auswählen'}
             </button>
           </div>
         </div>

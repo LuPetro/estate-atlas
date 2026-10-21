@@ -470,6 +470,10 @@ export function createAccounts(
                 'SELECT w.* FROM property_workspaces w JOIN properties p ON p.id=w.property_id WHERE p.owner_id=$1 ORDER BY w.property_id',
               ],
               [
+                'reminders',
+                'SELECT r.* FROM property_reminders r JOIN properties p ON p.id=r.property_id WHERE p.owner_id=$1 ORDER BY r.id',
+              ],
+              [
                 'analyses',
                 'SELECT j.id,j.property_id,j.status,j.requested_at,j.result,j.diagnostics FROM analysis_jobs j JOIN properties p ON p.id=j.property_id WHERE p.owner_id=$1 ORDER BY j.id',
               ],

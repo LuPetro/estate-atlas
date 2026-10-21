@@ -6,6 +6,7 @@ import type { ApiClient } from '@estate-atlas/api-client';
 import {
   portfolioDistribution,
   formatMoney,
+  localDateKey,
   type Property,
   type Asset,
   type Currency,
@@ -34,7 +35,7 @@ export default function WorkspaceHub({
   const [reminders, setReminders] = useState<PortfolioReminder[]>([]);
   const [reminderPropertyId, setReminderPropertyId] = useState('');
   const [reminderTitle, setReminderTitle] = useState('');
-  const [reminderDate, setReminderDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reminderDate, setReminderDate] = useState(() => localDateKey());
   const [reminderNotes, setReminderNotes] = useState('');
   const [documentQuery, setDocumentQuery] = useState('');
   const [documentType, setDocumentType] = useState('all');
@@ -128,7 +129,7 @@ export default function WorkspaceHub({
       });
       setReminderTitle('');
       setReminderNotes('');
-      setReminderDate(new Date().toISOString().slice(0, 10));
+      setReminderDate(localDateKey());
     });
   const removeReminder = (reminder: PortfolioReminder) =>
     Alert.alert('Wiedervorlage löschen?', `„${reminder.title}“ wird endgültig gelöscht.`, [

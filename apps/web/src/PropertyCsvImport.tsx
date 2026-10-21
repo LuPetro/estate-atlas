@@ -2,6 +2,7 @@
 import { useState, type ChangeEvent } from 'react';
 import { Download, FileUp, X } from 'lucide-react';
 import type { ApiClient } from '@estate-atlas/api-client';
+import { currencies } from '@estate-atlas/shared';
 import {
   parsePropertyCsv,
   parsePropertyExcel,
@@ -11,29 +12,26 @@ import type { PropertyCsvRow } from '@estate-atlas/shared/csv';
 
 export default function PropertyCsvImport({
   api,
-  open,
   onClose,
   onImported,
 }: {
   api: ApiClient;
-  open: boolean;
   onClose: () => void;
   onImported: () => Promise<void>;
 }) {
   const [rows, setRows] = useState<PropertyCsvRow[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  if (!open) return null;
   const close = () => {
-    setRows([]);
-    setError('');
-    onClose();
+    if (!busy) onClose();
   };
   const load = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
     setError('');
+    setRows([]);
+    setBusy(true);
     try {
       const isExcel =
         /\.xlsx?$/i.test(file.name) ||
@@ -46,22 +44,26 @@ export default function PropertyCsvImport({
             : 'Die CSV-Datei darf höchstens 1 MB groß sein.',
         );
       const parsed = isExcel
-        ? parsePropertyExcel(await file.arrayBuffer())
+        ? await parsePropertyExcel(await file.arrayBuffer())
         : parsePropertyCsv(await file.text());
       setRows(parsed.records);
     } catch (e) {
       setRows([]);
       setError((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   };
   const downloadTemplate = () => {
-    const blob = new Blob([propertyCsvTemplate], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob(['\uFEFF', propertyCsvTemplate, '\r\n'], {
+      type: 'text/csv;charset=utf-8',
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.download = 'estateatlas-import-vorlage.csv';
     link.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const importRows = async () => {
     const valid = rows.flatMap((row) => (row.input ? [row.input] : []));
@@ -73,7 +75,7 @@ export default function PropertyCsvImport({
       setRows([]);
       try {
         await onImported();
-        close();
+        onClose();
       } catch {
         setError(
           'Der Import war erfolgreich. Die Portfolioansicht konnte nicht aktualisiert werden; lade sie bitte neu.',
@@ -98,27 +100,39 @@ export default function PropertyCsvImport({
         role="dialog"
         aria-modal="true"
         aria-labelledby="table-import-title"
+        aria-busy={busy}
       >
         <div className="modal-header">
           <div>
             <p className="eyebrow">BESTAND ÜBERNEHMEN</p>
             <h2 id="table-import-title">CSV / Excel-Import</h2>
           </div>
-          <button className="icon-button" aria-label="Schließen" onClick={close}>
+          <button className="icon-button" aria-label="Schließen" onClick={close} disabled={busy}>
             <X size={20} />
           </button>
         </div>
         <p>
-          Importiere bis zu 50 Immobilien auf einmal. Unterstützt werden CSV-Dateien mit Komma oder
-          Semikolon sowie Excel-Dateien (.xlsx und .xls). Bei Excel wird das erste Tabellenblatt
-          verwendet. Deutsche Spaltennamen werden ebenfalls erkannt.
+          Übernimm bis zu 50 Immobilien aus einer CSV- oder Excel-Datei (.xlsx, .xls). Prüfe die
+          Vorschau, bevor du die Objekte hinzufügst.
         </p>
         <p className="csv-privacy">
           Für die Karte müssen Breitengrad und Längengrad in der Datei stehen. Das Land braucht
           einen ISO-2-Code wie AT oder DE. Adressen werden beim Import nicht an einen Geocoder
           gesendet.
         </p>
-        <button className="button secondary" onClick={downloadTemplate}>
+        <details className="import-format">
+          <summary>Hinweise zur Tabelle</summary>
+          <p>
+            Nutze die Vorlage oder deutsche Spaltennamen. Bei Excel wird das erste Tabellenblatt
+            gelesen.
+          </p>
+          <p>
+            Immobilienart: Wohnung, Haus, Grundstück oder Gewerbe. Währungen:{' '}
+            {currencies.join(', ')}. Zahlen dürfen ein Dezimalkomma verwenden; CSV unterstützt Komma
+            oder Semikolon als Trennzeichen.
+          </p>
+        </details>
+        <button className="button secondary" onClick={downloadTemplate} disabled={busy}>
           <Download size={16} /> Leere CSV-Vorlage laden
         </button>
         <label className="csv-file">
@@ -127,8 +141,10 @@ export default function PropertyCsvImport({
             type="file"
             accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
             onChange={(event) => void load(event)}
+            disabled={busy}
           />
         </label>
+        {busy && <p role="status">Datei wird verarbeitet …</p>}
         {error && (
           <p className="error" role="alert">
             {error}
@@ -170,7 +186,9 @@ export default function PropertyCsvImport({
               onClick={() => void importRows()}
             >
               <FileUp size={16} />{' '}
-              {busy ? 'Wird importiert …' : `${validCount} Immobilien importieren`}
+              {busy
+                ? 'Wird importiert …'
+                : `${validCount} ${validCount === 1 ? 'Immobilie' : 'Immobilien'} importieren`}
             </button>
           </>
         )}

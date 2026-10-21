@@ -477,12 +477,21 @@ describe('account lifecycle and platform administration on real PostgreSQL', () 
       "INSERT INTO assets(id,property_id,name,mime_type,size,content) VALUES($1,$2,'export-test.pdf','application/pdf',4,$3)",
       [randomUUID(), created.id, Buffer.from('test')],
     );
+    const reminder = await call('POST', `/properties/${created.id}/reminders`, owner, {
+      title: 'TESTDATEN · Exporttermin',
+      dueDate: '2026-11-02',
+      notes: 'Exportieren',
+    });
+    expect(reminder.statusCode).toBe(201);
     const exportResult = await call('POST', '/account/export', owner, { password, code: '' });
     expect(exportResult.statusCode).toBe(200);
     expect(exportResult.json().assets[0].contentBase64).toBe(
       Buffer.from('test').toString('base64'),
     );
     expect(exportResult.json().properties[0].id).toBe(created.id);
+    expect(exportResult.json().reminders).toEqual([
+      expect.objectContaining({ id: reminder.json().id, title: 'TESTDATEN · Exporttermin' }),
+    ]);
     for (const secretField of ['password_hash', 'token_hash', 'mfa_secret', 'recovery_hashes'])
       expect(exportResult.body).not.toContain(secretField);
     expect(

@@ -1015,6 +1015,171 @@ describe('real PostgreSQL persistence, authentication and resource authorization
     ).toBe(400);
     expect((await app.inject({ url: '/portfolio/assets' })).statusCode).toBe(401);
   });
+  it('rolls back a batch import at the account limit and imports only into the authenticated portfolio', async () => {
+    const before = (await app.inject({ url: '/properties', headers: owner })).json();
+    const limited = await createApp(pool, { maxProperties: before.length + 1 });
+    let importedId: string | undefined;
+    try {
+      const upload = (headers: Record<string, string>, payload: object[]) =>
+        limited.inject({
+          method: 'POST',
+          url: '/properties/import',
+          headers,
+          payload,
+          remoteAddress: '198.51.100.31',
+        });
+      expect((await upload({}, [sampleProperties[0]])).statusCode).toBe(401);
+      expect((await upload(owner, [sampleProperties[0], sampleProperties[1]])).statusCode).toBe(
+        409,
+      );
+      expect((await app.inject({ url: '/properties', headers: owner })).json()).toEqual(before);
+      expect(
+        (await upload(owner, [sampleProperties[0], { ...sampleProperties[1], latitude: 999 }]))
+          .statusCode,
+      ).toBe(400);
+      expect((await upload(owner, Array(51).fill(sampleProperties[0]))).statusCode).toBe(400);
+      const imported = await upload(owner, [sampleProperties[0]]);
+      expect(imported.statusCode).toBe(201);
+      importedId = imported.json()[0].id;
+      expect(
+        (await app.inject({ url: `/properties/${importedId}`, headers: other })).statusCode,
+      ).toBe(404);
+      expect(
+        (
+          await pool.query('SELECT count(*)::int AS count FROM valuations WHERE property_id=$1', [
+            importedId,
+          ])
+        ).rows[0].count,
+      ).toBe(1);
+    } finally {
+      if (importedId) await pool.query('DELETE FROM properties WHERE id=$1', [importedId]);
+      await limited.close();
+    }
+  });
+  it('preserves reminder dates, enforces viewer/editor permissions, bounds reopening and cascades deletion', async () => {
+    const property = (
+      await app.inject({
+        method: 'POST',
+        url: '/properties',
+        headers: owner,
+        payload: sampleProperties[0],
+      })
+    ).json();
+    const url = `/properties/${property.id}/reminders`;
+    try {
+      const created = await app.inject({
+        method: 'POST',
+        url,
+        headers: owner,
+        payload: { title: 'TESTDATEN · Versicherung', dueDate: '2026-11-02', notes: 'Terminnotiz' },
+      });
+      expect(created.statusCode).toBe(201);
+      expect(created.json()).toMatchObject({ dueDate: '2026-11-02', completedAt: null });
+      const reminderUrl = `${url}/${created.json().id}`;
+      expect(
+        (
+          await app.inject({
+            method: 'POST',
+            url,
+            headers: owner,
+            payload: { title: 'Ungültiges Datum', dueDate: '2026-02-30' },
+          })
+        ).statusCode,
+      ).toBe(400);
+      expect(
+        (await app.inject({ url: '/portfolio/reminders', headers: other })).json(),
+      ).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: created.json().id })]));
+      const share = async (role: 'viewer' | 'editor') => {
+        const invite = (
+          await app.inject({
+            method: 'POST',
+            url: `/properties/${property.id}/invitations`,
+            headers: owner,
+            payload: { role },
+          })
+        ).json();
+        expect(
+          (
+            await app.inject({
+              method: 'POST',
+              url: '/invitations/accept',
+              headers: other,
+              payload: { code: invite.code },
+            })
+          ).statusCode,
+        ).toBe(200);
+      };
+      await share('viewer');
+      expect(
+        (await app.inject({ url: '/portfolio/reminders', headers: other })).json(),
+      ).toContainEqual(expect.objectContaining({ id: created.json().id, dueDate: '2026-11-02' }));
+      expect(
+        (
+          await app.inject({
+            method: 'PATCH',
+            url: reminderUrl,
+            headers: other,
+            payload: { completed: true },
+          })
+        ).statusCode,
+      ).toBe(404);
+      expect(
+        (await app.inject({ method: 'DELETE', url: reminderUrl, headers: other })).statusCode,
+      ).toBe(404);
+      const otherId = (await app.inject({ url: '/auth/me', headers: other })).json().id;
+      await app.inject({
+        method: 'DELETE',
+        url: `/properties/${property.id}/shares/${otherId}`,
+        headers: owner,
+      });
+      await share('editor');
+      const completed = await app.inject({
+        method: 'PATCH',
+        url: reminderUrl,
+        headers: other,
+        payload: { completed: true },
+      });
+      expect(completed.statusCode).toBe(200);
+      expect(completed.json().completedAt).toBeTruthy();
+      await pool.query(
+        "INSERT INTO property_reminders(id,property_id,title,due_on) SELECT gen_random_uuid(),$1,'TESTDATEN Limit','2026-11-03' FROM generate_series(1,50)",
+        [property.id],
+      );
+      expect(
+        (
+          await app.inject({
+            method: 'PATCH',
+            url: reminderUrl,
+            headers: owner,
+            payload: { completed: false },
+          })
+        ).statusCode,
+      ).toBe(409);
+      expect(
+        (
+          await app.inject({
+            method: 'POST',
+            url,
+            headers: owner,
+            payload: { title: 'Über dem Limit', dueDate: '2026-11-04' },
+          })
+        ).statusCode,
+      ).toBe(409);
+      expect(
+        (await app.inject({ method: 'DELETE', url: reminderUrl, headers: other })).statusCode,
+      ).toBe(204);
+    } finally {
+      await app.inject({ method: 'DELETE', url: `/properties/${property.id}`, headers: owner });
+    }
+    expect(
+      (
+        await pool.query(
+          'SELECT count(*)::int AS count FROM property_reminders WHERE property_id=$1',
+          [property.id],
+        )
+      ).rows[0].count,
+    ).toBe(0);
+  });
   it('seeds clearly labeled test data into only the current portfolio and prevents duplicates', async () => {
     const res = await app.inject({ method: 'POST', url: '/properties/test-data', headers: other });
     expect(res.statusCode).toBe(201);

@@ -10,6 +10,8 @@ EstateAtlas hilft privaten Immobilieneigentümern, ihre Objekte, selbst gepflegt
 
 **Einziger nächster Schritt:** Ein Konto mit E-Mail-Adresse erstellen. Die Registrierung ist offen; zum Schutz der Konten muss die E-Mail-Adresse bestätigt werden.
 
+Die Startseite öffnet direkt die Anmeldung mit der Hausillustration und dem gemeinsamen Kompass-Logo. Der Reiter „Registrieren“ bzw. `/?register=1` führt zur Kontoerstellung. `/portfolio` bleibt als kompatibler Einstieg erhalten.
+
 ## Vor der Veröffentlichung
 
 1. Änderungen lokal prüfen und über den bereits vorgesehenen CI-/Production-Ablauf veröffentlichen. Ein Git-Push allein veröffentlicht nicht.

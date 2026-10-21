@@ -1,5 +1,5 @@
 import { propertyInputSchema, type PropertyInput } from './index';
-import * as XLSX from 'xlsx';
+import type { WorkBook } from 'xlsx';
 
 export type CsvRecord = { line: number; values: string[]; error?: string };
 
@@ -103,6 +103,23 @@ const headers: Record<string, string> = {
   ausstattung: 'amenities',
 };
 
+const fieldLabels: Record<string, string> = {
+  title: 'Bezeichnung',
+  address: 'Adresse',
+  country: 'Land',
+  latitude: 'Breitengrad',
+  longitude: 'Längengrad',
+  type: 'Immobilienart',
+  purchasePrice: 'Kaufpreis',
+  marketValue: 'Marktwert',
+  currency: 'Währung',
+  area: 'Fläche',
+  yearBuilt: 'Baujahr',
+  condition: 'Zustand',
+  notes: 'Notizen',
+  amenities: 'Ausstattung',
+};
+
 const decimal = (raw: string) => {
   const value = raw.trim().replace(/\s/g, '');
   const normalized = value.includes(',') ? value.replace(/\./g, '').replace(',', '.') : value;
@@ -162,6 +179,8 @@ export function parsePropertyCsv(input: string) {
     'title',
     'address',
     'country',
+    'latitude',
+    'longitude',
     'type',
     'purchasePrice',
     'marketValue',
@@ -169,7 +188,10 @@ export function parsePropertyCsv(input: string) {
     'area',
   ];
   const missing = required.filter((field) => !mappedHeaders.includes(field));
-  if (missing.length) throw new Error(`Diese Spalten fehlen: ${missing.join(', ')}.`);
+  if (missing.length)
+    throw new Error(
+      `Diese Spalten fehlen: ${missing.map((field) => fieldLabels[field]).join(', ')}.`,
+    );
   const records: PropertyCsvRow[] = parsed.records.map(({ line, values, error }) => {
     if (error) return { line, errors: [error] };
     const raw = Object.fromEntries(
@@ -202,18 +224,19 @@ export function parsePropertyCsv(input: string) {
       : {
           line,
           errors: result.error.issues.map(
-            (issue) => `${String(issue.path[0] ?? 'Zeile')}: ${issue.message}`,
+            (issue) => `${fieldLabels[String(issue.path[0])] ?? 'Zeile'}: ${issue.message}`,
           ),
         };
   });
   return { records, valid: records.filter((row) => row.input).length };
 }
 
-export function parsePropertyExcel(input: ArrayBuffer | Uint8Array) {
+export async function parsePropertyExcel(input: ArrayBuffer | Uint8Array) {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
   if (bytes.byteLength > 5 * 1024 * 1024)
     throw new Error('Die Excel-Datei darf höchstens 5 MB groß sein.');
-  let workbook: XLSX.WorkBook;
+  const XLSX = await import('xlsx');
+  let workbook: WorkBook;
   try {
     workbook = XLSX.read(bytes, { type: 'array', sheetRows: 52, dense: true });
   } catch {

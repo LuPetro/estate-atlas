@@ -26,7 +26,7 @@ Der Tabellenimport unterstützt CSV-Dateien mit Komma oder Semikolon sowie Excel
 
 Wiedervorlagen gehören zu einer Immobilie und sind für berechtigte Portfolio-Mitglieder sichtbar. Eigentümer und Bearbeiter können sie erstellen, erledigen, erneut öffnen oder löschen; Betrachter können sie lesen. Es gibt bis zu 50 offene Wiedervorlagen je Immobilie. Überfällige Termine werden in der Webansicht hervorgehoben. Die App plant derzeit keine E-Mail- oder Push-Nachrichten.
 
-Der PDF-Bericht lässt sich aus dem Browser herunterladen oder über die native Teilen-Funktion weitergeben. Er enthält ausgewählte eigene Immobilien, selbst gepflegte Werte und den Vermietungsstatus. Adressen sind standardmäßig ausgeschlossen und müssen aktiv eingeblendet werden. Werte verschiedener Währungen werden einzeln angezeigt und nicht zu einer Gesamtsumme addiert. Die PDF-Datei wird auf dem Gerät erstellt.
+Der PDF-Bericht lässt sich aus dem Browser herunterladen oder über die native Teilen-Funktion weitergeben. Im Browser wählst du eigene Immobilien aus; die native App exportiert den aktiven eigenen Bestand. Der Bericht enthält selbst gepflegte Werte und den Vermietungsstatus. Adressen sind standardmäßig ausgeschlossen und müssen aktiv eingeblendet werden. Beträge tragen eindeutige Währungscodes; Summen werden je Währung getrennt gebildet. Objekteinträge bleiben beim Seitenumbruch zusammen. Die PDF-Datei wird auf dem Gerät erstellt. Der vollständige Kontoexport enthält zusätzlich die gespeicherten Wiedervorlagen.
 
 ## Übergabe und Kaufcheck
 

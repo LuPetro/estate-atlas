@@ -18,6 +18,7 @@ import {
   type PropertyInput,
   reminderInputSchema,
   reminderStatusSchema,
+  localDateKey,
 } from '@estate-atlas/shared';
 import { hashPassword, verifyPassword, newToken, tokenHash } from './auth';
 import { toProperty, toValuation, toAsset, toAnalysis } from './database';
@@ -53,7 +54,7 @@ const toReminder = (row: Record<string, any>) => ({
   propertyId: row.property_id,
   propertyTitle: row.property_title,
   title: row.title,
-  dueDate: String(row.due_on).slice(0, 10),
+  dueDate: row.due_on instanceof Date ? localDateKey(row.due_on) : row.due_on,
   notes: row.notes,
   completedAt: row.completed_at ? new Date(row.completed_at).toISOString() : null,
   createdAt: new Date(row.created_at).toISOString(),
@@ -425,6 +426,14 @@ export async function createApp(
     try {
       await client.query('BEGIN');
       await propertyFor(client, propertyId, req.user!.id, 'edit', true);
+      if (!completed) {
+        const count = await client.query(
+          'SELECT count(*)::int AS count FROM property_reminders WHERE property_id=$1 AND completed_at IS NULL AND id<>$2',
+          [propertyId, reminderId],
+        );
+        if (count.rows[0].count >= 50)
+          throw new HttpError(409, 'Maximal 50 offene Wiedervorlagen pro Immobilie.');
+      }
       const { rows } = await client.query(
         `UPDATE property_reminders r SET completed_at=CASE WHEN $1 THEN COALESCE(r.completed_at,now()) ELSE NULL END
          FROM properties p WHERE r.id=$2 AND r.property_id=$3 AND p.id=r.property_id

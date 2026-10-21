@@ -28,7 +28,6 @@ import {
   ChartNoAxesCombined,
   Upload,
   FileText,
-  Sparkles,
   Menu,
   RotateCcw,
   PieChart,
@@ -103,6 +102,9 @@ export default function Dashboard() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [reminderCount, setReminderCount] = useState(0);
   const [section, setSection] = useState<Section>('dashboard');
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [user?.id, section]);
   const [query, setQuery] = useState('');
   const [country, setCountry] = useState('');
   const [type, setType] = useState('');
@@ -288,7 +290,9 @@ export default function Dashboard() {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const handler = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       if (e.key === 'Escape') {
+        if (document.querySelector('.modal[aria-busy="true"]')) return;
         if (
           detail &&
           detailDirty &&
@@ -305,7 +309,7 @@ export default function Dashboard() {
         const dialog = document.querySelector('.modal');
         const nodes = Array.from(
           dialog?.querySelectorAll<HTMLElement>(
-            'button:not(:disabled), a[href], summary, input:not(:disabled):not([type=file]), select:not(:disabled), textarea:not(:disabled)',
+            'button:not(:disabled), a[href], summary, input:not(:disabled), select:not(:disabled), textarea:not(:disabled)',
           ) ?? [],
         ).filter((node) => node.getClientRects().length > 0);
         if (nodes?.length) {
@@ -529,16 +533,18 @@ export default function Dashboard() {
                     <button className="button primary" onClick={() => setEditor('new')}>
                       <Plus size={18} /> Immobilie hinzufügen
                     </button>
-                    <button className="button secondary" onClick={() => setCsvImportOpen(true)}>
-                      <Upload size={16} /> CSV / Excel importieren
-                    </button>
-                    <button
-                      className="button secondary"
-                      disabled={!ownProperties.length}
-                      onClick={() => setReportOpen(true)}
-                    >
-                      <FileText size={16} /> PDF-Bericht
-                    </button>
+                    <div className="portfolio-tools">
+                      <button className="text-button" onClick={() => setCsvImportOpen(true)}>
+                        <Upload size={15} /> CSV / Excel importieren
+                      </button>
+                      <button
+                        className="text-button"
+                        disabled={!ownProperties.length}
+                        onClick={() => setReportOpen(true)}
+                      >
+                        <FileText size={15} /> PDF-Bericht
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -563,18 +569,13 @@ export default function Dashboard() {
               {section === 'dashboard' && ownProperties.length === 0 && (
                 <section className="quick-start" aria-labelledby="quick-start-title">
                   <div className="quick-start-intro">
-                    <span className="quick-start-icon">
-                      <Sparkles size={21} />
-                    </span>
                     <div>
-                      <p className="eyebrow">DEIN ERSTER SCHRITT</p>
                       <h2 id="quick-start-title">Dein Portfolio beginnt hier.</h2>
-                      <p>Trage deinen Bestand ein oder übernimm eine vorbereitete Liste.</p>
+                      <p>Lege deine erste Immobilie an. Alles Weitere ergänzt du nach und nach.</p>
                     </div>
                   </div>
                   <div className="quick-start-steps">
                     <article>
-                      <span>01</span>
                       <div>
                         <strong>Einzeln eintragen</strong>
                         <p>Adresse, Fläche und deine eigenen Werte hinzufügen.</p>
@@ -584,7 +585,6 @@ export default function Dashboard() {
                       </button>
                     </article>
                     <article>
-                      <span>02</span>
                       <div>
                         <strong>Liste importieren</strong>
                         <p>Bis zu 50 Objekte aus einer CSV- oder Excel-Datei übernehmen.</p>
@@ -594,7 +594,6 @@ export default function Dashboard() {
                       </button>
                     </article>
                     <article>
-                      <span>03</span>
                       <div>
                         <strong>EstateAtlas ansehen</strong>
                         <p>Mit klar markierten Beispieldaten starten.</p>
@@ -608,10 +607,6 @@ export default function Dashboard() {
                       </button>
                     </article>
                   </div>
-                  <p className="quick-start-note">
-                    <ShieldCheck size={15} /> Dateien werden auf deinem Gerät gelesen. Adressen
-                    werden nicht an einen Geocoder gesendet. Koordinaten müssen in der Datei stehen.
-                  </p>
                 </section>
               )}
               {section !== 'documents' &&
@@ -692,7 +687,6 @@ export default function Dashboard() {
                   properties={properties}
                   onSelect={(id) => {
                     void select(id);
-                    setSection('dashboard');
                   }}
                   onAddProperty={() => setEditor('new')}
                   onCountChange={setReminderCount}
@@ -899,7 +893,7 @@ export default function Dashboard() {
                           })}
                         </div>
                         <div className="research-note">
-                          <Sparkles size={18} />
+                          <Search size={18} />
                           <div>
                             <strong>KI-Marktpreis recherchieren</strong>
                             <p>
@@ -1101,23 +1095,18 @@ export default function Dashboard() {
                 )}
               <footer className="page-footer">
                 <span>EstateAtlas · Klarheit für deine Immobilien.</span>
-                <span>¹ Marktwerte sind deine Angaben, keine KI-Bewertung.</span>
+                <span>¹ Marktwerte nach eigenen Angaben.</span>
               </footer>
             </>
           )}
         </main>
       </div>
-      <PropertyCsvImport
-        api={api}
-        open={csvImportOpen}
-        onClose={() => setCsvImportOpen(false)}
-        onImported={reload}
-      />
-      <PortfolioReportDialog
-        properties={ownProperties}
-        open={reportOpen}
-        onClose={() => setReportOpen(false)}
-      />
+      {csvImportOpen && (
+        <PropertyCsvImport api={api} onClose={() => setCsvImportOpen(false)} onImported={reload} />
+      )}
+      {reportOpen && (
+        <PortfolioReportDialog properties={ownProperties} onClose={() => setReportOpen(false)} />
+      )}
       {editor && (
         <PropertyEditor
           property={editor === 'new' ? undefined : editor}

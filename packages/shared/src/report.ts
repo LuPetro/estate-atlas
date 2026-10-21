@@ -1,26 +1,40 @@
 import type { Property } from './index';
-import { formatMoney, propertyTypeLabels } from './index';
+import { propertyTypeLabels } from './index';
 import { rentalSummary } from './rental';
 
-const ascii = (value: string) =>
+const printable = (value: string) =>
   value
-    .replace(/[ä]/g, 'ae')
-    .replace(/[ö]/g, 'oe')
-    .replace(/[ü]/g, 'ue')
-    .replace(/[Ä]/g, 'Ae')
-    .replace(/[Ö]/g, 'Oe')
-    .replace(/[Ü]/g, 'Ue')
-    .replace(/ß/g, 'ss')
-    .replace(/€/g, ' EUR')
-    .replace(/²/g, '2')
+    .normalize('NFC')
+    .replace(/[\u00a0\u202f]/g, ' ')
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/€/g, 'EUR')
     .replace(/[–—]/g, '-')
-    .replace(/[^\x20-\x7e]/g, '');
+    .replace(/[^\x20-\xff]/gu, '?');
 
 const pdfString = (value: string) =>
-  ascii(value).replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)');
+  printable(value)
+    .replaceAll('\\', '\\\\')
+    .replaceAll('(', '\\(')
+    .replaceAll(')', '\\)')
+    .replace(
+      /[\x80-\xff]/g,
+      (character) => `\\${character.charCodeAt(0).toString(8).padStart(3, '0')}`,
+    );
+
+const money = (value: number, currency: Property['currency']) =>
+  new Intl.NumberFormat('de-AT', {
+    style: 'currency',
+    currency,
+    currencyDisplay: 'code',
+    maximumFractionDigits: currency === 'JPY' ? 0 : 2,
+  }).format(value);
 
 function wrap(value: string, width: number) {
-  const words = ascii(value).split(/\s+/).filter(Boolean);
+  const words = printable(value)
+    .split(/\s+/)
+    .filter(Boolean)
+    .flatMap((word) => word.match(new RegExp(`.{1,${width}}`, 'gu')) ?? []);
   const lines: string[] = [];
   let line = '';
   for (const word of words) {
@@ -38,28 +52,61 @@ export function portfolioReportPdf(
   properties: Property[],
   options: { includeAddresses?: boolean; createdAt?: Date } = {},
 ) {
-  const lines = [
-    'ESTATEATLAS · IMMOBILIENPORTFOLIO',
-    `Erstellt am ${new Intl.DateTimeFormat('de-AT').format(options.createdAt ?? new Date())}`,
-    '',
-    'Alle Werte stammen aus deinen eigenen Eintraegen und wurden nicht extern bewertet.',
-    '',
+  const blocks: string[][] = [
+    [
+      'ESTATEATLAS · IMMOBILIENPORTFOLIO',
+      `Erstellt am ${new Intl.DateTimeFormat('de-AT').format(options.createdAt ?? new Date())}`,
+      '',
+      'Marktwerte und Kaufpreise nach eigenen Angaben.',
+      '',
+    ],
   ];
-  if (!properties.length) lines.push('Keine Immobilien ausgewaehlt.');
+  if (!properties.length) blocks.push(['Keine Immobilien ausgewählt.']);
   for (const property of properties) {
+    const lines: string[] = [];
     lines.push(...wrap(property.title, 78));
     if (property.isTestData)
       lines.push('TESTDATEN - synthetisches Beispiel, keine reale Immobilie');
-    lines.push(`${propertyTypeLabels[property.type]} · ${property.country} · ${property.area} m2`);
-    lines.push(`Eigener Marktwert: ${formatMoney(property.marketValue, property.currency)}`);
-    lines.push(`Kaufpreis: ${formatMoney(property.purchasePrice, property.currency)}`);
+    lines.push(
+      `${propertyTypeLabels[property.type]} · ${property.country} · ${property.area} m²${property.archivedAt ? ' · Archiviert' : ''}`,
+    );
+    lines.push(`Eigener Marktwert: ${money(property.marketValue, property.currency)}`);
+    lines.push(`Kaufpreis: ${money(property.purchasePrice, property.currency)}`);
     const rental = rentalSummary(property.rental);
     lines.push(`Vermietung: ${rental.label}${rental.period ? ` · ${rental.period}` : ''}`);
     if (options.includeAddresses) lines.push(...wrap(`Adresse: ${property.address}`, 78));
     lines.push('');
+    blocks.push(lines);
   }
+  const currencies = [...new Set(properties.map((property) => property.currency))];
+  if (properties.length)
+    blocks.push([
+      'Summen der Auswahl nach Währung',
+      ...currencies.flatMap((currency) => {
+        const group = properties.filter((property) => property.currency === currency);
+        return [
+          `${currency} · ${group.length} ${group.length === 1 ? 'Immobilie' : 'Immobilien'}`,
+          `Marktwert: ${money(
+            group.reduce((sum, property) => sum + property.marketValue, 0),
+            currency,
+          )}`,
+          `Kaufpreis: ${money(
+            group.reduce((sum, property) => sum + property.purchasePrice, 0),
+            currency,
+          )}`,
+        ];
+      }),
+    ]);
   const pages: string[][] = [];
-  for (let index = 0; index < lines.length; index += 42) pages.push(lines.slice(index, index + 42));
+  let page: string[] = [];
+  for (const block of blocks) {
+    if (page.length && page.length + block.length > 42) {
+      pages.push(page);
+      page = [];
+    }
+    page.push(...block);
+  }
+  if (page.length) pages.push(page);
   const objects: string[] = [''];
   objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';
   const pageIds = pages.map((_, index) => 4 + index * 2);
@@ -75,6 +122,13 @@ export function portfolioReportPdf(
       commands.push(`(${pdfString(line)}) Tj`, 'T*');
     });
     commands.push('ET');
+    commands.push(
+      'BT',
+      '/F1 8 Tf',
+      '50 35 Td',
+      `(${pdfString(`EstateAtlas · ${index + 1} / ${pages.length}`)}) Tj`,
+      'ET',
+    );
     const stream = commands.join('\n');
     objects[pageId] =
       `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentId} 0 R >>`;

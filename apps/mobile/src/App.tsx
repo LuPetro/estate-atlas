@@ -576,6 +576,8 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
   };
   const root = navigation.getParent();
   const importSpreadsheet = async () => {
+    if (busy) return;
+    setBusy(true);
     try {
       const selection = await DocumentPicker.getDocumentAsync({
         type: [
@@ -600,7 +602,7 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
         );
       const file = new File(asset.uri);
       const parsed = isExcel
-        ? parsePropertyExcel(await file.arrayBuffer())
+        ? await parsePropertyExcel(await file.arrayBuffer())
         : parsePropertyCsv(await file.text());
       const valid = parsed.records.flatMap((row) => (row.input ? [row.input] : []));
       const invalid = parsed.records.filter((row) => !row.input);
@@ -642,6 +644,8 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
       );
     } catch (e) {
       Alert.alert('Tabellen-Import fehlgeschlagen', message(e));
+    } finally {
+      setBusy(false);
     }
   };
   const shareCsvTemplate = async () => {
@@ -664,7 +668,7 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
     }
   };
   const shareReport = async () => {
-    if (!ownProperties.length) return;
+    if (!activeOwnProperties.length) return;
     try {
       if (!(await Sharing.isAvailableAsync()))
         throw new Error('Dateifreigabe ist auf diesem Gerät nicht verfügbar.');
@@ -814,6 +818,18 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
               </View>
             )}
             <Button onPress={() => root?.navigate('Editor')}>+ Immobilie hinzufügen</Button>
+            <View style={ui.row}>
+              <Button secondary disabled={busy} onPress={() => void importSpreadsheet()}>
+                CSV / Excel importieren
+              </Button>
+              <Pressable
+                accessibilityRole="button"
+                disabled={busy}
+                onPress={() => void shareCsvTemplate()}
+              >
+                <Text style={styles.link}>CSV-Vorlage</Text>
+              </Pressable>
+            </View>
             <View style={styles.research}>
               <Text style={styles.cardTitle}>Portfolio als PDF teilen</Text>
               <Text style={styles.subtitle}>

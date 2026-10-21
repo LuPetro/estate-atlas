@@ -1,8 +1,9 @@
 'use client';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Bell, Check, Plus, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { Check, Plus, Trash2 } from 'lucide-react';
 import type { ApiClient } from '@estate-atlas/api-client';
 import type { PortfolioReminder, Property } from '@estate-atlas/shared';
+import { localDateKey } from '@estate-atlas/shared';
 
 const localDate = (value: string) =>
   new Date(`${value}T00:00:00Z`).toLocaleDateString('de-AT', { timeZone: 'UTC' });
@@ -30,13 +31,27 @@ export default function PortfolioReminders({
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const live = useRef(false);
+  const canEdit = (reminder: PortfolioReminder) =>
+    properties.some(
+      (property) => property.id === reminder.propertyId && property.access !== 'viewer',
+    );
   const reload = useCallback(async () => {
     const result = await api.reminders();
+    if (!live.current) return;
     setReminders(result);
     onCountChange(result.filter((reminder) => !reminder.completedAt).length);
+    setLoaded(true);
   }, [api, onCountChange]);
   useEffect(() => {
-    void reload().catch((e) => setError(e.message));
+    live.current = true;
+    void reload().catch((e) => {
+      if (live.current) setError(e.message);
+    });
+    return () => {
+      live.current = false;
+    };
   }, [reload]);
   useEffect(() => {
     if (!editable.some((property) => property.id === propertyId))
@@ -72,6 +87,7 @@ export default function PortfolioReminders({
     }
   };
   const remove = async (reminder: PortfolioReminder) => {
+    if (!window.confirm(`Wiedervorlage „${reminder.title}“ endgültig löschen?`)) return;
     setBusy(true);
     setError('');
     try {
@@ -83,7 +99,7 @@ export default function PortfolioReminders({
       setBusy(false);
     }
   };
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateKey();
   const open = reminders.filter((reminder) => !reminder.completedAt);
   const completed = reminders.filter((reminder) => reminder.completedAt);
   return (
@@ -92,16 +108,15 @@ export default function PortfolioReminders({
         <div>
           <p className="eyebrow">DEIN PORTFOLIO</p>
           <h1>Wiedervorlagen</h1>
-          <p>Behalte wichtige Termine je Immobilie im Blick.</p>
+          <p>Termine und Aufgaben zu deinen Immobilien. Fälliges zuerst.</p>
         </div>
-        <Bell size={30} />
       </div>
       {error && (
         <p className="error banner" role="alert">
           {error}
         </p>
       )}
-      {!editable.length ? (
+      {!properties.length && (
         <div className="empty-state">
           <h2>Erst eine Immobilie anlegen</h2>
           <p>Wiedervorlagen werden einer Immobilie zugeordnet.</p>
@@ -109,7 +124,8 @@ export default function PortfolioReminders({
             Immobilie hinzufügen
           </button>
         </div>
-      ) : (
+      )}
+      {!!properties.length && (
         <div className="reminders-layout">
           <section className="reminder-list">
             <div className="section-heading">
@@ -117,7 +133,14 @@ export default function PortfolioReminders({
                 Offen <span className="counter">{open.length}</span>
               </h2>
             </div>
-            {!open.length && <p className="reminder-empty">Noch keine offenen Wiedervorlagen.</p>}
+            {!loaded && !error && (
+              <p className="reminder-empty" role="status">
+                Wiedervorlagen werden geladen …
+              </p>
+            )}
+            {loaded && !open.length && (
+              <p className="reminder-empty">Keine offenen Wiedervorlagen.</p>
+            )}
             {open.map((reminder) => (
               <article
                 className={`reminder-row ${reminder.dueDate < today ? 'overdue' : ''}`}
@@ -125,7 +148,9 @@ export default function PortfolioReminders({
               >
                 <button
                   className="reminder-check"
-                  disabled={busy}
+                  disabled={busy || !canEdit(reminder)}
+                  role="checkbox"
+                  aria-checked={false}
                   aria-label={`${reminder.title} erledigt markieren`}
                   onClick={() => void update(reminder, true)}
                 >
@@ -134,18 +159,27 @@ export default function PortfolioReminders({
                 <button className="reminder-copy" onClick={() => onSelect(reminder.propertyId)}>
                   <strong>{reminder.title}</strong>
                   <span>
-                    {reminder.propertyTitle} · {localDate(reminder.dueDate)}
+                    {reminder.propertyTitle} ·{' '}
+                    <time dateTime={reminder.dueDate}>{localDate(reminder.dueDate)}</time>
+                    {reminder.dueDate < today
+                      ? ' · Überfällig'
+                      : reminder.dueDate === today
+                        ? ' · Heute'
+                        : ''}
+                    {!canEdit(reminder) && ' · Nur lesen'}
                   </span>
                   {reminder.notes && <small>{reminder.notes}</small>}
                 </button>
-                <button
-                  className="icon-button"
-                  disabled={busy}
-                  aria-label={`${reminder.title} löschen`}
-                  onClick={() => void remove(reminder)}
-                >
-                  <Trash2 size={16} />
-                </button>
+                {canEdit(reminder) && (
+                  <button
+                    className="icon-button"
+                    disabled={busy}
+                    aria-label={`${reminder.title} löschen`}
+                    onClick={() => void remove(reminder)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </article>
             ))}
             {!!completed.length && (
@@ -155,7 +189,9 @@ export default function PortfolioReminders({
                   <article className="reminder-row completed" key={reminder.id}>
                     <button
                       className="reminder-check checked"
-                      disabled={busy}
+                      disabled={busy || !canEdit(reminder)}
+                      role="checkbox"
+                      aria-checked={true}
                       aria-label={`${reminder.title} wieder öffnen`}
                       onClick={() => void update(reminder, false)}
                     >
@@ -167,70 +203,82 @@ export default function PortfolioReminders({
                         {reminder.propertyTitle} · {localDate(reminder.dueDate)}
                       </span>
                     </button>
-                    <button
-                      className="icon-button"
-                      disabled={busy}
-                      aria-label={`${reminder.title} löschen`}
-                      onClick={() => void remove(reminder)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {canEdit(reminder) && (
+                      <button
+                        className="icon-button"
+                        disabled={busy}
+                        aria-label={`${reminder.title} löschen`}
+                        onClick={() => void remove(reminder)}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </article>
                 ))}
               </details>
             )}
           </section>
-          <form className="reminder-form" onSubmit={(event) => void submit(event)}>
-            <h2>
-              <Plus size={18} /> Wiedervorlage hinzufügen
-            </h2>
-            <label>
-              Immobilie
-              <select
-                value={propertyId}
-                onChange={(event) => setPropertyId(event.target.value)}
-                required
-              >
-                {editable.map((property) => (
-                  <option value={property.id} key={property.id}>
-                    {property.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Was möchtest du im Blick behalten?
-              <input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                minLength={2}
-                maxLength={120}
-                required
-                placeholder="z. B. Versicherung prüfen"
-              />
-            </label>
-            <label>
-              Fällig am
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(event) => setDueDate(event.target.value)}
-                required
-              />
-            </label>
-            <label>
-              Notiz (optional)
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                maxLength={1000}
-                rows={3}
-              />
-            </label>
-            <button className="button primary" disabled={busy || !propertyId}>
-              <Plus size={16} /> Speichern
-            </button>
-          </form>
+          {editable.length ? (
+            <form className="reminder-form" onSubmit={(event) => void submit(event)}>
+              <h2>
+                <Plus size={18} /> Wiedervorlage hinzufügen
+              </h2>
+              <label>
+                Immobilie
+                <select
+                  value={propertyId}
+                  onChange={(event) => setPropertyId(event.target.value)}
+                  required
+                >
+                  {editable.map((property) => (
+                    <option value={property.id} key={property.id}>
+                      {property.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Was möchtest du im Blick behalten?
+                <input
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  minLength={2}
+                  maxLength={120}
+                  required
+                  placeholder="z. B. Versicherung prüfen"
+                />
+              </label>
+              <label>
+                Fällig am
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(event) => setDueDate(event.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                Notiz (optional)
+                <textarea
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  maxLength={1000}
+                  rows={3}
+                />
+              </label>
+              <button className="button primary" disabled={busy || !propertyId}>
+                <Plus size={16} /> Speichern
+              </button>
+            </form>
+          ) : (
+            <aside className="reminder-form">
+              <h2>Wiedervorlagen ansehen</h2>
+              <p className="muted">
+                Für neue Einträge brauchst du eine eigene Immobilie oder Bearbeitungsrechte für ein
+                geteiltes Objekt.
+              </p>
+            </aside>
+          )}
         </div>
       )}
     </div>

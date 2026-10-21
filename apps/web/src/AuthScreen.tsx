@@ -4,7 +4,6 @@ import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react';
 import {
   ArrowRight,
   ArrowUpRight,
-  Compass,
   Eye,
   EyeOff,
   KeyRound,
@@ -14,6 +13,7 @@ import {
 import { ApiClient } from '@estate-atlas/api-client';
 import type { User } from '@estate-atlas/shared';
 import AccountActions from './AccountActions';
+import Brand from './Brand';
 import styles from './AuthScreen.module.css';
 
 const api = new ApiClient(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000');
@@ -171,14 +171,7 @@ export default function AuthScreen({
   return (
     <div className={styles.shell} data-auth-screen>
       <header className={styles.header}>
-        <a href="/portfolio" className={styles.brand} aria-label="EstateAtlas Portfolio">
-          <span className={styles.brandMark}>
-            <Compass size={23} strokeWidth={1.5} />
-          </span>
-          <span>
-            EstateAtlas<span className={styles.brandPeriod}>.</span>
-          </span>
-        </a>
+        <Brand className={styles.brand} />
         <a href="/support" className={styles.helpLink}>
           Hilfe <ArrowUpRight size={14} />
         </a>

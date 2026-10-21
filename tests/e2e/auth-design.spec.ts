@@ -3,8 +3,13 @@ import { expect, test } from '@playwright/test';
 test('login and registration remain usable with the keyboard and password visibility control', async ({
   page,
 }) => {
-  await page.goto('/portfolio');
+  await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Schön, dass du da bist.' })).toBeVisible();
+  await expect(page.locator('[data-auth-art]')).toHaveCount(1);
+  if (!test.info().project.name.includes('mobile')) {
+    await expect(page.locator('[data-auth-art]')).toBeVisible();
+  }
+  await expect(page.locator('.brand .lucide-compass')).toBeVisible();
   await page.screenshot({
     path: `work/auth-login-${test.info().project.name}.png`,
     fullPage: true,
@@ -70,7 +75,7 @@ test('login and registration remain usable with the keyboard and password visibi
 test('auth screens fit a small viewport and respect reduced motion', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/portfolio');
+  await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Schön, dass du da bist.' })).toBeVisible();
 
   const checkLayoutAndMotion = async () => {

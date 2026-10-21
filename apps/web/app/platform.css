@@ -1626,58 +1626,54 @@ tbody tr:hover {
 }
 .page-heading-actions {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 9px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
   flex-shrink: 0;
 }
-.page-heading-actions .button {
+.page-heading-actions .button,
+.portfolio-tools .text-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  white-space: nowrap;
 }
-.quick-start {
-  overflow: hidden;
-  margin: 0 0 28px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--surface);
-  box-shadow: var(--shadow-soft);
-}
-.quick-start-intro {
+.portfolio-tools {
   display: flex;
-  align-items: flex-start;
-  gap: 17px;
-  padding: 29px 31px 24px;
-  background: linear-gradient(120deg, #f2eee5, #fffefa 72%);
+  flex-wrap: wrap;
+  gap: 16px;
 }
-.quick-start-icon {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  flex: 0 0 42px;
-  border-radius: 13px;
-  background: var(--accent-soft);
+.portfolio-tools .text-button {
+  padding: 4px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.portfolio-tools .text-button:hover {
   color: var(--accent);
 }
-.quick-start-intro .eyebrow {
-  margin: 2px 0 9px;
+.portfolio-tools .text-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.quick-start {
+  margin: 0 0 28px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.quick-start-intro {
+  padding: 26px 28px 22px;
 }
 .quick-start-intro h2 {
-  margin: 0 0 7px;
-  font:
-    italic 26px/1.3 Georgia,
-    'Times New Roman',
-    serif;
-  letter-spacing: -0.5px;
+  margin: 0 0 9px;
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.6px;
 }
-.quick-start-intro p:last-child {
+.quick-start-intro p {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.7;
 }
 .quick-start-steps {
@@ -1689,51 +1685,30 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  min-height: 165px;
-  padding: 22px 25px;
+  padding: 23px 28px;
   border-right: 1px solid var(--line);
 }
 .quick-start-steps article:last-child {
   border-right: 0;
 }
-.quick-start-steps article > span {
-  color: #9b775f;
-  font-size: 10px;
-  letter-spacing: 1.2px;
-}
 .quick-start-steps article > div {
-  margin: 12px 0 auto;
+  margin-bottom: auto;
 }
 .quick-start-steps strong {
-  font-size: 12px;
+  font-size: 13px;
 }
 .quick-start-steps p {
-  margin: 6px 0 14px;
+  margin: 8px 0 15px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .quick-start-steps .text-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 0;
-}
-.quick-start-note {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 14px 25px;
-  border-top: 1px solid var(--line);
-  background: #faf9f4;
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.6;
-}
-.quick-start-note svg {
-  flex: 0 0 auto;
-  color: var(--accent);
+  min-height: 36px;
+  padding: 0;
 }
 .reminders-page {
   margin-top: 8px;
@@ -1753,9 +1728,8 @@ tbody tr:hover {
 .reminder-list,
 .reminder-form {
   border: 1px solid var(--line);
-  border-radius: 15px;
+  border-radius: 10px;
   background: var(--surface);
-  box-shadow: var(--shadow-soft);
 }
 .reminder-list {
   padding: 21px;
@@ -1780,14 +1754,25 @@ tbody tr:hover {
 .reminder-check {
   display: grid;
   place-items: center;
-  width: 31px;
-  height: 31px;
-  flex: 0 0 31px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
   border: 1px solid #d5d2c6;
   border-radius: 50%;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
+}
+.reminder-check:not(.checked) svg {
+  opacity: 0;
+}
+.reminder-check:not(:disabled):hover svg,
+.reminder-check:focus-visible svg {
+  opacity: 1;
+}
+.reminder-check:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 .reminder-check.checked {
   border-color: var(--accent);
@@ -1808,12 +1793,12 @@ tbody tr:hover {
 }
 .reminder-copy strong {
   overflow-wrap: anywhere;
-  font-size: 12px;
+  font-size: 14px;
 }
 .reminder-copy > span,
 .reminder-copy small {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.5;
 }
 .reminder-row .icon-button {
@@ -1850,7 +1835,7 @@ tbody tr:hover {
   display: grid;
   gap: 7px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .reminder-form input,
 .reminder-form select,
@@ -1879,6 +1864,7 @@ tbody tr:hover {
   max-height: min(90dvh, 900px);
   overflow-y: auto;
 }
+.csv-import > .import-format,
 .csv-import > p,
 .csv-import > .button,
 .csv-import > .csv-file,
@@ -1887,6 +1873,25 @@ tbody tr:hover {
 .csv-import > .csv-preview,
 .csv-import > .csv-privacy {
   margin: 18px 30px 0;
+}
+.csv-import {
+  padding-bottom: 26px;
+}
+.import-format {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.import-format summary {
+  cursor: pointer;
+  color: var(--ink);
+}
+.import-format p {
+  margin: 10px 0 0;
+}
+.csv-file input {
+  max-width: 100%;
+  font: inherit;
 }
 .csv-import > p {
   color: var(--muted);
@@ -1944,8 +1949,9 @@ tbody tr:hover {
   border: 1px solid var(--line);
   border-radius: 10px;
 }
-.report-property {
+.report-list .report-property {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 12px;
   min-height: 59px;
@@ -2097,7 +2103,16 @@ tbody tr:hover {
     background: #f5f3edf5;
   }
   .topbar-right {
+    display: flex;
+    gap: 0;
+  }
+  .topbar-right .privacy {
     display: none;
+  }
+  .topbar-right .profile-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 11px;
   }
   .breadcrumb strong {
     font-size: 12px;
@@ -2142,7 +2157,7 @@ tbody tr:hover {
     margin-bottom: 26px;
   }
   .page-heading-actions {
-    justify-content: flex-start;
+    align-items: flex-start;
     margin-top: 18px;
     gap: 7px;
   }
@@ -2313,10 +2328,6 @@ tbody tr:hover {
   .quick-start-steps article > div {
     margin: 8px 0 10px;
   }
-  .quick-start-note {
-    align-items: flex-start;
-    padding: 13px 18px;
-  }
   .reminders-layout {
     grid-template-columns: 1fr;
   }
@@ -2324,6 +2335,7 @@ tbody tr:hover {
   .reminder-form {
     padding: 17px;
   }
+  .csv-import > .import-format,
   .csv-import > p,
   .csv-import > .button,
   .csv-import > .csv-file,
