@@ -568,7 +568,7 @@ export default function Dashboard() {
                     </span>
                     <div>
                       <p className="eyebrow">DEIN ERSTER SCHRITT</p>
-                      <h2 id="quick-start-title">Dein Portfolio beginnt mit einer Immobilie.</h2>
+                      <h2 id="quick-start-title">Dein Portfolio beginnt hier.</h2>
                       <p>Trage deinen Bestand ein oder übernimm eine vorbereitete Liste.</p>
                     </div>
                   </div>
@@ -604,7 +604,7 @@ export default function Dashboard() {
                         disabled={busy}
                         onClick={() => act(() => api.seed())}
                       >
-                        Beispiele laden <ArrowRight size={15} />
+                        Testdaten laden <ArrowRight size={15} />
                       </button>
                     </article>
                   </div>
@@ -758,9 +758,9 @@ export default function Dashboard() {
                   </p>
                 </details>
               )}
-              {section === 'dashboard' && ownProperties.length > 0 && (
+              {section === 'dashboard' && (ownProperties.length > 0 || widgets.map) && (
                 <>
-                  {widgets.metrics && (
+                  {widgets.metrics && ownProperties.length > 0 && (
                     <div className="stat-grid">
                       <article className="stat-card value-card">
                         <div className="stat-label">
@@ -836,7 +836,7 @@ export default function Dashboard() {
                         </div>
                       </section>
                     )}
-                    {widgets.insights && (
+                    {widgets.insights && ownProperties.length > 0 && (
                       <section className="panel insights">
                         <div className="panel-heading">
                           <div>
