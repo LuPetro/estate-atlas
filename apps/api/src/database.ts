@@ -20,6 +20,7 @@ export async function migrate(pool: pg.Pool) {
       '004_property_workspace',
       '005_accounts',
       '006_open_registration',
+      '007_property_reminders',
     ]) {
       const previous = await client.query('SELECT 1 FROM schema_migrations WHERE version=$1', [
         version,

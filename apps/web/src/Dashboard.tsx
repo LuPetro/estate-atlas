@@ -35,6 +35,7 @@ import {
   Users,
   ClipboardCheck,
   Calculator,
+  Bell,
 } from 'lucide-react';
 import { ApiClient, ApiError } from '@estate-atlas/api-client';
 import {
@@ -69,6 +70,9 @@ import {
   AcceptInvitation,
   type WorkspaceTab,
 } from './WorkspacePanels';
+import PortfolioReminders from './PortfolioReminders';
+import PropertyCsvImport from './PropertyCsvImport';
+import PortfolioReportDialog from './PortfolioReportDialog';
 const PropertyMap = dynamic(() => import('./Map'), {
   ssr: false,
   loading: () => <div className="map-loading">Karte wird geladen …</div>,
@@ -83,12 +87,21 @@ type Section =
   | 'values'
   | 'distribution'
   | 'documents'
+  | 'reminders'
   | 'shared';
+
+function nameInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return parts[0]?.[0]?.toLocaleUpperCase('de-AT') ?? '?';
+  return `${parts[0][0]}${parts.at(-1)?.[0]}`.toLocaleUpperCase('de-AT');
+}
+
 export default function Dashboard() {
   const accountEpoch = useRef(0);
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [reminderCount, setReminderCount] = useState(0);
   const [section, setSection] = useState<Section>('dashboard');
   const [query, setQuery] = useState('');
   const [country, setCountry] = useState('');
@@ -117,6 +130,24 @@ export default function Dashboard() {
       setPreferences({ account: user.id, values: defaults });
     }
   }, [user?.id]);
+  useEffect(() => {
+    if (!user) {
+      setReminderCount(0);
+      return;
+    }
+    let live = true;
+    api
+      .reminders()
+      .then((reminders) => {
+        if (live) setReminderCount(reminders.filter((reminder) => !reminder.completedAt).length);
+      })
+      .catch(() => {
+        if (live) setReminderCount(0);
+      });
+    return () => {
+      live = false;
+    };
+  }, [user?.id]);
   const [view, setView] = useState<'grid' | 'list' | 'table'>('grid');
   const [currency, setCurrency] = useState<Currency>('EUR');
   const [editor, setEditor] = useState<Property | 'new' | null>(null);
@@ -124,7 +155,10 @@ export default function Dashboard() {
   const [detailDirty, setDetailDirty] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
+  const modalOpen = Boolean(editor || detail || csvImportOpen || reportOpen);
   useEffect(() => {
     if (!mobileNav) return;
     document.querySelector<HTMLButtonElement>('.nav-item.active')?.focus();
@@ -157,6 +191,9 @@ export default function Dashboard() {
     setStorageError('');
     setPreferences(null);
     setBusy(false);
+    setReminderCount(0);
+    setCsvImportOpen(false);
+    setReportOpen(false);
     setError('');
   };
   const reload = useCallback(async () => {
@@ -236,16 +273,33 @@ export default function Dashboard() {
     }
   };
   useEffect(() => {
-    if (!editor && !detail) return;
+    if (!modalOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    document
+      .querySelector<HTMLElement>('.modal')
+      ?.querySelector<HTMLElement>(
+        'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)',
+      )
+      ?.focus();
+    return () => previousFocus?.focus();
+  }, [modalOpen]);
+  useEffect(() => {
+    if (!editor && !detail && !csvImportOpen && !reportOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const previousFocus = document.activeElement as HTMLElement | null;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (detailDirty && !window.confirm('Ungespeicherte Änderungen verwerfen und schließen?'))
+        if (
+          detail &&
+          detailDirty &&
+          !window.confirm('Ungespeicherte Änderungen verwerfen und schließen?')
+        )
           return;
         setEditor(null);
         setDetail(null);
+        setDetailDirty(false);
+        setCsvImportOpen(false);
+        setReportOpen(false);
       }
       if (e.key === 'Tab') {
         const dialog = document.querySelector('.modal');
@@ -271,9 +325,8 @@ export default function Dashboard() {
     return () => {
       document.body.style.overflow = prev;
       document.removeEventListener('keydown', handler);
-      previousFocus?.focus();
     };
-  }, [editor, detail, detailDirty]);
+  }, [editor, detail, detailDirty, csvImportOpen, reportOpen]);
   if (!ready)
     return (
       <div className="splash">
@@ -305,6 +358,7 @@ export default function Dashboard() {
     { key: 'properties', label: 'Immobilien', icon: Building2 },
     { key: 'map', label: 'Weltkarte', icon: Map },
     { key: 'documents', label: 'Dokumente', icon: FolderOpen },
+    { key: 'reminders', label: 'Wiedervorlagen', icon: Bell },
     { key: 'shared', label: 'Geteilt mit mir', icon: Users },
     { key: 'archive', label: 'Archiv', icon: Archive },
     { key: 'account', label: 'Mein Konto', icon: ShieldCheck },
@@ -330,7 +384,7 @@ export default function Dashboard() {
       <aside
         id="workspace-navigation"
         className={`sidebar ${mobileNav ? 'open' : ''}`}
-        inert={Boolean(editor || detail)}
+        inert={modalOpen}
       >
         <Brand />
         <p className="sidebar-label">DEIN PORTFOLIO</p>
@@ -346,6 +400,9 @@ export default function Dashboard() {
               {n.label}
               {n.key === 'properties' && (
                 <span className="nav-count">{activeProperties.length}</span>
+              )}
+              {n.key === 'reminders' && reminderCount > 0 && (
+                <span className="nav-count">{reminderCount}</span>
               )}
             </button>
           ))}
@@ -367,7 +424,7 @@ export default function Dashboard() {
           </span>
         </div>
         <div className="sidebar-user">
-          <span className="avatar">{user.name.slice(0, 2).toUpperCase()}</span>
+          <span className="avatar">{nameInitials(user.name)}</span>
           <div>
             <strong>{user.name}</strong>
             <small>Privates Portfolio</small>
@@ -387,7 +444,7 @@ export default function Dashboard() {
           </button>
         </div>
       </aside>
-      <div className="main-shell" inert={Boolean(editor || detail)}>
+      <div className="main-shell" inert={modalOpen}>
         <header className="topbar">
           <div className="breadcrumb">
             <button
@@ -407,7 +464,15 @@ export default function Dashboard() {
             <span className="privacy">
               <ShieldCheck size={14} /> Privat & geschützt
             </span>
-            <span className="avatar small">{user.name.slice(0, 2).toUpperCase()}</span>
+            <button
+              type="button"
+              className="avatar small profile-avatar"
+              aria-label={`Profil von ${user.name} öffnen`}
+              title="Profil öffnen"
+              onClick={() => goto('account')}
+            >
+              {nameInitials(user.name)}
+            </button>
           </div>
         </header>
         <main>
@@ -423,46 +488,60 @@ export default function Dashboard() {
             />
           ) : (
             <>
-              <div className="page-heading">
-                <div>
-                  <p className="eyebrow">DEIN IMMOBILIENPORTFOLIO</p>
-                  <h1>
-                    {section === 'dashboard'
-                      ? 'Portfolioübersicht'
-                      : section === 'values'
-                        ? 'Wertentwicklung'
-                        : section === 'distribution'
-                          ? 'Portfolio-Verteilung'
-                          : section === 'documents'
-                            ? 'Dokumente'
-                            : section === 'shared'
-                              ? 'Geteilt mit mir'
-                              : section === 'map'
-                                ? 'Deine Immobilien auf der Karte'
+              {section !== 'reminders' && (
+                <div className="page-heading">
+                  <div>
+                    <p className="eyebrow">DEIN IMMOBILIENPORTFOLIO</p>
+                    <h1>
+                      {section === 'dashboard'
+                        ? 'Portfolioübersicht'
+                        : section === 'values'
+                          ? 'Wertentwicklung'
+                          : section === 'distribution'
+                            ? 'Portfolio-Verteilung'
+                            : section === 'documents'
+                              ? 'Dokumente'
+                              : section === 'shared'
+                                ? 'Geteilt mit mir'
+                                : section === 'map'
+                                  ? 'Deine Immobilien auf der Karte'
+                                  : section === 'archive'
+                                    ? 'Archiv'
+                                    : 'Deine Immobilien'}
+                    </h1>
+                    <p>
+                      {section === 'dashboard'
+                        ? 'Die wichtigsten Zahlen und Objekte deines eigenen Bestands.'
+                        : section === 'values'
+                          ? 'Gespeicherte Werte deiner Immobilien im direkten Vergleich.'
+                          : section === 'distribution'
+                            ? 'Erkenne, wie sich dein Bestand auf Länder, Objektarten und Vermietung verteilt.'
+                            : section === 'documents'
+                              ? 'Deine Unterlagen, passend zur Immobilie und jederzeit griffbereit.'
+                              : section === 'shared'
+                                ? 'Arbeite gemeinsam an freigegebenen Immobilien. Dein eigener Bestand bleibt getrennt.'
                                 : section === 'archive'
-                                  ? 'Archiv'
-                                  : 'Deine Immobilien'}
-                  </h1>
-                  <p>
-                    {section === 'dashboard'
-                      ? 'Die wichtigsten Zahlen und Objekte deines eigenen Bestands.'
-                      : section === 'values'
-                        ? 'Gespeicherte Werte deiner Immobilien im direkten Vergleich.'
-                        : section === 'distribution'
-                          ? 'Erkenne, wie sich dein Bestand auf Länder, Objektarten und Vermietung verteilt.'
-                          : section === 'documents'
-                            ? 'Deine Unterlagen, passend zur Immobilie und jederzeit griffbereit.'
-                            : section === 'shared'
-                              ? 'Arbeite gemeinsam an freigegebenen Immobilien. Dein eigener Bestand bleibt getrennt.'
-                              : section === 'archive'
-                                ? 'Archivierte Immobilien bleiben erhalten und zählen nicht zu den Gesamtwerten.'
-                                : 'Verwalte deine Immobilien mit einer klaren Perspektive.'}
-                  </p>
+                                  ? 'Archivierte Immobilien bleiben erhalten und zählen nicht zu den Gesamtwerten.'
+                                  : 'Verwalte deine Immobilien mit einer klaren Perspektive.'}
+                    </p>
+                  </div>
+                  <div className="page-heading-actions">
+                    <button className="button primary" onClick={() => setEditor('new')}>
+                      <Plus size={18} /> Immobilie hinzufügen
+                    </button>
+                    <button className="button secondary" onClick={() => setCsvImportOpen(true)}>
+                      <Upload size={16} /> CSV / Excel importieren
+                    </button>
+                    <button
+                      className="button secondary"
+                      disabled={!ownProperties.length}
+                      onClick={() => setReportOpen(true)}
+                    >
+                      <FileText size={16} /> PDF-Bericht
+                    </button>
+                  </div>
                 </div>
-                <button className="button primary" onClick={() => setEditor('new')}>
-                  <Plus size={18} /> Immobilie hinzufügen
-                </button>
-              </div>
+              )}
               {error && (
                 <div className="error banner" role="alert">
                   {error}
@@ -481,75 +560,143 @@ export default function Dashboard() {
                   sind gekennzeichnet. Keine recherchierten Bewertungen.
                 </div>
               )}
-              {section !== 'documents' && (
-                <div className="filters">
-                  <label className="search">
-                    <Search size={17} />
-                    <input
-                      aria-label="Immobilien suchen"
-                      placeholder="Immobilien oder Orte suchen …"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                    />
-                  </label>
-                  <select
-                    aria-label="Land filtern"
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                  >
-                    <option value="">Alle Länder</option>
-                    {[...new Set(properties.map((p) => p.country))].sort().map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="Immobilienart filtern"
-                    value={type}
-                    onChange={(e) => setType(e.target.value)}
-                  >
-                    <option value="">Alle Immobilienarten</option>
-                    {propertyTypes.map((t) => (
-                      <option key={t} value={t}>
-                        {propertyTypeLabels[t]}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="Währung filtern"
-                    value={filterCurrency}
-                    onChange={(e) => setFilterCurrency(e.target.value)}
-                  >
-                    <option value="">Alle Währungen</option>
-                    {[...new Set(properties.map((p) => p.currency))].sort().map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="Vermietung filtern"
-                    value={rental}
-                    onChange={(e) => setRental(e.target.value)}
-                  >
-                    <option value="">Alle Vermietungsangaben</option>
-                    <option value="rented">Mietvertrag hinterlegt</option>
-                    <option value="vacant">Nicht vermietet</option>
-                    <option value="unknown">Nicht angegeben</option>
-                  </select>
-                  <button
-                    className="text-button"
-                    onClick={() => {
-                      setQuery('');
-                      setCountry('');
-                      setType('');
-                      setRental('');
-                      setFilterCurrency('');
-                    }}
-                  >
-                    Filter zurücksetzen
-                  </button>
-                  <button className="text-button" disabled={busy} onClick={() => act(reload)}>
-                    <RotateCcw size={15} /> Aktualisieren
-                  </button>
-                </div>
+              {section === 'dashboard' && ownProperties.length === 0 && (
+                <section className="quick-start" aria-labelledby="quick-start-title">
+                  <div className="quick-start-intro">
+                    <span className="quick-start-icon">
+                      <Sparkles size={21} />
+                    </span>
+                    <div>
+                      <p className="eyebrow">DEIN ERSTER SCHRITT</p>
+                      <h2 id="quick-start-title">Dein Portfolio beginnt mit einer Immobilie.</h2>
+                      <p>Trage deinen Bestand ein oder übernimm eine vorbereitete Liste.</p>
+                    </div>
+                  </div>
+                  <div className="quick-start-steps">
+                    <article>
+                      <span>01</span>
+                      <div>
+                        <strong>Einzeln eintragen</strong>
+                        <p>Adresse, Fläche und deine eigenen Werte hinzufügen.</p>
+                      </div>
+                      <button className="text-button" onClick={() => setEditor('new')}>
+                        Immobilie anlegen <ArrowRight size={15} />
+                      </button>
+                    </article>
+                    <article>
+                      <span>02</span>
+                      <div>
+                        <strong>Liste importieren</strong>
+                        <p>Bis zu 50 Objekte aus einer CSV- oder Excel-Datei übernehmen.</p>
+                      </div>
+                      <button className="text-button" onClick={() => setCsvImportOpen(true)}>
+                        CSV / Excel importieren <ArrowRight size={15} />
+                      </button>
+                    </article>
+                    <article>
+                      <span>03</span>
+                      <div>
+                        <strong>EstateAtlas ansehen</strong>
+                        <p>Mit klar markierten Beispieldaten starten.</p>
+                      </div>
+                      <button
+                        className="text-button"
+                        disabled={busy}
+                        onClick={() => act(() => api.seed())}
+                      >
+                        Beispiele laden <ArrowRight size={15} />
+                      </button>
+                    </article>
+                  </div>
+                  <p className="quick-start-note">
+                    <ShieldCheck size={15} /> Dateien werden auf deinem Gerät gelesen. Adressen
+                    werden nicht an einen Geocoder gesendet. Koordinaten müssen in der Datei stehen.
+                  </p>
+                </section>
+              )}
+              {section !== 'documents' &&
+                section !== 'reminders' &&
+                !(section === 'dashboard' && ownProperties.length === 0) && (
+                  <div className="filters">
+                    <label className="search">
+                      <Search size={17} />
+                      <input
+                        aria-label="Immobilien suchen"
+                        placeholder="Immobilien oder Orte suchen …"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                      />
+                    </label>
+                    <select
+                      aria-label="Land filtern"
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                    >
+                      <option value="">Alle Länder</option>
+                      {[...new Set(properties.map((p) => p.country))].sort().map((c) => (
+                        <option key={c}>{c}</option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="Immobilienart filtern"
+                      value={type}
+                      onChange={(e) => setType(e.target.value)}
+                    >
+                      <option value="">Alle Immobilienarten</option>
+                      {propertyTypes.map((t) => (
+                        <option key={t} value={t}>
+                          {propertyTypeLabels[t]}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="Währung filtern"
+                      value={filterCurrency}
+                      onChange={(e) => setFilterCurrency(e.target.value)}
+                    >
+                      <option value="">Alle Währungen</option>
+                      {[...new Set(properties.map((p) => p.currency))].sort().map((c) => (
+                        <option key={c}>{c}</option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="Vermietung filtern"
+                      value={rental}
+                      onChange={(e) => setRental(e.target.value)}
+                    >
+                      <option value="">Alle Vermietungsangaben</option>
+                      <option value="rented">Mietvertrag hinterlegt</option>
+                      <option value="vacant">Nicht vermietet</option>
+                      <option value="unknown">Nicht angegeben</option>
+                    </select>
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        setQuery('');
+                        setCountry('');
+                        setType('');
+                        setRental('');
+                        setFilterCurrency('');
+                      }}
+                    >
+                      Filter zurücksetzen
+                    </button>
+                    <button className="text-button" disabled={busy} onClick={() => act(reload)}>
+                      <RotateCcw size={15} /> Aktualisieren
+                    </button>
+                  </div>
+                )}
+              {section === 'reminders' && (
+                <PortfolioReminders
+                  api={api}
+                  properties={properties}
+                  onSelect={(id) => {
+                    void select(id);
+                    setSection('dashboard');
+                  }}
+                  onAddProperty={() => setEditor('new')}
+                  onCountChange={setReminderCount}
+                />
               )}
               {section === 'distribution' && (
                 <PortfolioDistribution properties={filtered} onSelect={select} />
@@ -571,7 +718,7 @@ export default function Dashboard() {
                   onSelect={select}
                 />
               )}
-              {section === 'dashboard' && (
+              {section === 'dashboard' && ownProperties.length > 0 && (
                 <details className="dashboard-customize">
                   <summary>Dashboard anpassen</summary>
                   <div>
@@ -611,7 +758,7 @@ export default function Dashboard() {
                   </p>
                 </details>
               )}
-              {section === 'dashboard' && (
+              {section === 'dashboard' && ownProperties.length > 0 && (
                 <>
                   {widgets.metrics && (
                     <div className="stat-grid">
@@ -766,7 +913,8 @@ export default function Dashboard() {
                   </div>
                 </>
               )}
-              {!['values', 'distribution', 'documents'].includes(section) &&
+              {!['values', 'distribution', 'documents', 'reminders'].includes(section) &&
+                !(section === 'dashboard' && ownProperties.length === 0) &&
                 (section !== 'dashboard' || widgets.properties) && (
                   <section className={`property-section ${section === 'map' ? 'map-section' : ''}`}>
                     <div className="section-heading">
@@ -841,13 +989,21 @@ export default function Dashboard() {
                               <Plus size={16} /> Erste Immobilie hinzufügen
                             </button>
                             {!ownProperties.length && (
-                              <button
-                                className="button secondary"
-                                disabled={busy}
-                                onClick={() => act(() => api.seed())}
-                              >
-                                Testdaten laden
-                              </button>
+                              <>
+                                <button
+                                  className="button secondary"
+                                  onClick={() => setCsvImportOpen(true)}
+                                >
+                                  <Upload size={16} /> CSV / Excel importieren
+                                </button>
+                                <button
+                                  className="button secondary"
+                                  disabled={busy}
+                                  onClick={() => act(() => api.seed())}
+                                >
+                                  Testdaten laden
+                                </button>
+                              </>
                             )}
                           </div>
                         )}
@@ -951,6 +1107,17 @@ export default function Dashboard() {
           )}
         </main>
       </div>
+      <PropertyCsvImport
+        api={api}
+        open={csvImportOpen}
+        onClose={() => setCsvImportOpen(false)}
+        onImported={reload}
+      />
+      <PortfolioReportDialog
+        properties={ownProperties}
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+      />
       {editor && (
         <PropertyEditor
           property={editor === 'new' ? undefined : editor}

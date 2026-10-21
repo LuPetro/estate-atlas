@@ -8,12 +8,15 @@
   "exports": {
     ".": "./src/index.ts",
     "./map": "./src/map.ts",
-    "./analysis": "./src/analysis.ts"
+    "./analysis": "./src/analysis.ts",
+    "./csv": "./src/csv.ts",
+    "./report": "./src/report.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^4.1.0"
   }
 }

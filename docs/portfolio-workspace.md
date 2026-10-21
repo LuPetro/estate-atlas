@@ -18,6 +18,16 @@ Der Bereich „Verteilung“ gruppiert aktive eigene Immobilien nach Land, Immob
 
 Dokumente bleiben optional. Der zentrale Dokumentenbereich und der Dokumentenreiter einer Immobilie greifen auf dieselben privaten Anhänge zu. Unterstützt werden PDF, JPEG, PNG und WebP mit tatsächlicher Dateitypprüfung, höchstens 10 MB pro Datei und 30 Anhänge pro Immobilie. Dateien werden in PostgreSQL gespeichert und ausschließlich über authentifizierte API-Aufrufe geladen; es gibt keine öffentlichen Dateilinks. Eine Freigabe umfasst auch die Dokumente der jeweiligen Immobilie. Kein Upload startet automatisch eine KI-Verarbeitung.
 
+## Einstieg, Import, Wiedervorlagen und PDF-Bericht
+
+Ein leeres Portfolio zeigt in Web und nativer App drei klare nächste Schritte: eine Immobilie anlegen, eine CSV- oder Excel-Liste übernehmen oder synthetische Testdaten ansehen. Testdaten bleiben ausdrücklich gekennzeichnet.
+
+Der Tabellenimport unterstützt CSV-Dateien mit Komma oder Semikolon sowie Excel-Dateien (`.xlsx`, `.xls`, erstes Tabellenblatt), jeweils bis 50 Immobilien. Vor dem Speichern zeigt er gültige und fehlerhafte Zeilen. Deutsche und englische Überschriften werden erkannt. Erforderlich sind Bezeichnung, Adresse, ISO-2-Ländercode, Breitengrad, Längengrad, Objektart, Kaufpreis, Marktwert, Währung und Fläche. Preise verwenden die deutsche Dezimalschreibweise; Ausstattungsmerkmale lassen sich mit `|` trennen. CSV-Dateien sind auf 1 MB, Excel-Dateien auf 5 MB begrenzt. Fehlerhafte Zeilen werden ausgelassen. Gültige Zeilen werden samt Anfangswert in einer gemeinsamen Transaktion gespeichert, daher wird bei überschrittener Kontogrenze kein Teilimport angelegt. Dateien werden auf dem Gerät gelesen; Adressen werden nicht automatisch an Photon oder einen anderen Geocoder gesendet.
+
+Wiedervorlagen gehören zu einer Immobilie und sind für berechtigte Portfolio-Mitglieder sichtbar. Eigentümer und Bearbeiter können sie erstellen, erledigen, erneut öffnen oder löschen; Betrachter können sie lesen. Es gibt bis zu 50 offene Wiedervorlagen je Immobilie. Überfällige Termine werden in der Webansicht hervorgehoben. Die App plant derzeit keine E-Mail- oder Push-Nachrichten.
+
+Der PDF-Bericht lässt sich aus dem Browser herunterladen oder über die native Teilen-Funktion weitergeben. Er enthält ausgewählte eigene Immobilien, selbst gepflegte Werte und den Vermietungsstatus. Adressen sind standardmäßig ausgeschlossen und müssen aktiv eingeblendet werden. Werte verschiedener Währungen werden einzeln angezeigt und nicht zu einer Gesamtsumme addiert. Die PDF-Datei wird auf dem Gerät erstellt.
+
 ## Übergabe und Kaufcheck
 
 Ein Objektarbeitsbereich speichert bis zu zwölf Checklisten mit jeweils höchstens 80 Punkten, Datum, allgemeinen Notizen sowie einer Notiz und einem Erledigt-Status je Punkt. Vorlagen für Objektübergabe und Besichtigung erleichtern den Anfang. Die gemeinsame Validierung begrenzt die Größe der Inhalte. Checklisten sind Arbeitshilfen; das Speichern stellt keine rechtsgültige Unterschrift dar.

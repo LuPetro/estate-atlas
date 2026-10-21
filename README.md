@@ -11,6 +11,7 @@ Projekt auf diesem VPS: `/home/codexdev/projects/estate-atlas`.
 - Anlegen, Bearbeiten, Archivieren, Wiederherstellen und endgültiges Löschen.
 - Adresse, ISO-Land, GPS, Art, Kaufpreis, eigener Marktwert, Währung, Fläche, Baujahr, Zustand, Ausstattung und Notizen.
 - Filterbares Dashboard mit pro Konto auf dem Gerät gespeicherten, einzeln ausblendbaren Bereichen. Eigener Portfolio-Werte-Tab mit Objektverläufen, Zeitraum, Sortierung und Archivfilter; Summen je Währung. Keine erfundenen historischen Entwicklungen oder Wechselkurse.
+- Geführter Portfolio-Einstieg, CSV- und Excel-Import mit Vorschau (bis 50 Objekte) und klaren Datenprüfungen, Wiedervorlagen pro Immobilie und lokal erstellbarer PDF-Bericht. Excel liest das erste Tabellenblatt; Adressen werden nicht automatisch geokodiert. Berichte lassen Adressen standardmäßig weg.
 - Vermietungsstatus, Mietbeginn und Mietende oder unbefristeter Vertrag in Web und nativer App.
 - Web: responsive Übersicht, Kachel-, Listen- und Tabellenansicht, Suche und Filter, Leaflet-Weltkarte mit Clustering.
 - Native Apps: Stack- und Tab-Navigation, Übersicht, Liste, Details, Formular und native Weltkarte mit Clustering und Filtern.
@@ -138,7 +139,7 @@ Architekturentscheidungen: `docs/architecture.md`. Arbeitsregeln: `AGENTS.md`. K
 
 Portfolio-Werte und anpassbare Dashboard-Bereiche: [docs/portfolio-workspace.md](docs/portfolio-workspace.md).
 
-Die technische Vorbereitung für V1-Web ist in [docs/web-launch.md](docs/web-launch.md) beschrieben: Docker-HTTPS-Edge mit gemeinsamem `/api`, sichere PWA, Betrieb/Überwachung, Speichergrenzen und Produktionsprüfung. Vor öffentlichem Start fehlen Domain/DNS, reale SMTP-Zustellung, Betreibertexte, Admin-E-Mail/2FA und externe Sicherung/Überwachung. `./scripts/pnpm release:check` listet die tatsächlich fehlenden Einstellungen auf. Danach folgen native Geräte-/Storetests; Kosten/Cashflow und Erinnerungen bleiben Erweiterungen.
+Die technische Vorbereitung für V1-Web ist in [docs/web-launch.md](docs/web-launch.md) beschrieben: Docker-HTTPS-Edge mit gemeinsamem `/api`, sichere PWA, Betrieb/Überwachung, Speichergrenzen und Produktionsprüfung. Vor öffentlichem Start fehlen Domain/DNS, reale SMTP-Zustellung, Betreibertexte, Admin-E-Mail/2FA und externe Sicherung/Überwachung. `./scripts/pnpm release:check` listet die tatsächlich fehlenden Einstellungen auf. Danach folgen native Geräte-/Storetests; Kosten- und Cashflowplanung bleiben mögliche Erweiterungen.
 
 ## Konten und Verwaltung
 

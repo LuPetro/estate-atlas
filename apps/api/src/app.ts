@@ -16,6 +16,8 @@ import {
   sampleProperties,
   type User,
   type PropertyInput,
+  reminderInputSchema,
+  reminderStatusSchema,
 } from '@estate-atlas/shared';
 import { hashPassword, verifyPassword, newToken, tokenHash } from './auth';
 import { toProperty, toValuation, toAsset, toAnalysis } from './database';
@@ -44,6 +46,18 @@ class HttpError extends Error {
 }
 const idOf = (req: FastifyRequest) => z.uuid().parse((req.params as { id: string }).id);
 const missing = () => new HttpError(404, 'Eintrag nicht gefunden.');
+const paramId = (req: FastifyRequest, key: string) =>
+  z.uuid().parse((req.params as Record<string, string>)[key]);
+const toReminder = (row: Record<string, any>) => ({
+  id: row.id,
+  propertyId: row.property_id,
+  propertyTitle: row.property_title,
+  title: row.title,
+  dueDate: String(row.due_on).slice(0, 10),
+  notes: row.notes,
+  completedAt: row.completed_at ? new Date(row.completed_at).toISOString() : null,
+  createdAt: new Date(row.created_at).toISOString(),
+});
 export async function createApp(
   pool: pg.Pool,
   options: {
@@ -289,6 +303,18 @@ export async function createApp(
     );
     return rows.map(toAsset);
   });
+  app.get('/portfolio/reminders', { preHandler: requireUser }, async (req) => {
+    const { rows } = await pool.query(
+      `SELECT r.*,p.data->>'title' AS property_title
+       FROM property_reminders r JOIN properties p ON p.id=r.property_id
+       WHERE p.owner_id=$1 OR EXISTS(
+         SELECT 1 FROM property_members m WHERE m.property_id=p.id AND m.user_id=$1
+       )
+       ORDER BY (r.completed_at IS NOT NULL),r.due_on,r.created_at,r.id`,
+      [req.user!.id],
+    );
+    return rows.map(toReminder);
+  });
   registerWorkspaceRoutes(app, pool, requireUser);
   app.get('/portfolio/usage', { preHandler: requireUser }, async (req) => {
     const result = await pool.query(
@@ -339,6 +365,107 @@ export async function createApp(
       client.release();
     }
   });
+  app.post(
+    '/properties/import',
+    {
+      preHandler: requireUser,
+      bodyLimit: 512 * 1024,
+      config: { rateLimit: { max: 5, timeWindow: '15 minutes' } },
+    },
+    async (req, reply) => {
+      const inputs = z.array(propertyInputSchema).min(1).max(50).parse(req.body);
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const imported = [];
+        for (const input of inputs) imported.push(await insert(client, req.user!.id, input));
+        await client.query('COMMIT');
+        return reply.code(201).send(imported);
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+  );
+  app.post('/properties/:id/reminders', { preHandler: requireUser }, async (req, reply) => {
+    const propertyId = idOf(req);
+    const input = reminderInputSchema.parse(req.body);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await propertyFor(client, propertyId, req.user!.id, 'edit', true);
+      const count = await client.query(
+        'SELECT count(*)::int AS count FROM property_reminders WHERE property_id=$1 AND completed_at IS NULL',
+        [propertyId],
+      );
+      if (count.rows[0].count >= 50)
+        throw new HttpError(409, 'Maximal 50 offene Wiedervorlagen pro Immobilie.');
+      const { rows } = await client.query(
+        `INSERT INTO property_reminders(id,property_id,created_by,title,due_on,notes)
+         VALUES($1,$2,$3,$4,$5,$6)
+         RETURNING *, (SELECT data->>'title' FROM properties WHERE id=$2) AS property_title`,
+        [randomUUID(), propertyId, req.user!.id, input.title, input.dueDate, input.notes],
+      );
+      await client.query('COMMIT');
+      return reply.code(201).send(toReminder(rows[0]));
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  });
+  app.patch('/properties/:id/reminders/:reminderId', { preHandler: requireUser }, async (req) => {
+    const propertyId = idOf(req);
+    const reminderId = paramId(req, 'reminderId');
+    const { completed } = reminderStatusSchema.parse(req.body);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await propertyFor(client, propertyId, req.user!.id, 'edit', true);
+      const { rows } = await client.query(
+        `UPDATE property_reminders r SET completed_at=CASE WHEN $1 THEN COALESCE(r.completed_at,now()) ELSE NULL END
+         FROM properties p WHERE r.id=$2 AND r.property_id=$3 AND p.id=r.property_id
+         RETURNING r.*,p.data->>'title' AS property_title`,
+        [completed, reminderId, propertyId],
+      );
+      if (!rows[0]) throw missing();
+      await client.query('COMMIT');
+      return toReminder(rows[0]);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  });
+  app.delete(
+    '/properties/:id/reminders/:reminderId',
+    { preHandler: requireUser },
+    async (req, reply) => {
+      const propertyId = idOf(req);
+      const reminderId = paramId(req, 'reminderId');
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await propertyFor(client, propertyId, req.user!.id, 'edit', true);
+        const result = await client.query(
+          'DELETE FROM property_reminders WHERE id=$1 AND property_id=$2',
+          [reminderId, propertyId],
+        );
+        if (!result.rowCount) throw missing();
+        await client.query('COMMIT');
+        return reply.code(204).send();
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+  );
   app.post('/properties/test-data', { preHandler: requireUser }, async (req, reply) => {
     const client = await pool.connect();
     try {

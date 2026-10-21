@@ -22,6 +22,7 @@ export {
 export type { DashboardWidget } from './portfolio';
 export * from './workspace';
 export * from './accounts';
+export * from './reminders';
 export { portfolioDistribution } from './distribution';
 export type { DistributionGrouping, DistributionMetric } from './distribution';
 import { rentalSchema } from './rental';

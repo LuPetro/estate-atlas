@@ -4,7 +4,7 @@
 
 TypeScript / pnpm monorepo: Next.js App Router web, Expo React Native for native Android/iOS, Fastify REST API, real PostgreSQL. Shared Zod 4 validation, property models and currency-aware statistics; shared fetch client used in both apps. Native stack + bottom tabs and react-native-maps; Leaflet + marker clustering in web. No service worker, PWA manifest or mobile web substitute.
 
-A single PostgreSQL database holds users, hashed sessions, properties with owner/member roles, valuation history, private binary attachments, analysis jobs and quota reservations, versioned workspaces, and hashed invitation codes. SQL uses parameters and explicit owner/member predicates. Property mutation and history writes run transactionally. Docker Compose is the default runtime. PostgreSQL 18 uses a named volume, SCRAM and a separate non-superuser app role; secrets are file mounts. The original `.local/` host cluster is retained as the migration source and rollback option. Production can supply DATABASE_URL to a managed/self-hosted PostgreSQL without changing the apps.
+A single PostgreSQL database holds users, hashed sessions, properties with owner/member roles, valuation history, private binary attachments, analysis jobs and quota reservations, versioned workspaces, hashed invitation codes, and property reminders. SQL uses parameters and explicit owner/member predicates. Property mutation and history writes run transactionally. Docker Compose is the default runtime. PostgreSQL 18 uses a named volume, SCRAM and a separate non-superuser app role; secrets are file mounts. The original `.local/` host cluster is retained as the migration source and rollback option. Production can supply DATABASE_URL to a managed/self-hosted PostgreSQL without changing the apps.
 
 ## Identity and confidentiality
 
@@ -13,6 +13,12 @@ Scrypt password hashes (N=32768, r=8, p=3; [OWASP memory/CPU-balanced configurat
 ## Property and portfolio rules
 
 GPS comes from an explicitly selected address suggestion, map click/pin adjustment, or manual entry. Editing the address text invalidates old coordinates. Addresses, type, price, currency, area, year, amenities, condition, notes and archival state share one validated model. Prices are user-entered estimates, labeled accordingly. Dashboard totals and changes are grouped by currency, without invented exchange rates. Histories are dated snapshots of user input, never generated past appreciation. Archive preserves data; deletion cascades histories, attachments and jobs. Test fixtures are explicitly labeled and opt-in per authenticated account.
+
+The first-use dashboard gives users paths to add one property, import a list, or inspect clearly labeled sample data. CSV and Excel parsing happens on the device; Excel reads the first worksheet. A batch has at most 50 rows, CSV accepts comma/semicolon delimiters, German/English headers are recognized, and every property is validated with the shared schema. Country values must be ISO-2 and coordinates must be present; import never geocodes an address. Invalid rows appear in the preview and are skipped. Valid rows and their initial valuation snapshots are created in one transaction, so quota or database errors roll back the whole batch. A header-only CSV template contains no sample property or address.
+
+Property reminders are stored in `property_reminders`, scoped to an existing property and governed by the same owner/editor/viewer permissions. A property row lock serializes reminder writes against membership changes and enforces a limit of 50 open reminders per property. Reminders appear in the authenticated portfolio; no email or push notification is scheduled. Property deletion cascades its reminders.
+
+The shareable PDF report is generated locally by the web or native app. Addresses are omitted unless the user opts in. Each property's own market value and purchase price are shown separately; no cross-currency total or external valuation is inferred. PDF generation sends no report data to a third party.
 
 ## Rental status and recorded value history
 

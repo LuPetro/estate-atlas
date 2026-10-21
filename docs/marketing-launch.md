@@ -2,7 +2,7 @@
 
 ## Positionierung
 
-EstateAtlas hilft privaten Immobilieneigentümern, ihre Objekte, selbst gepflegten Wertnotizen, Mietzeiträume und Unterlagen in einem privaten Portfolio zu ordnen. Es ist kein Immobilienportal und verspricht keine automatische oder professionelle Bewertung.
+EstateAtlas hilft privaten Immobilieneigentümern, ihre Objekte, selbst gepflegten Wertnotizen, Mietzeiträume und Unterlagen in einem privaten Portfolio zu ordnen. Wer bisher eine Tabelle pflegt, kann bis zu 50 Objekte aus einer CSV- oder Excel-Liste übernehmen; einen ausgewählten Bestand kann man als PDF teilen. Es ist kein Immobilienportal und verspricht keine automatische oder professionelle Bewertung.
 
 **Kernbotschaft:** Deine Immobilien. Ein klarer Überblick.
 
@@ -21,7 +21,7 @@ EstateAtlas hilft privaten Immobilieneigentümern, ihre Objekte, selbst gepflegt
 
 > Ich baue EstateAtlas, weil mir der Überblick über Immobilieninformationen zu verstreut war: Objekte hier, eigene Wertnotizen dort, Mietzeiträume und Dokumente wieder woanders.
 >
-> EstateAtlas bündelt das in einem privaten Immobilienportfolio. Du kannst mehrere Objekte auf einer Karte sehen, eigene Werte festhalten, Vermietungszeiträume verwalten und Dokumente beim Objekt ablegen. Werte trägst du selbst ein; EstateAtlas behauptet keine automatische Bewertung.
+> EstateAtlas bündelt das in einem privaten Immobilienportfolio. Du kannst Objekte per CSV oder Excel übernehmen, auf einer Karte sehen, eigene Werte und Wiedervorlagen festhalten und Dokumente beim Objekt ablegen. Einen ausgewählten Bestand kannst du als PDF-Bericht teilen. Werte trägst du selbst ein; EstateAtlas behauptet keine automatische Bewertung.
 >
 > Ich suche gerade private Eigentümer, die das Produkt im Alltag ausprobieren und mir offen sagen, was fehlt. Die Anmeldung braucht eine bestätigte E-Mail-Adresse: https://estateatlas.app/
 >
@@ -29,9 +29,9 @@ EstateAtlas hilft privaten Immobilieneigentümern, ihre Objekte, selbst gepflegt
 
 ## Community-Beitrag
 
-> **Frage an private Vermieter und Eigentümer:** Wie behaltet ihr den Überblick über mehrere Immobilien, Mietzeiträume, selbst gepflegte Werte und die zugehörigen Unterlagen?
+> **Frage an private Vermieter und Eigentümer:** Wie behaltet ihr den Überblick über mehrere Immobilien, Mietzeiträume, selbst gepflegte Werte und die zugehörigen Unterlagen? Nutzt ihr dafür eine Tabelle?
 >
-> Ich entwickle EstateAtlas als privaten Workspace dafür. Es gibt Karten- und Listenansicht, eigene Wertnotizen, Mietstatus, Dateiablage und Freigaben für eingeladene Personen. Keine automatischen Wertversprechen und kein Inserate-Marktplatz.
+> Ich entwickle EstateAtlas als privaten Workspace dafür. Eine vorhandene Liste lässt sich per CSV oder Excel übernehmen; Termine und Unterlagen bleiben am Objekt. Den Bestand kann man als PDF-Bericht weitergeben. Keine automatischen Wertversprechen und kein Inserate-Marktplatz.
 >
 > Ich suche eine kleine Gruppe, die es praktisch ausprobiert und Feedback gibt. Die Registrierung ist offen unter https://estateatlas.app/.
 

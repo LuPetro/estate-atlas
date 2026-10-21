@@ -20,6 +20,8 @@ import type {
   AdminOverview,
   PlatformRole,
   PortfolioUsage,
+  PortfolioReminder,
+  ReminderInput,
 } from '@estate-atlas/shared';
 export class ApiError extends Error {
   constructor(
@@ -173,6 +175,26 @@ export class ApiClient {
   assets(signal?: AbortSignal) {
     return this.request<Asset[]>('/portfolio/assets', { signal });
   }
+  reminders() {
+    return this.request<PortfolioReminder[]>('/portfolio/reminders');
+  }
+  createReminder(propertyId: string, input: ReminderInput) {
+    return this.request<PortfolioReminder>(`/properties/${propertyId}/reminders`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  }
+  setReminderCompleted(propertyId: string, reminderId: string, completed: boolean) {
+    return this.request<PortfolioReminder>(`/properties/${propertyId}/reminders/${reminderId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ completed }),
+    });
+  }
+  deleteReminder(propertyId: string, reminderId: string) {
+    return this.request<void>(`/properties/${propertyId}/reminders/${reminderId}`, {
+      method: 'DELETE',
+    });
+  }
   propertyWorkspace(id: string) {
     return this.request<PropertyWorkspace>(`/properties/${id}/workspace`);
   }
@@ -210,6 +232,12 @@ export class ApiClient {
   }
   create(input: PropertyInput) {
     return this.request<Property>('/properties', { method: 'POST', body: JSON.stringify(input) });
+  }
+  importProperties(input: PropertyInput[]) {
+    return this.request<Property[]>('/properties/import', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
   }
   update(id: string, input: PropertyInput) {
     return this.request<Property>(`/properties/${id}`, {

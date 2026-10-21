@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { ScrollView, View, Text, Pressable, RefreshControl } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Alert, ScrollView, View, Text, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import type { ApiClient } from '@estate-atlas/api-client';
@@ -9,6 +9,7 @@ import {
   type Property,
   type Asset,
   type Currency,
+  type PortfolioReminder,
 } from '@estate-atlas/shared';
 import { PortfolioFilters, Chips, emptyFilters, filteredPortfolio } from './PortfolioTools';
 import { Card, Action, Input, ErrorMessage, ui, palette } from './WorkspaceUI';
@@ -30,18 +31,32 @@ export default function WorkspaceHub({
   const [metric, setMetric] = useState<'value' | 'count' | 'area'>('value');
   const [selectedCurrency, setSelectedCurrency] = useState<Currency>('EUR');
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [reminders, setReminders] = useState<PortfolioReminder[]>([]);
+  const [reminderPropertyId, setReminderPropertyId] = useState('');
+  const [reminderTitle, setReminderTitle] = useState('');
+  const [reminderDate, setReminderDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reminderNotes, setReminderNotes] = useState('');
   const [documentQuery, setDocumentQuery] = useState('');
   const [documentType, setDocumentType] = useState('all');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const editableProperties = properties.filter(
+    (property) => !property.archivedAt && property.access !== 'viewer',
+  );
+  useEffect(() => {
+    if (!editableProperties.some((property) => property.id === reminderPropertyId))
+      setReminderPropertyId(editableProperties[0]?.id ?? '');
+  }, [editableProperties, reminderPropertyId]);
   const refresh = useCallback(async () => {
     setBusy(true);
     setError('');
     try {
       await reload();
-      setAssets(await api.assets());
+      const [nextAssets, nextReminders] = await Promise.all([api.assets(), api.reminders()]);
+      setAssets(nextAssets);
+      setReminders(nextReminders);
       setLoaded(true);
     } catch (e) {
       setError((e as Error).message);
@@ -92,6 +107,40 @@ export default function WorkspaceHub({
       setBusy(false);
     }
   };
+  const mutateReminder = async (run: () => Promise<unknown>) => {
+    setBusy(true);
+    setError('');
+    try {
+      await run();
+      setReminders(await api.reminders());
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const saveReminder = () =>
+    mutateReminder(async () => {
+      await api.createReminder(reminderPropertyId, {
+        title: reminderTitle,
+        dueDate: reminderDate,
+        notes: reminderNotes,
+      });
+      setReminderTitle('');
+      setReminderNotes('');
+      setReminderDate(new Date().toISOString().slice(0, 10));
+    });
+  const removeReminder = (reminder: PortfolioReminder) =>
+    Alert.alert('Wiedervorlage löschen?', `„${reminder.title}“ wird endgültig gelöscht.`, [
+      { text: 'Abbrechen', style: 'cancel' },
+      {
+        text: 'Löschen',
+        style: 'destructive',
+        onPress: () => {
+          void mutateReminder(() => api.deleteReminder(reminder.propertyId, reminder.id));
+        },
+      },
+    ]);
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: palette.canvas }}>
       <ScrollView
@@ -108,6 +157,7 @@ export default function WorkspaceHub({
           values={[
             { value: 'distribution', label: 'Verteilung' },
             { value: 'documents', label: 'Dokumente' },
+            { value: 'reminders', label: 'Wiedervorlagen' },
             { value: 'sharing', label: 'Zusammenarbeit' },
           ]}
         />
@@ -248,6 +298,167 @@ export default function WorkspaceHub({
                 </Card>
               </Pressable>
             ))}
+          </>
+        )}
+        {section === 'reminders' && (
+          <>
+            <Card
+              title="Wiedervorlage hinzufügen"
+              note="Termine werden in deinem Portfolio gespeichert und hier angezeigt."
+            >
+              {editableProperties.length ? (
+                <>
+                  <Chips
+                    label="Immobilie"
+                    value={reminderPropertyId}
+                    onChange={setReminderPropertyId}
+                    values={editableProperties.map((property) => ({
+                      value: property.id,
+                      label: property.title,
+                    }))}
+                  />
+                  <Input
+                    label="Was möchtest du im Blick behalten?"
+                    value={reminderTitle}
+                    onChange={setReminderTitle}
+                  />
+                  <Input
+                    label="Fällig am (JJJJ-MM-TT)"
+                    value={reminderDate}
+                    onChange={setReminderDate}
+                    keyboardType="numbers-and-punctuation"
+                  />
+                  <Input
+                    label="Notiz (optional)"
+                    value={reminderNotes}
+                    onChange={setReminderNotes}
+                    multiline
+                  />
+                  <Action
+                    disabled={busy || !reminderTitle.trim() || !reminderPropertyId}
+                    onPress={() => void saveReminder()}
+                  >
+                    {busy ? 'Wird gespeichert …' : 'Wiedervorlage speichern'}
+                  </Action>
+                </>
+              ) : (
+                <Text style={ui.note}>
+                  Lege zuerst eine eigene Immobilie an oder bitte um Bearbeitungsrechte für eine
+                  geteilte Immobilie.
+                </Text>
+              )}
+            </Card>
+            <Card
+              title="Offen"
+              note={`${reminders.filter((reminder) => !reminder.completedAt).length} Wiedervorlagen`}
+            >
+              {reminders
+                .filter((reminder) => !reminder.completedAt)
+                .map((reminder) => (
+                  <View
+                    key={reminder.id}
+                    style={{
+                      gap: 9,
+                      borderBottomWidth: 1,
+                      borderBottomColor: palette.line,
+                      paddingBottom: 13,
+                    }}
+                  >
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => onSelect(reminder.propertyId)}
+                    >
+                      <Text style={ui.title}>{reminder.title}</Text>
+                      <Text style={ui.note}>
+                        {reminder.propertyTitle} ·{' '}
+                        {new Date(`${reminder.dueDate}T12:00:00`).toLocaleDateString('de-AT')}
+                      </Text>
+                      {!!reminder.notes && <Text style={ui.note}>{reminder.notes}</Text>}
+                    </Pressable>
+                    <View style={ui.row}>
+                      <Action
+                        secondary
+                        disabled={
+                          busy ||
+                          !editableProperties.some(
+                            (property) => property.id === reminder.propertyId,
+                          )
+                        }
+                        onPress={() =>
+                          void mutateReminder(() =>
+                            api.setReminderCompleted(reminder.propertyId, reminder.id, true),
+                          )
+                        }
+                      >
+                        Erledigt
+                      </Action>
+                      {editableProperties.some(
+                        (property) => property.id === reminder.propertyId,
+                      ) && (
+                        <Action
+                          secondary
+                          danger
+                          disabled={busy}
+                          onPress={() => removeReminder(reminder)}
+                        >
+                          Löschen
+                        </Action>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              {!reminders.some((reminder) => !reminder.completedAt) && (
+                <Text style={ui.note}>Noch keine offenen Wiedervorlagen.</Text>
+              )}
+            </Card>
+            {!!reminders.some((reminder) => reminder.completedAt) && (
+              <Card title="Erledigt">
+                {reminders
+                  .filter((reminder) => reminder.completedAt)
+                  .map((reminder) => (
+                    <View
+                      key={reminder.id}
+                      style={{
+                        gap: 9,
+                        borderBottomWidth: 1,
+                        borderBottomColor: palette.line,
+                        paddingBottom: 13,
+                      }}
+                    >
+                      <Text style={ui.title}>{reminder.title}</Text>
+                      <Text style={ui.note}>
+                        {reminder.propertyTitle} ·{' '}
+                        {new Date(`${reminder.dueDate}T12:00:00`).toLocaleDateString('de-AT')}
+                      </Text>
+                      {editableProperties.some(
+                        (property) => property.id === reminder.propertyId,
+                      ) && (
+                        <View style={ui.row}>
+                          <Action
+                            secondary
+                            disabled={busy}
+                            onPress={() =>
+                              void mutateReminder(() =>
+                                api.setReminderCompleted(reminder.propertyId, reminder.id, false),
+                              )
+                            }
+                          >
+                            Wieder öffnen
+                          </Action>
+                          <Action
+                            secondary
+                            danger
+                            disabled={busy}
+                            onPress={() => removeReminder(reminder)}
+                          >
+                            Löschen
+                          </Action>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+              </Card>
+            )}
           </>
         )}
         {section === 'sharing' && (

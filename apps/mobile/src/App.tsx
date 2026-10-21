@@ -77,6 +77,12 @@ import {
   type User,
   type Asset,
 } from '@estate-atlas/shared';
+import {
+  parsePropertyCsv,
+  parsePropertyExcel,
+  propertyCsvTemplate,
+} from '@estate-atlas/shared/csv';
+import { portfolioReportPdf } from '@estate-atlas/shared/report';
 let token: string | null = null;
 const api = new ApiClient(process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000', () => token);
 type Tabs = {
@@ -543,6 +549,7 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [filters, setFilters] = useState(emptyFilters);
+  const [includeAddresses, setIncludeAddresses] = useState(false);
   const { widgets, toggle, storageError } = useDashboardWidgets(user.id);
   const [dashboardRegion, setDashboardRegion] = useState<Region>({
     latitude: 35,
@@ -551,6 +558,10 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
     longitudeDelta: 360,
   });
   const filtered = filteredPortfolio(properties, filters);
+  const ownProperties = properties.filter(
+    (property) => !property.access || property.access === 'owner',
+  );
+  const activeOwnProperties = ownProperties.filter((property) => !property.archivedAt);
   const stats = portfolioStats(filtered);
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -564,6 +575,111 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
     }
   };
   const root = navigation.getParent();
+  const importSpreadsheet = async () => {
+    try {
+      const selection = await DocumentPicker.getDocumentAsync({
+        type: [
+          'text/csv',
+          'text/comma-separated-values',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ],
+        copyToCacheDirectory: true,
+      });
+      if (selection.canceled) return;
+      const asset = selection.assets[0];
+      const isExcel =
+        /\.xlsx?$/i.test(asset.name) ||
+        asset.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        asset.mimeType === 'application/vnd.ms-excel';
+      if (asset.size && asset.size > (isExcel ? 5 : 1) * 1024 * 1024)
+        throw new Error(
+          isExcel
+            ? 'Die Excel-Datei darf höchstens 5 MB groß sein.'
+            : 'Die CSV-Datei darf höchstens 1 MB groß sein.',
+        );
+      const file = new File(asset.uri);
+      const parsed = isExcel
+        ? parsePropertyExcel(await file.arrayBuffer())
+        : parsePropertyCsv(await file.text());
+      const valid = parsed.records.flatMap((row) => (row.input ? [row.input] : []));
+      const invalid = parsed.records.filter((row) => !row.input);
+      if (!valid.length) {
+        Alert.alert(
+          'Keine gültigen Zeilen',
+          invalid
+            .slice(0, 4)
+            .map((row) => `Zeile ${row.line}: ${row.errors.join(', ')}`)
+            .join('\n'),
+        );
+        return;
+      }
+      const detail = invalid.length
+        ? `\n\n${invalid.length} fehlerhafte Zeilen werden ausgelassen. ${invalid
+            .slice(0, 3)
+            .map((row) => `Zeile ${row.line}: ${row.errors[0]}`)
+            .join('\n')}`
+        : '';
+      Alert.alert(
+        'Tabellen-Import prüfen',
+        `${valid.length} Immobilien werden übernommen.${detail}\n\nDie Datei wird lokal gelesen. Adressen werden nicht geokodiert.`,
+        [
+          { text: 'Abbrechen', style: 'cancel' },
+          {
+            text: 'Importieren',
+            onPress: () => {
+              void act(async () => {
+                const imported = await api.importProperties(valid);
+                await reload();
+                Alert.alert(
+                  'Import abgeschlossen',
+                  `${imported.length} Immobilien wurden hinzugefügt.`,
+                );
+              });
+            },
+          },
+        ],
+      );
+    } catch (e) {
+      Alert.alert('Tabellen-Import fehlgeschlagen', message(e));
+    }
+  };
+  const shareCsvTemplate = async () => {
+    try {
+      if (!(await Sharing.isAvailableAsync()))
+        throw new Error('Dateifreigabe ist auf diesem Gerät nicht verfügbar.');
+      const file = new File(Paths.cache, 'estateatlas-import-vorlage.csv');
+      try {
+        file.create();
+        file.write(propertyCsvTemplate);
+        await Sharing.shareAsync(file.uri, {
+          mimeType: 'text/csv',
+          UTI: 'public.comma-separated-values-text',
+        });
+      } finally {
+        if (file.exists) file.delete();
+      }
+    } catch (e) {
+      Alert.alert('CSV-Vorlage konnte nicht bereitgestellt werden', message(e));
+    }
+  };
+  const shareReport = async () => {
+    if (!ownProperties.length) return;
+    try {
+      if (!(await Sharing.isAvailableAsync()))
+        throw new Error('Dateifreigabe ist auf diesem Gerät nicht verfügbar.');
+      const file = new File(Paths.cache, `estateatlas-portfolio-${Date.now()}.pdf`);
+      try {
+        file.create();
+        file.write(portfolioReportPdf(activeOwnProperties, { includeAddresses }));
+        await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+      } finally {
+        if (file.exists) file.delete();
+      }
+    } catch (e) {
+      Alert.alert('PDF konnte nicht erstellt werden', message(e));
+    }
+  };
   return (
     <SafeAreaView edges={['top']} style={styles.screen}>
       <ScrollView
@@ -588,86 +704,20 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
             TESTDATEN · Synthetische Objekte und Werte. Keine Marktanalyse.
           </Text>
         )}
-        <PortfolioFilters properties={properties} filters={filters} onChange={setFilters} />
-        <DashboardCustomize widgets={widgets} toggle={toggle} />
-        {!!storageError && <Text style={styles.subtitle}>{storageError}</Text>}
-        {widgets.metrics &&
-          stats.byCurrency.map((s) => (
-            <View style={styles.valueCard} key={s.currency}>
-              <Text style={styles.cardCategory}>GESCHÄTZTER PORTFOLIOWERT · {s.currency}</Text>
-              <Text
-                style={styles.largeValue}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-                minimumFontScale={0.6}
-              >
-                {formatMoney(s.marketValue, s.currency)}
-              </Text>
-              <Text style={styles.subtitle}>Eigene Marktwertangaben · {s.count} Immobilien</Text>
-              <Text style={[styles.gain, s.gain < 0 && { color: '#ad5a51' }]}>
-                {formatMoney(s.gain, s.currency)} gegenüber Kaufpreis{' '}
-                {s.gainPercent === null ? '' : `(${s.gainPercent.toFixed(1)} %)`}
-              </Text>
-            </View>
-          ))}
-        {widgets.metrics && (
-          <View style={styles.statsRow}>
-            {[
-              { label: 'Immobilien', value: stats.count },
-              { label: 'Länder', value: stats.countries },
-              { label: 'Fläche m²', value: stats.area },
-            ].map((s) => (
-              <View key={s.label} style={styles.smallStat}>
-                <Text style={styles.statNumber}>{s.value}</Text>
-                <Text style={styles.statLabel}>{s.label}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-        {widgets.map && (
-          <View style={styles.research}>
-            <Text style={styles.sectionTitle}>Dein Portfolio auf der Karte</Text>
-            <View style={{ height: 240 }}>
-              <SimpleMap
-                region={dashboardRegion}
-                onRegionChange={setDashboardRegion}
-                points={filtered.map((p) => ({
-                  id: p.id,
-                  title: p.title,
-                  latitude: p.latitude,
-                  longitude: p.longitude,
-                }))}
-                onPressPoint={(id) => root?.navigate('Detail', { id })}
-              />
-            </View>
-          </View>
-        )}
-        {widgets.insights && (
-          <View style={styles.research}>
-            <Text style={styles.sectionTitle}>Werte & Verteilung</Text>
-            {stats.byCurrency.map((c) => (
-              <View key={c.currency}>
-                <Text style={styles.cardTitle}>
-                  {c.currency}: {formatMoney(c.gain, c.currency)} gegenüber Kaufpreis
-                </Text>
-                {propertyTypes.map((t) => (
-                  <Text key={t} style={styles.subtitle}>
-                    {propertyTypeLabels[t]} ·{' '}
-                    {filtered.filter((p) => p.currency === c.currency && p.type === t).length}{' '}
-                    Immobilien
-                  </Text>
-                ))}
-              </View>
-            ))}
-          </View>
-        )}
-        <Button onPress={() => root?.navigate('Editor')}>+ Immobilie hinzufügen</Button>
-        {!properties.length && (
+        {!activeOwnProperties.length ? (
           <View style={styles.empty}>
-            <Text style={styles.sectionTitle}>Dein Portfolio beginnt hier.</Text>
+            <Text style={styles.sectionTitle}>Dein Portfolio beginnt mit einer Immobilie.</Text>
             <Text style={styles.subtitle}>
-              Lege eine Immobilie an oder erkunde die App mit gekennzeichneten Testdaten.
+              Trage ein Objekt ein, übernimm eine CSV- oder Excel-Liste oder probiere EstateAtlas
+              mit gekennzeichneten Beispieldaten aus.
             </Text>
+            <Button onPress={() => root?.navigate('Editor')}>Immobilie eintragen</Button>
+            <Button secondary onPress={() => void importSpreadsheet()}>
+              CSV- oder Excel-Liste importieren
+            </Button>
+            <Button secondary onPress={() => void shareCsvTemplate()}>
+              Leere CSV-Vorlage teilen
+            </Button>
             <Button
               secondary
               disabled={busy}
@@ -678,34 +728,137 @@ function Overview({ navigation }: BottomTabScreenProps<Tabs, 'Overview'>) {
                 })
               }
             >
-              Testdaten laden
+              Beispieldaten ansehen
             </Button>
+            <Text style={styles.footnote}>
+              Für den Import müssen Breitengrad und Längengrad vorhanden sein; das Land braucht
+              einen ISO-2-Code wie AT oder DE. Bei Excel wird das erste Tabellenblatt gelesen.
+              Adressen werden nicht an einen Geocoder gesendet.
+            </Text>
           </View>
-        )}
-        {widgets.properties && (
+        ) : (
           <>
-            <Text style={styles.sectionTitle}>Deine Immobilien</Text>
-            {filtered
-              .filter((p) => !p.archivedAt)
-              .slice(0, 5)
-              .map((p) => (
-                <PropertyCard
-                  key={p.id}
-                  property={p}
-                  onPress={() => root?.navigate('Detail', { id: p.id })}
-                />
+            <PortfolioFilters properties={properties} filters={filters} onChange={setFilters} />
+            <DashboardCustomize widgets={widgets} toggle={toggle} />
+            {!!storageError && <Text style={styles.subtitle}>{storageError}</Text>}
+            {widgets.metrics &&
+              stats.byCurrency.map((s) => (
+                <View style={styles.valueCard} key={s.currency}>
+                  <Text style={styles.cardCategory}>GESCHÄTZTER PORTFOLIOWERT · {s.currency}</Text>
+                  <Text
+                    style={styles.largeValue}
+                    adjustsFontSizeToFit
+                    numberOfLines={1}
+                    minimumFontScale={0.6}
+                  >
+                    {formatMoney(s.marketValue, s.currency)}
+                  </Text>
+                  <Text style={styles.subtitle}>
+                    Eigene Marktwertangaben · {s.count} Immobilien
+                  </Text>
+                  <Text style={[styles.gain, s.gain < 0 && { color: '#ad5a51' }]}>
+                    {formatMoney(s.gain, s.currency)} gegenüber Kaufpreis{' '}
+                    {s.gainPercent === null ? '' : `(${s.gainPercent.toFixed(1)} %)`}
+                  </Text>
+                </View>
               ))}
-            {!filtered.length && (
-              <Text style={styles.subtitle}>Keine Immobilien passen zu dieser Auswahl.</Text>
+            {widgets.metrics && (
+              <View style={styles.statsRow}>
+                {[
+                  { label: 'Immobilien', value: stats.count },
+                  { label: 'Länder', value: stats.countries },
+                  { label: 'Fläche m²', value: stats.area },
+                ].map((s) => (
+                  <View key={s.label} style={styles.smallStat}>
+                    <Text style={styles.statNumber}>{s.value}</Text>
+                    <Text style={styles.statLabel}>{s.label}</Text>
+                  </View>
+                ))}
+              </View>
             )}
+            {widgets.map && (
+              <View style={styles.research}>
+                <Text style={styles.sectionTitle}>Dein Portfolio auf der Karte</Text>
+                <View style={{ height: 240 }}>
+                  <SimpleMap
+                    region={dashboardRegion}
+                    onRegionChange={setDashboardRegion}
+                    points={filtered.map((p) => ({
+                      id: p.id,
+                      title: p.title,
+                      latitude: p.latitude,
+                      longitude: p.longitude,
+                    }))}
+                    onPressPoint={(id) => root?.navigate('Detail', { id })}
+                  />
+                </View>
+              </View>
+            )}
+            {widgets.insights && (
+              <View style={styles.research}>
+                <Text style={styles.sectionTitle}>Werte & Verteilung</Text>
+                {stats.byCurrency.map((c) => (
+                  <View key={c.currency}>
+                    <Text style={styles.cardTitle}>
+                      {c.currency}: {formatMoney(c.gain, c.currency)} gegenüber Kaufpreis
+                    </Text>
+                    {propertyTypes.map((t) => (
+                      <Text key={t} style={styles.subtitle}>
+                        {propertyTypeLabels[t]} ·{' '}
+                        {filtered.filter((p) => p.currency === c.currency && p.type === t).length}{' '}
+                        Immobilien
+                      </Text>
+                    ))}
+                  </View>
+                ))}
+              </View>
+            )}
+            <Button onPress={() => root?.navigate('Editor')}>+ Immobilie hinzufügen</Button>
+            <View style={styles.research}>
+              <Text style={styles.cardTitle}>Portfolio als PDF teilen</Text>
+              <Text style={styles.subtitle}>
+                Der Bericht wird auf diesem Gerät erstellt und kann anschließend geteilt oder
+                gespeichert werden.
+              </Text>
+              <Pressable
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: includeAddresses }}
+                onPress={() => setIncludeAddresses((value) => !value)}
+              >
+                <Text style={styles.subtitle}>
+                  {includeAddresses ? '☑' : '□'} Adresse im Bericht aufnehmen
+                </Text>
+              </Pressable>
+              <Button secondary onPress={() => void shareReport()}>
+                PDF erstellen und teilen
+              </Button>
+            </View>
+            {widgets.properties && (
+              <>
+                <Text style={styles.sectionTitle}>Deine Immobilien</Text>
+                {filtered
+                  .filter((p) => !p.archivedAt)
+                  .slice(0, 5)
+                  .map((p) => (
+                    <PropertyCard
+                      key={p.id}
+                      property={p}
+                      onPress={() => root?.navigate('Detail', { id: p.id })}
+                    />
+                  ))}
+                {!filtered.length && (
+                  <Text style={styles.subtitle}>Keine Immobilien passen zu dieser Auswahl.</Text>
+                )}
+              </>
+            )}
+            <View style={styles.research}>
+              <Text style={styles.cardTitle}>Marktpreis recherchieren</Text>
+              <Text style={styles.subtitle}>
+                Öffne eine Immobilie, um Vergleichsangebote und Quellen zu recherchieren.
+              </Text>
+            </View>
           </>
         )}
-        <View style={styles.research}>
-          <Text style={styles.cardTitle}>Marktpreis recherchieren</Text>
-          <Text style={styles.subtitle}>
-            Öffne eine Immobilie, um Vergleichsangebote und Quellen zu recherchieren.
-          </Text>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
