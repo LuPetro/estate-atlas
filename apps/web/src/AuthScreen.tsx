@@ -14,105 +14,10 @@ import { ApiClient } from '@estate-atlas/api-client';
 import type { User } from '@estate-atlas/shared';
 import AccountActions from './AccountActions';
 import Brand from './Brand';
+import Architecture from './AuthArchitecture';
 import styles from './AuthScreen.module.css';
 
 const api = new ApiClient(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000');
-
-function Architecture() {
-  return (
-    <div className={styles.architecture} aria-hidden="true" data-auth-art>
-      <svg viewBox="0 50 640 410" fill="none" focusable="false">
-        <path className={styles.ground} d="M30 282 318 117 610 282 322 449Z" fill="#e8e3d8" />
-        <g stroke="#d4ccbd" strokeWidth=".8" className={styles.siteLines}>
-          <path d="m6 259 319-182 309 180M9 297 326 116l309 181M48 320 365 139M92 345 409 164M140 370 456 191M3 222l313 179M55 192l315 180M107 162l313 180M159 132l313 180M211 102l313 180" />
-        </g>
-        <path d="m128 283 169-96 174 101-168 96Z" fill="#b8ad97" opacity=".2" />
-        <g className={styles.buildingBack}>
-          <g className={styles.houseMotionBack} data-art-part="back-house">
-            <path d="m313 131 98-56 107 61-98 57Z" fill="#f8f5ee" />
-            <path d="m313 131 107 62v122l-107-62Z" fill="#e7dfcf" />
-            <path d="m420 193 98-57v122l-98 57Z" fill="#c5baa6" />
-            <path
-              d="m313 160 107 62 98-57m-205 26 107 62 98-57m-205 26 107 62 98-57"
-              stroke="#b1a58f"
-              strokeWidth="1.2"
-            />
-            <path
-              d="m337 158 0 83m27-66v82m28-65v82m52-79v82m26-98v83m25-97v83"
-              stroke="#b1a58f"
-              strokeWidth="1.2"
-            />
-            <path d="m331 132 80-45 88 50-79 45Z" stroke="#d3c8b5" strokeWidth="1.2" />
-            <g className={styles.windowLights} fill="#ffe3ad">
-              <path d="m452 215 13-8v14l-13 8Z" />
-              <path d="m477 237 14-8v13l-14 8Z" />
-            </g>
-            <path
-              className={styles.roofTrace}
-              d="m331 132 80-45 88 50-79 45Z"
-              pathLength={100}
-              stroke="#fff8e8"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </g>
-        </g>
-        <g className={styles.buildingFront}>
-          <g className={styles.houseMotionFront} data-art-part="front-house">
-            <path d="m141 165 112-64 115 66-112 65Z" fill="#de8e6e" />
-            <path d="m141 165 115 67v113l-115-67Z" fill="#c16d50" />
-            <path d="m256 232 112-65v113l-112 65Z" fill="#9d4e38" />
-            <path d="m157 166 96-55 98 56-95 56Z" stroke="#edb296" strokeWidth="1.3" />
-            <path
-              d="m141 193 115 67 112-65m-227 26 115 67 112-65m-227 27 115 67 112-65"
-              stroke="#f1b697"
-              strokeWidth="1.5"
-            />
-            <path
-              d="m165 197 0 76m31-58v77m31-58v76m55-69v77m29-95v78m29-95v77"
-              stroke="#8e4937"
-              strokeWidth="2"
-            />
-            <path d="m141 276 115 67 112-65" stroke="#81452f" strokeWidth="4" />
-            <path d="m188 265 25 15v40l-25-15Z" fill="#f2cfaa" />
-            <g className={styles.windowLights} fill="#ffe3ad">
-              <path d="m172 215 17 10v13l-17-10Z" />
-              <path d="m207 269 18 10v14l-18-10Z" />
-              <path d="m286 248 16-9v14l-16 9Z" />
-            </g>
-            <path
-              className={styles.roofTrace}
-              d="m157 166 96-55 98 56-95 56Z"
-              pathLength={100}
-              stroke="#ffe6c8"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </g>
-        </g>
-        <g className={styles.drawingNotes} stroke="#b9af9e" strokeWidth="1">
-          <path d="M101 138v132m-5-135 10 6m-10 126 10 6M390 328l116-67m-119 64 6 8m110-76 6 8" />
-          <path d="M72 113h34m-17-17v34M574 330h24m-12-12v24" />
-        </g>
-        <g className={styles.treeSway}>
-          <circle cx="106" cy="290" r="5" fill="#9b9d70" stroke="none" />
-          <circle cx="120" cy="299" r="8" fill="#747e5d" stroke="none" />
-          <path d="M120 307v11" stroke="#747e5d" strokeWidth="2" />
-        </g>
-        <ellipse cx="548" cy="298" rx="12" ry="4" fill="#747e5d" opacity=".12" />
-        <g className={`${styles.treeSway} ${styles.treeRight}`} data-art-part="right-tree">
-          <path d="M548 273v24" stroke="#747e5d" strokeWidth="2" />
-          <circle cx="548" cy="264" r="11" fill="#9b9d70" />
-          <circle cx="545" cy="260" r="5" fill="#b6b98c" opacity=".65" />
-        </g>
-      </svg>
-      <div className={styles.artCaption}>
-        <span>ESTATEATLAS — 01</span>
-        <span>Ein Ort für deinen Überblick.</span>
-      </div>
-    </div>
-  );
-}
 
 export default function AuthScreen({
   onSuccess,

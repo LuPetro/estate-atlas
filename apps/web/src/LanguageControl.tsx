@@ -7,6 +7,10 @@ type Language = 'de' | 'en';
 const translations: Record<string, string> = {
   'EstateAtlas · Dein Immobilienportfolio': 'EstateAtlas · Your property portfolio',
   'Ein Ort für deinen Überblick.': 'A place for a clearer view.',
+  'Hausanimation pausieren': 'Pause house animation',
+  'Hausanimation fortsetzen': 'Resume house animation',
+  'Fortsetzen': 'Resume',
+  'Pause': 'Pause',
   'Anmeldung und Registrierung': 'Sign in and registration',
   'Zugang wählen': 'Choose access',
   'Passwort anzeigen': 'Show password',

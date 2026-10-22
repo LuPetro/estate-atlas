@@ -1,0 +1,170 @@
+.scene {
+  position: relative;
+  margin: -16px -30px -2px;
+}
+.scene > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.siteLines {
+  opacity: 0.65;
+  animation: appear 1.2s ease-out both;
+}
+.shadow {
+  animation: appear 1.4s 0.7s both;
+}
+.backHouse {
+  --start: 0.15s;
+  --frame: #a39680;
+  --glass: #9c9c88;
+  --recess: #a89c88;
+  --sill: #f4eee1;
+}
+.frontHouse {
+  --start: 0.5s;
+  --frame: #985940;
+  --glass: #bd9875;
+  --recess: #764b3b;
+  --sill: #e7af8d;
+}
+.outline {
+  stroke: #a7957b;
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: draw 1.6s var(--start) ease-in-out both;
+}
+.surfaces {
+  animation: appear 1s calc(var(--start) + 0.8s) ease-out both;
+}
+.floorLines {
+  stroke: var(--frame);
+  stroke-width: 0.65;
+  opacity: 0.45;
+  animation: appear 0.8s calc(var(--start) + 1.2s) both;
+}
+.windows {
+  animation: appear 0.8s calc(var(--start) + 1.5s) both;
+}
+.windowRecess {
+  fill: var(--recess);
+}
+.glass {
+  fill: var(--glass);
+}
+.windowFrame {
+  stroke: var(--frame);
+  stroke-width: 1;
+}
+.sill {
+  stroke: var(--sill);
+  stroke-width: 1.4;
+}
+.windowLight {
+  fill: #ffe0a1;
+  opacity: 0.5;
+  animation: lamplight 18s var(--light-delay) ease-in-out infinite;
+}
+.backHouse .windowLight {
+  animation-duration: 24s;
+}
+.dimensions {
+  opacity: 0.7;
+  animation: appear 1s 2s both;
+}
+.treeCrown {
+  /* Nested SVG coordinates keep the pivot at the fixed trunk, in every browser. */
+  transform-origin: 0 0;
+  animation: breeze 7s -2s ease-in-out infinite;
+}
+.treeRight {
+  animation-duration: 9s;
+  animation-delay: -5s;
+}
+.caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -3px 30px 0;
+  min-height: 44px;
+  font-size: 9px;
+  color: #686f60;
+  letter-spacing: 1px;
+}
+.motionControl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: 0;
+}
+.motionControl:hover {
+  color: #a94e36;
+}
+.motionControl:focus-visible {
+  outline: 2px solid #a94e36;
+  outline-offset: 2px;
+}
+.scene[data-paused='true'] * {
+  animation-play-state: paused;
+}
+@keyframes draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes lamplight {
+  0%,
+  18%,
+  100% {
+    opacity: 0.1;
+  }
+  32%,
+  70% {
+    opacity: 0.8;
+  }
+  86% {
+    opacity: 0.1;
+  }
+}
+@keyframes breeze {
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+}
+@media (max-width: 760px) {
+  .scene {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene * {
+    animation: none !important;
+  }
+  .motionControl {
+    display: none;
+  }
+}
