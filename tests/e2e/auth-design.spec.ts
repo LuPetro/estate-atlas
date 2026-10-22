@@ -1,5 +1,61 @@
 import { expect, test } from '@playwright/test';
 
+test('house animation pauses, keeps buildings grounded and has a complete reduced-motion view', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/');
+  const art = page.locator('[data-auth-art]');
+  await expect(art).toBeVisible();
+  const front = art.locator('[data-art-part="front-house"]');
+  const initialPosition = await front.boundingBox();
+  const pause = page.getByRole('button', { name: 'Hausanimation pausieren' });
+  await pause.click();
+  const resume = page.getByRole('button', { name: 'Hausanimation fortsetzen' });
+  await expect(resume).toBeFocused();
+  const times = () =>
+    art.evaluate((element) =>
+      element.getAnimations({ subtree: true }).map((animation) => ({
+        time: animation.currentTime,
+        state: animation.playState,
+      })),
+    );
+  await expect
+    .poll(async () => (await times()).every((animation) => animation.state === 'paused'))
+    .toBe(true);
+  const paused = await times();
+  expect(paused.length).toBeGreaterThan(0);
+  await page.waitForTimeout(200);
+  expect(await times()).toEqual(paused);
+  await page.keyboard.press('Enter');
+  await expect(pause).toBeFocused();
+  await expect
+    .poll(async () => (await times()).some((animation) => animation.state === 'running'))
+    .toBe(true);
+
+  // Inspect different points in the cycle: the house must never detach from its base.
+  for (const time of [800, 3000, 9000, 18000]) {
+    await art.evaluate((element, time) => {
+      for (const animation of element.getAnimations({ subtree: true })) {
+        animation.pause();
+        animation.currentTime = time;
+      }
+    }, time);
+    expect(await front.boundingBox()).toEqual(initialPosition);
+    await page.screenshot({ path: `work/auth-motion-${test.info().project.name}-${time}.png` });
+  }
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(pause).toBeHidden();
+  expect(await art.evaluate((element) => element.getAnimations({ subtree: true }).length)).toBe(0);
+  // No construction stage may leave its walls or windows invisible when motion is disabled.
+  const opacities = await front
+    .locator('g')
+    .evaluateAll((groups) => groups.map((group) => Number(getComputedStyle(group).opacity)));
+  expect(opacities.every((opacity) => opacity === 1)).toBe(true);
+  await page.screenshot({ path: `work/auth-motion-${test.info().project.name}-reduced.png` });
+});
+
 test('login and registration remain usable with the keyboard and password visibility control', async ({
   page,
 }) => {
