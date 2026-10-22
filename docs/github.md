@@ -1,52 +1,32 @@
-# GitHub-Integration
+# GitHub maintainer tools
 
-## Aktueller Stand
+Contributors can use their own Git client and GitHub account. GitHub authentication is not required to run a public checkout locally. Never share tokens or keys in issues, chat or pull requests.
 
-- `dev` ist der Integrationsbranch und bildet die private Dev-Vorschau ab; `main` ist der Produktionsbranch. Siehe [CONTRIBUTING.md](../CONTRIBUTING.md).
-- GitHub CLI projektlokal installiert; `./scripts/gh --version` zeigt die Version.
-- `./scripts/gh auth status`: Anmeldung als `LuPetro` bestätigt.
-- Privates Repository nach ausdrücklicher Freigabe erstellt: [LuPetro/estate-atlas](https://github.com/LuPetro/estate-atlas).
-- `origin`: `https://github.com/LuPetro/estate-atlas.git`.
-- Repository-Erstellung und erster Push wurden ausdrücklich freigegeben. Für das Update mit Portfolio, Dokumenten, Checklisten, Kaufcheck, Zusammenarbeit und neuer Oberfläche hat der Eigentümer erneut ausdrücklich „GitHub pushen“ beauftragt. GitHub Actions prüft jeden Push; das Ergebnis muss zum aktuellen Commit gehören.
-- `.local/`, `.env`, Datenbank, Tokens, Cache und Build-Ausgaben sind ignoriert.
+## Branch model
 
-## Anmeldung auf einem neuen Rechner
+Features target `dev`; release PRs go from `dev` to `main`. Both branches require pull requests and `checks / Required checks`. Dev deploys automatically after checks; production needs explicit workflow approval and identical tested Dev source/images. See [CONTRIBUTING.md](../CONTRIBUTING.md) and [deployment](development-deployment.md).
 
-Auf diesem VPS ist die folgende Anmeldung bereits abgeschlossen.
+The reusable checks live in `.github/workflows/ci.yml`; callers are `development.yml` and `main.yml`. Fork PRs receive no deployment secrets. Repository-default workflow tokens are read-only, and only the intended branch can deploy to each environment.
 
-In einer eigenen interaktiven VPS-Sitzung ausführen:
+## Optional project-local CLI
+
+The maintainer's `./scripts/gh` wrapper uses the ignored `.local/gh/` binary and `.local/github/` configuration. This is separate from an ordinary contributor setup; do not copy the maintainer's directory to another checkout. CLI installation is handled by `scripts/bootstrap-github.mjs` when needed.
+
+An operator can authenticate in their own terminal:
 
 ```bash
-cd /home/codexdev/projects/estate-atlas
 ./scripts/gh auth login --hostname github.com --git-protocol https --web
-```
-
-Falls gefragt, die automatische Git-Credential-Konfiguration ablehnen, damit keine globale Git-Konfiguration geändert wird. Einen ausschließlich lokalen Credential-Helper enthält bereits dieses Repository.
-
-Die CLI zeigt eine GitHub-URL und einen kurzlebigen Gerätecode. Diese URL im eigenen Browser öffnen, den angezeigten Code eingeben, bei GitHub anmelden und die GitHub-CLI-Autorisierung bestätigen. Kein Token und keinen privaten Schlüssel in den Chat kopieren. Der Gerätecode gehört nur in den GitHub-Anmeldedialog. Sicherheits- oder Organisationsabfragen normal abschließen.
-
-Der Wrapper setzt `GH_CONFIG_DIR` auf die ignorierte `.local/github`-Konfiguration. GitHub CLI verwendet nach Möglichkeit den Betriebssystem-Credential-Store und kann auf einem VPS ohne Keyring auf eine lokale Datei zurückfallen. Dieses Verzeichnis privat halten und nicht mit dem Quellcode übertragen. Es wird kein SSH-Key benötigt, weil die vorbereitete Verbindung HTTPS verwendet.
-
-Danach:
-
-```bash
 ./scripts/gh auth status
 ```
 
-Die Freigaben für die Erstellung des privaten Repositorys und den ersten Push wurden erteilt. Bei späteren neuen Repositorys oder weiteren nicht freigegebenen Pushes weiterhin die Projektregeln beachten.
+Complete the device flow only in the operator's browser. Avoid global credential configuration if it is unwanted; protect `.local/github/`, particularly on a server without a credential-store service.
 
-## Verwendete Befehle
+## Policy management
 
-Repository-Erstellung und Verknüpfung (ohne Push):
-
-```bash
-./scripts/gh repo create estate-atlas --private --source=. --remote=origin
-```
-
-Ausdrücklich freigegebener erster Push:
+The intended branch/environment policy lives in `config/github-branches.json`. Read it with `./scripts/pnpm exec node scripts/configure-github.mjs`; apply it with an authenticated admin CLI:
 
 ```bash
-git push -u origin main
+GH_BIN=./scripts/gh ./scripts/pnpm exec node scripts/configure-github.mjs --apply
 ```
 
-Falls ein Repository dieses Namens schon existiert, zunächst Eigentümer, Sichtbarkeit und Inhalt prüfen, statt es zu ersetzen oder neu anzulegen. Die Branch-Pipelines liegen in `.github/workflows/development.yml` und `.github/workflows/main.yml`; `.github/workflows/ci.yml` enthält die gemeinsam verwendeten Checks.
+This preserves visibility and secrets, requires PRs/checks, blocks force pushes/deletions and restricts environment branches. GitHub may reject settings unsupported by the repository's plan; inspect the reported result and read back the actual policy. Publishing source is a separate owner decision; see [open-source release](open-source-release.md).

@@ -1,5 +1,13 @@
 # Contributing to EstateAtlas
 
+## Getting started
+
+Read the [development guide](docs/development.md) for the project-local toolchain and checks. For application operation use the [Docker guide](docs/docker.md). Open a focused issue with a fictional example before a substantial feature or architecture change; smaller fixes and documentation improvements can go directly to a pull request.
+
+Use the issue forms for bugs, installation questions and feature requests. Include the commit and the affected client. Report vulnerabilities through [SECURITY.md](SECURITY.md). Keep discussion respectful and specific, and never include real portfolio contents, credentials, dumps or private screenshots.
+
+## Branches and review
+
 `dev` is the integration branch and the source of [dev.estateatlas.app](https://dev.estateatlas.app). `main` contains production releases. Start feature branches from `dev` and target `dev` with your pull request.
 
 ```text
@@ -10,9 +18,15 @@ feature branch → pull request → dev → checks → automatic Dev deployment
                                 main → checks → production approval → production
 ```
 
-Both branches run workflow validation, a redacted secret scan over the full Git history, workspace type checks, dependency auditing, real PostgreSQL API tests, production builds, desktop/mobile browser tests and Android/iOS exports. `checks / Required checks` succeeds only when every required job succeeds. Pull requests, including forks, run without deployment secrets and cannot deploy.
+Both branches run workflow/documentation validation, a redacted secret scan over the full Git history, workspace type checks, dependency auditing, real PostgreSQL API tests, production builds, desktop/mobile browser tests, Android/iOS exports and a fresh-checkout Docker installation check. `checks / Required checks` succeeds only when every required job succeeds. Pull requests, including forks, run without deployment secrets and cannot deploy.
 
-Use the project-local toolchain via `./scripts/pnpm`. Application operation uses Docker Compose; see [README](README.md) and [development deployment](docs/development-deployment.md). Tests use isolated databases and synthetic fixtures. Never commit `.env`, `.local`, database dumps, user data or credentials. Do not run real provider requests as tests.
+Keep pull requests focused and describe the user-visible change, relevant risks and the checks actually performed. Add a regression test for a behavior fix where practical. Web and native clients are equal deliverables: explain any client-specific change or remaining device check. Shared rules belong in `packages/shared`, shared HTTP behavior in `packages/api-client`. Read relevant `AGENTS.md` files before editing.
+
+Contributions use the project's [MIT license](LICENSE). Only contribute work you have the right to submit, and retain the notices of any third-party material.
+
+Use the project-local toolchain via `./scripts/pnpm`. Tests use isolated databases and synthetic fixtures. Never commit `.env`, `.local`, database dumps, user data or credentials. Do not run real provider requests as tests. See [third-party notices](THIRD_PARTY_NOTICES.md) before adding or replacing bundled assets; include provenance and license notices for new assets.
+
+## Maintainer releases
 
 For a release, open a pull request from `dev` to `main`. Both merge and squash commits are supported: production requires the same complete source tree as a successful Dev release. An untested change introduced during merging must go through `dev` first. The release promotes immutable Docker image IDs and never copies Dev data into production.
 

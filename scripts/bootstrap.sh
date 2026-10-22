@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+if (( $# > 1 )) || [[ $# == 1 && "$1" != --runtime-only ]]; then
+  echo 'Usage: ./scripts/bootstrap.sh [--runtime-only]' >&2
+  exit 1
+fi
 TASK_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$TASK_ROOT"
 mkdir -p .local/cache .local/tmp
@@ -16,6 +20,10 @@ if [ ! -x .local/node/bin/node ]; then
   ln -s "${TASK_ARCHIVE%.tar.xz}" .local/node
 fi
 export PATH="$TASK_ROOT/.local/node/bin:$PATH"
+if [[ "${1:-}" == --runtime-only ]]; then
+  echo 'Project-local Node is ready. Start Docker with ./scripts/docker up -d --build --wait.'
+  exit 0
+fi
 export npm_config_cache="$TASK_ROOT/.local/cache/npm"
 export npm_config_update_notifier=false
 if [ ! -f .local/tools/node_modules/pnpm/bin/pnpm.cjs ]; then

@@ -7,6 +7,7 @@ export const requiredJobs = [
   'Types and API tests',
   'Web build and browser tests',
   'Native Android and iOS',
+  'Docker self-hosting',
   'Required checks',
 ].map((name) => `checks / ${name}`);
 

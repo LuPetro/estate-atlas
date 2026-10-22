@@ -1,3 +1,5 @@
+> **Historical development record.** These dated notes retain earlier implementation states and test counts. For current setup use [self-hosting](docker.md), [development](development.md) and [branch deployment](development-deployment.md). Publication work is tracked in [the release checklist](open-source-release.md).
+
 # Umsetzungs- und Prüfstatus
 
 Stand: 14. Oktober 2026 (Europe/Vienna). Projekt: `/home/codexdev/projects/estate-atlas`.

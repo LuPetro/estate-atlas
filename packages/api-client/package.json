@@ -13,5 +13,6 @@
   },
   "dependencies": {
     "@estate-atlas/shared": "workspace:*"
-  }
+  },
+  "license": "MIT"
 }

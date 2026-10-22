@@ -1,5 +1,7 @@
 # EstateAtlas · Nutzergewinnung
 
+> **Veröffentlichungsentwurf:** Die folgenden Beiträge sind vorbereitet, nicht versendet. Aussagen zur öffentlichen Registrierung erst verwenden, wenn der echte Produktionsablauf einschließlich E-Mail-Zustellung geprüft ist; siehe [Web-Start](web-launch.md). Die private Dev-Vorschau ist kein öffentlicher Demo-Zugang.
+
 ## Positionierung
 
 EstateAtlas hilft privaten Immobilieneigentümern, ihre Objekte, selbst gepflegten Wertnotizen, Mietzeiträume und Unterlagen in einem privaten Portfolio zu ordnen. Wer bisher eine Tabelle pflegt, kann bis zu 50 Objekte aus einer CSV- oder Excel-Liste übernehmen; einen ausgewählten Bestand kann man als PDF teilen. Es ist kein Immobilienportal und verspricht keine automatische oder professionelle Bewertung.
@@ -17,7 +19,7 @@ Die Startseite öffnet direkt die Anmeldung mit der Hausillustration und dem gem
 1. Änderungen lokal prüfen und über den bereits vorgesehenen CI-/Production-Ablauf veröffentlichen. Ein Git-Push allein veröffentlicht nicht.
 2. Im Browser `https://estateatlas.app/` öffnen und vom Hauptbutton bis zur bestätigten Registrierung durchgehen.
 3. Eine Registrierung abschließen, die E-Mail verifizieren und den ersten Portfolio-Eintrag mit einem eigenen Testkonto prüfen.
-4. Für jede Veröffentlichung den Link mit einer Quelle markieren, z. B. `https://estateatlas.app/?utm_source=linkedin&utm_medium=organic&utm_campaign=open_signup`. Es ist aktuell kein Analytics-Dienst konfiguriert; Antworten und registrierte Einladungen daher wöchentlich manuell zählen.
+4. Für jede Veröffentlichung den Link mit einer Quelle markieren, z. B. `https://estateatlas.app/?utm_source=linkedin&utm_medium=organic&utm_campaign=open_signup`. Es ist aktuell kein Analytics-Dienst konfiguriert; Antworten und freiwillig gemeldete erfolgreiche Registrierungen daher wöchentlich manuell zählen; bestehende Einladungen sind kein Registrierungsmaßstab.
 
 ## LinkedIn-Beitrag
 

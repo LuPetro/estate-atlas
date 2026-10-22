@@ -1,3 +1,5 @@
+> **Historical development record.** These dated notes retain earlier implementation states and test counts. For current setup use [self-hosting](docker.md), [development](development.md) and [branch deployment](development-deployment.md). Publication work is tracked in [the release checklist](open-source-release.md).
+
 > Aktueller V1-Web-Stand vom 14.10.2026: Konten/Admin, PWA, Produktionsbetrieb und Startprüfung sind implementiert. Die verbindliche Einrichtungsliste steht in [web-launch.md](web-launch.md), der aktuelle Prüfstatus in [status.md](status.md). Der folgende Plan vom 11.10. ist historisch; damalige fehlende Konten-/Docker-/Recherchefunktionen sind inzwischen umgesetzt.
 
 # EstateAtlas: Vorschlag bis zur Veröffentlichung
