@@ -18,6 +18,10 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
       - name: Validate workflows and deployment shell scripts
         run: ./scripts/check-workflows
       - name: Check local documentation and screenshot links

@@ -42,7 +42,10 @@ Object.assign(env, {
   WEB_IMAGE: `${project}-web:check`,
 });
 let active;
+let interrupted = false;
+let cleaningUp = false;
 const stop = () => {
+  interrupted = true;
   if (active?.pid) {
     try {
       process.kill(-active.pid, 'SIGTERM');
@@ -55,6 +58,7 @@ process.on('SIGINT', stop);
 process.on('SIGTERM', stop);
 
 function run(command, args, cwd = checkout) {
+  if (interrupted && !cleaningUp) return Promise.reject(new Error('Check interrupted.'));
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
@@ -171,6 +175,17 @@ try {
   console.log('Building API/Web sequentially and starting the temporary localhost stack.');
   await compose('up', '-d', '--build', '--wait', '--wait-timeout', '180');
   checks.push('Docker build and all service healthchecks');
+  for (const service of ['api', 'web']) {
+    await compose(
+      'exec',
+      '-T',
+      service,
+      'node',
+      '-e',
+      "const fs=require('fs');for(const f of ['LICENSE','THIRD_PARTY_NOTICES.md'])if(!fs.readFileSync(f,'utf8').trim())process.exit(1)",
+    );
+  }
+  checks.push('license and third-party notices included in runtime images');
 
   let token;
   async function request(
@@ -227,7 +242,7 @@ try {
     const browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage'] });
     try {
       const context = await browser.newContext({
-        viewport: { width: 1440, height: 960 },
+        viewport: { width: 1440, height: 1200 },
         locale: 'de-DE',
         serviceWorkers: 'block',
       });
@@ -251,6 +266,12 @@ try {
         timeout: 30000,
       });
       await expect(page.locator('.property-card').first()).toBeVisible();
+      await expect(
+        page.getByRole('button', {
+          name: 'Alle gefilterten Immobilien auf der Karte anzeigen',
+        }),
+      ).toBeEnabled({ timeout: 30000 });
+      await page.locator('.leaflet-overlay-pane path').first().waitFor({ state: 'attached' });
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({
         path: path.join(images, 'portfolio-desktop.png'),
@@ -280,6 +301,7 @@ try {
   failure = error;
   report.error = error.message;
 } finally {
+  cleaningUp = true;
   if (initialized) {
     console.log('Removing only the temporary check project and its synthetic database volume.');
     try {

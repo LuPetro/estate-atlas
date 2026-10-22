@@ -22,6 +22,8 @@ Both branches run workflow validation, a redacted secret scan over the full Git 
 
 Keep pull requests focused and describe the user-visible change, relevant risks and the checks actually performed. Add a regression test for a behavior fix where practical. Web and native clients are equal deliverables: explain any client-specific change or remaining device check. Shared rules belong in `packages/shared`, shared HTTP behavior in `packages/api-client`. Read relevant `AGENTS.md` files before editing.
 
+Contributions use the project's [MIT license](LICENSE). Only contribute work you have the right to submit, and retain the notices of any third-party material.
+
 Use the project-local toolchain via `./scripts/pnpm`. Tests use isolated databases and synthetic fixtures. Never commit `.env`, `.local`, database dumps, user data or credentials. Do not run real provider requests as tests. See [third-party notices](THIRD_PARTY_NOTICES.md) before adding or replacing bundled assets; include provenance and license notices for new assets.
 
 ## Maintainer releases

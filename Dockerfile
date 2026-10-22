@@ -23,6 +23,7 @@ FROM node:22.23.3-bookworm-slim AS api
 ENV NODE_ENV=production API_HOST=0.0.0.0 API_PORT=4000
 WORKDIR /app
 COPY --from=api-build --chown=node:node /out/api/ ./
+COPY --chown=node:node LICENSE THIRD_PARTY_NOTICES.md ./
 USER node
 EXPOSE 4000
 CMD ["sh", "-c", "node dist/migrate.mjs && exec node dist/server.mjs"]
@@ -39,6 +40,7 @@ WORKDIR /app
 COPY --from=web-build --chown=node:node /app/apps/web/.next/standalone/ ./
 COPY --from=web-build --chown=node:node /app/apps/web/.next/static/ ./apps/web/.next/static/
 COPY --from=web-build --chown=node:node /app/apps/web/public/ ./apps/web/public/
+COPY --chown=node:node LICENSE THIRD_PARTY_NOTICES.md ./
 USER node
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]

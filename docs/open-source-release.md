@@ -5,6 +5,9 @@ Preparing the repository, publishing its source, and launching a public hosted i
 ## Repository preparation
 
 - [ ] Owner selects the source license; add the unmodified license text and matching workspace metadata.
+
+The review branch proposes MIT in `LICENSE` and workspace metadata. Owner confirmation of this choice is pending; it is not authorization to change repository visibility. License comparison: [MIT](https://choosealicense.com/licenses/mit/) and [AGPL-3.0](https://choosealicense.com/licenses/agpl-3.0/).
+
 - [x] README explains the product, local start, native limitations and contribution path.
 - [x] Self-hosting, development and maintainer deployment guides are separated.
 - [x] Contributor/PR guidance, issue forms, security reporting and bundled-asset notices are present.

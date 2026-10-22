@@ -18,5 +18,6 @@
   "dependencies": {
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^4.1.0"
-  }
+  },
+  "license": "MIT"
 }

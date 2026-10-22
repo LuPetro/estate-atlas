@@ -76,4 +76,6 @@ scripts              Local tools, Docker operation and release checks
 docs                 Self-hosting, development and maintainer guides
 ```
 
-Bundled fonts and map data retain their own terms; see [third-party notices](THIRD_PARTY_NOTICES.md).
+## License
+
+[MIT](LICENSE). Bundled fonts, map data and dependencies retain their own terms; see [third-party notices](THIRD_PARTY_NOTICES.md).
