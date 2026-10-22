@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security reporting
+    url: https://github.com/LuPetro/estate-atlas/blob/main/SECURITY.md
+    about: Read the private reporting instructions before sharing a possible vulnerability.
+  - name: Self-hosting guide
+    url: https://github.com/LuPetro/estate-atlas/blob/main/docs/docker.md
+    about: Docker setup, configuration, backups and troubleshooting.

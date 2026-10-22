@@ -1,46 +1,108 @@
-# Docker Compose
+# Self-hosting with Docker
 
-Docker Compose is the default app/server runtime requested by the owner. The native apps still run on Android/iOS; the shared Web/API/PostgreSQL backend runs in containers. No global software, users, Docker socket permissions, SSH, firewall or AppArmor configuration is modified by these scripts.
+This guide starts a new, private localhost installation. It uses production-built Web/API images with an explicit localhost HTTP exception. A public service additionally needs the [public launch configuration](web-launch.md).
 
-## Start and operate
+## Requirements
+
+- Git, Bash, curl, tar and xz support.
+- Docker Engine/Desktop with Compose v2 and permission to access its daemon.
+- Outbound access to Node's downloads, npm and the public container registry during installation/builds.
+- Free loopback ports 3000 (Web) and 4000 (API), or the overrides below.
+
+The fresh-checkout check runs on Linux x86_64. The bootstrap also selects Node artifacts for Linux/macOS and x64/arm64, but those other combinations have not been validated here. Windows needs a Linux environment such as WSL2; PowerShell is not the shell used by these scripts. Do not treat native-device support as established by a server-side JavaScript export.
+
+Build API and Web sequentially on a small host. The wrapper does this automatically; avoid running builds, browser tests and mobile exports at the same time on a memory-constrained machine.
+
+## First start
 
 ```bash
-cd /home/codexdev/projects/estate-atlas
+git clone https://github.com/LuPetro/estate-atlas.git
+cd estate-atlas
+./scripts/bootstrap.sh --runtime-only
 ./scripts/docker config --quiet
-./scripts/docker build
-./scripts/docker up -d --wait
+./scripts/docker up -d --build --wait
 ./scripts/docker ps
-./scripts/docker logs -f --tail=100
+```
+
+`--runtime-only` installs checksum-verified Node under `.local/node/`; it does not install host application dependencies or pnpm. Docker builds install locked dependencies inside their build stages. The complete developer bootstrap is documented in [development](development.md).
+
+Open **http://localhost:3000** and register an account. Registration is open, with rate limits and a minimum 12-character password. There are no preset credentials or account invitation codes. In this local setup no SMTP server is configured and email verification is not required; password-recovery email cannot arrive until SMTP is configured. You may explicitly load the app's labeled synthetic portfolio after signing in.
+
+The database is private to Docker. Web/API bind to host loopback only. This command does not bind public ports 80/443 or publish the site.
+
+## Configuration and data
+
+The first wrapper call initializes these files once:
+
+| Location                               | Purpose                                                 |
+| -------------------------------------- | ------------------------------------------------------- |
+| `.local/docker/compose.env`            | Compose settings and build arguments                    |
+| `.local/docker/site.json`              | Operator/support/privacy text used by the web app       |
+| `.local/docker/postgres-*-password`    | Separate administrator and application database secrets |
+| `.local/docker/account-encryption-key` | Encrypts MFA seeds; retain it with protected backups    |
+| `.local/docker/smtp-password`          | SMTP secret, initially empty                            |
+| `.local/docker/openai-api-key`         | Optional research provider secret, initially empty      |
+| `.local/backups/automatic/`            | Automatic PostgreSQL dumps                              |
+
+The private parent directories are mode 0700. File-backed Compose secrets are readable inside non-root containers; protect and back up the parent directories. Initialization preserves existing secrets and `.env`; copying `.env.example` is not a Docker setup step. Do not commit `.local`, backups or actual configuration.
+
+To select different ports, first run `./scripts/docker config --quiet`, then edit the generated `.local/docker/compose.env`:
+
+```dotenv
+WEB_ORIGIN=http://localhost:3300
+ACCOUNT_PUBLIC_URL=http://localhost:3300
+NEXT_PUBLIC_API_URL=http://localhost:4400
+WEB_PORT=3300
+API_PORT=4400
+ALLOW_LOCAL_HTTP=true
+```
+
+Then run `./scripts/docker up -d --build --wait`. `NEXT_PUBLIC_API_URL` and the optional public CARTO key are build arguments, so changing them requires a Web rebuild. Origins must match exactly; use the same hostname in the browser and configuration.
+
+The default Compose project is `estate-atlas`. To run another **new** installation, set a unique `COMPOSE_PROJECT_NAME`, unique `API_IMAGE`/`WEB_IMAGE` tags, different ports and a separate checkout/state directory before its first command. Reuse those settings on every later command. Simply cloning into another directory does not create a different default project or database.
+
+AI research is disabled by default. It needs explicit configuration, a provider key and a cost decision; see [AI research](ai-research.md). Ordinary portfolio use does not require a provider key. Address search sends only an explicit query to the configured Photon service; detail maps may contact map providers. The overview map and fonts are local; see [third-party notices](../THIRD_PARTY_NOTICES.md).
+
+## Operation, updates and backups
+
+```bash
+./scripts/docker ps
+./scripts/docker logs --tail=100 api web worker
+./scripts/docker stop
+./scripts/docker up -d --wait
 ./scripts/docker down
 ```
 
-`pnpm dev` and `pnpm docker:up` now start this same Compose stack. Secrets and settings are generated once in private `.local/docker/`; the original `.env` is never replaced. Web/API listen only on host loopback ports 3000/4000; PostgreSQL is accessible only inside the Compose network. The existing two-port SSH tunnel keeps working. `down` retains the named PostgreSQL volume. **Do not use `down -v`: it deletes the database volume.**
+`stop` and `down` preserve the named PostgreSQL volume. **`down -v` deletes the database volume.** Do not change project names or regenerate secrets when updating an existing installation.
 
-Healthchecks enforce DB → API/migrations → Web/analysis-worker startup. The worker uses the same API image, has no host port and receives the database and OpenAI file secrets. Research stays disabled by default; see [ai-research.md](ai-research.md). App processes run as the image's non-root `node` user. PostgreSQL initializes a separate, non-superuser application role. Secrets are mounted from files; they are not build arguments or baked into images. Host secret directory is 0700; files are 0644 to support non-root readers of Compose file-backed secrets. Keep the directory private. Logs rotate; services restart unless explicitly stopped. The wrapper builds API and Web images sequentially, including `up --build`; Compose concurrency alone does not constrain BuildKit image execution. Do not overlap image builds, browser checks, type checks or native exports on this 1.8 GB VPS without swap. BuildKit shares dependency layers. Next uses a 384 MB heap.
+Before an update, keep a protected database backup and the account-encryption key. Review changes, pull the intended branch/release, then run `./scripts/docker up -d --build --wait`. API startup runs migrations; there is no automatic schema downgrade. Docker images can be replaced independently of your database volume.
 
-Local Docker uses optimized production Web/API artifacts with explicitly permitted **localhost-only** HTTP cookies for SSH testing. Public deployment requires HTTPS `WEB_ORIGIN` and `ALLOW_LOCAL_HTTP=false` in `.local/docker/compose.env`. Set the public `NEXT_PUBLIC_API_URL` there and rebuild Web. Production security remains the default outside this explicit loopback-only exception.
+The backup service creates daily local dumps with seven-day retention by default. Local dumps do not protect against losing the host. Keep a separate protected copy and verify recovery. The [account/operator guide](accounts-admin.md) documents administrator bootstrap, restore checks and recovery exports. Operational Node helpers need the full developer bootstrap because they use locked host dependencies.
 
-## Import the existing host database
+## Public hosting and maintained environments
 
-Build images before cutover, then pause the old host API/Web so there are no writes during migration. Keep the original project PostgreSQL running on 55432. Do not start Docker API/Web before import:
+For public access, configure HTTPS, exact origins, TLS SMTP, mandatory email verification, real operator texts, a verified MFA administrator and recovery checks. Start with [web launch](web-launch.md). Local HTTP and mail settings are not a public deployment configuration.
+
+The project's own VPS uses isolated `development` and `production` environments, not this default local project. Its commands must select `EA_ENVIRONMENT=development` or `EA_ENVIRONMENT=production`; see [deployment](development-deployment.md). The retired legacy project must not mount Dev's adopted database volume.
+
+## Troubleshooting
+
+| Symptom                                             | What to check                                                                                                           |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `node: command not found`                           | Run `./scripts/bootstrap.sh --runtime-only` in this checkout.                                                           |
+| Cannot connect to the Docker daemon                 | Confirm daemon access in your own terminal; the wrapper does not change groups or socket permissions.                   |
+| Port already allocated                              | Set both port and matching origin/API URL overrides, then rebuild Web.                                                  |
+| Browser cannot reach API                            | Open `http://localhost:4000/health` (or your configured port); check Web's build-time API URL and exact browser origin. |
+| Signup works but no reset/verification mail arrives | SMTP is disabled by default; configure it explicitly using the account guide.                                           |
+| Services fail healthchecks                          | Inspect `./scripts/docker logs --tail=100 db api web worker`; remove secrets and private data before sharing logs.      |
+| Build killed for lack of memory                     | Stop concurrent build/test work and ensure the host has sufficient memory; the wrapper serializes API/Web builds.       |
+
+## Reproduce the fresh-checkout check
+
+From a developer checkout after bootstrap:
 
 ```bash
-./scripts/docker up -d --wait db
-./scripts/pnpm docker:import
-./scripts/docker up -d --wait
-./scripts/pnpm web:check
+./scripts/pnpm exec node scripts/check-self-hosting.mjs
 ```
 
-Import refuses any target that already contains tables. It exports a consistent PostgreSQL snapshot using a PostgreSQL 18 Docker client, stores a private custom-format dump under `.local/backups/`, restores transactionally into the fresh volume, and compares every application table's row count, including sessions, private attachments and migration history. Keep the original app paused until verification. The original host database, credentials and backup are retained for recovery; no host database files are copied into the Docker volume. Resume the original app if cutover fails. The import script itself does not stop user processes.
-
-## Verified server state
-
-On 11 October 2026, the owner granted `codexdev` Docker-group membership after explicitly authorizing it. This agent's existing session uses `sg docker -c '…'` to apply the new group; new login sessions inherit it normally. No other host account, global software, SSH, firewall or AppArmor settings were changed.
-
-Both images were built using the Docker daemon. PostgreSQL was initialized with the restricted app role. The old host API/Web were paused; the consistent dump was restored into the fresh Compose volume. Row counts and full row fingerprints matched for all seven tables, including attachment bytes, session hashes and migration history. Original `.env`, database directory and private backup remain intact. The old host PostgreSQL was then stopped.
-
-Web, API and database pass their container healthchecks, including after restart; all seven row counts still match the private backup. Services retain the original loopback ports; PostgreSQL has no host port. The server-side Chromium check passed Web/API connectivity and CORS without creating accounts or properties. A separate isolated production-API artifact smoke check passed migrations, registration, localhost-cookie authentication and private-route protection. Device checks remain pending.
-
-# V1-Web-Ergänzung (14.10.2026)
-
-Der normale Loopback-Stack umfasst jetzt zusätzlich `maintenance` (Ablauf-/Auditbereinigung) und `monitor` (Web/API/Worker/Backup-Prüfung). Das optionale Profil `public` startet Caddy auf 80/443 erst nach der Produktionsprüfung. Die API bleibt auf dem Host Loopback-only und ist öffentlich hinter `/api` erreichbar. Einrichtung und Einschränkungen stehen in [web-launch.md](web-launch.md). Bestehende Secrets/Volumes werden beibehalten; die Betreiberkonfiguration liegt unter `.local/docker/site.json`.
+This checks the **committed HEAD**, clones it without ignored files, installs only its local runtime and builds/runs its own temporary Docker project. It checks health, CORS, anonymous access denial, signup, labeled test-data persistence after restart and logout. Only its own temporary containers/volumes are removed. Its report and build logs stay under ignored `.local/`. It never opens a public port or contacts mail/AI/geocoding providers.

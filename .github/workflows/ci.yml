@@ -20,6 +20,8 @@ jobs:
           fetch-depth: 0
       - name: Validate workflows and deployment shell scripts
         run: ./scripts/check-workflows
+      - name: Check local documentation and screenshot links
+        run: node scripts/check-docs.mjs
       - name: Scan the complete Git history for secrets
         run: ./scripts/check-secrets
   quality:
