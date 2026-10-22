@@ -5,7 +5,7 @@
 | `dev`  | EstateAtlas Dev pipeline  | Automatic after successful checks: https://dev.estateatlas.app       |
 | `main` | EstateAtlas Main pipeline | Production after explicit workflow approval: https://estateatlas.app |
 
-Features and fixes target `dev`. A release pull request merges `dev` into `main`. Each branch has its own workflow and runs the shared checks from `.github/workflows/ci.yml`: workflow/shell validation, full-history secret scanning, types, dependency audit, real PostgreSQL API tests, proxy/gateway checks, production builds, Android/iOS exports and desktop/mobile browser tests. `checks / Required checks` fails if any check fails, is cancelled or is skipped. Pull requests, including forks, cannot access deployment secrets or deploy. There are no path filters that can silently skip required checks.
+Features and fixes target `dev`. A release pull request merges `dev` into `main`. Each branch has its own workflow and runs the shared checks from `.github/workflows/ci.yml`: workflow/shell and documentation validation, full-history secret scanning, types, dependency audit, real PostgreSQL API tests, proxy/gateway checks, production builds, Android/iOS exports, desktop/mobile browser tests and a fresh-checkout Docker installation check. `checks / Required checks` fails if any check fails, is cancelled or is skipped. Pull requests, including forks, cannot access deployment secrets or deploy. There are no path filters that can silently skip required checks.
 
 The Dev pipeline runs on pushes to `dev`, pull requests targeting `dev`, and manual runs. Only a trusted push/manual run on `refs/heads/dev` can deploy. The VPS checks that the approved commit is still the remote `dev` head before building. A push to `main` never deploys Dev.
 

@@ -18,7 +18,7 @@ feature branch → pull request → dev → checks → automatic Dev deployment
                                 main → checks → production approval → production
 ```
 
-Both branches run workflow validation, a redacted secret scan over the full Git history, workspace type checks, dependency auditing, real PostgreSQL API tests, production builds, desktop/mobile browser tests and Android/iOS exports. `checks / Required checks` succeeds only when every required job succeeds. Pull requests, including forks, run without deployment secrets and cannot deploy.
+Both branches run workflow/documentation validation, a redacted secret scan over the full Git history, workspace type checks, dependency auditing, real PostgreSQL API tests, production builds, desktop/mobile browser tests, Android/iOS exports and a fresh-checkout Docker installation check. `checks / Required checks` succeeds only when every required job succeeds. Pull requests, including forks, run without deployment secrets and cannot deploy.
 
 Keep pull requests focused and describe the user-visible change, relevant risks and the checks actually performed. Add a regression test for a behavior fix where practical. Web and native clients are equal deliverables: explain any client-specific change or remaining device check. Shared rules belong in `packages/shared`, shared HTTP behavior in `packages/api-client`. Read relevant `AGENTS.md` files before editing.
 

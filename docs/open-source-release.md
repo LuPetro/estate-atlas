@@ -4,16 +4,21 @@ Preparing the repository, publishing its source, and launching a public hosted i
 
 ## Repository preparation
 
-- [ ] Owner selects the source license; add the unmodified license text and matching workspace metadata.
-
 The review branch proposes MIT in `LICENSE` and workspace metadata. Owner confirmation of this choice is pending; it is not authorization to change repository visibility. License comparison: [MIT](https://choosealicense.com/licenses/mit/) and [AGPL-3.0](https://choosealicense.com/licenses/agpl-3.0/).
 
+- [ ] Owner selects the source license; add the unmodified license text and matching workspace metadata.
 - [x] README explains the product, local start, native limitations and contribution path.
 - [x] Self-hosting, development and maintainer deployment guides are separated.
 - [x] Contributor/PR guidance, issue forms, security reporting and bundled-asset notices are present.
-- [ ] Generate and inspect the synthetic desktop/mobile previews from the fresh-install check.
-- [ ] Pass the fresh-checkout Docker check for the committed code; retain its local report.
+- [x] Generate and inspect the synthetic desktop/mobile previews from the fresh-install check.
+- [x] Pass the fresh-checkout Docker check for the committed onboarding code; retain its local report.
 - [ ] Pass documentation links, workflow validation, full-history secret scanning and both branch pipelines.
+
+## Local verification
+
+Verified on Linux x86_64 on 2026-10-22, using committed source `ab9524b51d2be52ff7d763973a5bf98113c74208` and `./scripts/pnpm exec node scripts/check-self-hosting.mjs --screenshots`.
+
+The eight checks cover a clean clone without host app dependencies/user configuration, isolated Docker project/ports/volumes, builds and service health, packaged license/notices, Web/API/CORS/private access, open signup and explicit synthetic fixtures, browser login/screenshots, and persisted data/sessions plus logout after restart. The temporary database and containers were removed. Logs and the machine-readable result remain in ignored `.local/`; no user or provider data was used. The same check now runs as a required job in both branch pipelines.
 
 ## Before changing visibility
 
@@ -21,9 +26,13 @@ The review branch proposes MIT in `LICENSE` and workspace metadata. Owner confir
 - Confirm the selected license covers the code the owner can license; retain third-party terms.
 - Make the prepared changes available on `main` through the normal `dev` → `main` release PR. GitHub uses the default branch for the README, license, security policy and issue templates.
 - Set a factual repository description/topics and enable Issues for reports.
-- Enable GitHub private vulnerability reporting when the repository supports it; keep the security policy's fallback usable until then.
 - Confirm required checks and deployment branch restrictions remain active, and that external contributor PRs receive no deployment secrets.
-- Change visibility only with the owner's explicit publication instruction. Then verify the clone instructions without an authenticated GitHub session.
+
+## Publication
+
+- Change visibility only with the owner's explicit publication instruction.
+- Enable GitHub private vulnerability reporting after publication and verify that **Report a vulnerability** is available. GitHub documents this feature for [public repositories](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository); the security policy has a contact-only fallback.
+- Verify the clone instructions without an authenticated GitHub session.
 
 ## Before advertising the hosted app
 

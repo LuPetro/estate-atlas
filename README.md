@@ -62,7 +62,7 @@ Start a feature branch from `dev` and open a pull request targeting `dev`. Relea
 
 The Dev preview needs separate gateway credentials and is not a public demo. A successful build does not by itself publish the production service. The [release checklist](docs/open-source-release.md) tracks publication requirements.
 
-Both pipelines run workflow validation, a full-history secret scan, documentation link checks, types, dependency auditing, real PostgreSQL tests, web builds, desktop/mobile browser tests and Android/iOS JavaScript exports. See [CONTRIBUTING.md](CONTRIBUTING.md) for the project-local toolchain and review process.
+Both pipelines run workflow validation, a full-history secret scan, documentation link checks, types, dependency auditing, real PostgreSQL tests, web builds, desktop/mobile browser tests, Android/iOS JavaScript exports and a fresh-checkout Docker installation check. See [CONTRIBUTING.md](CONTRIBUTING.md) for the project-local toolchain and review process.
 
 ## Project structure
 

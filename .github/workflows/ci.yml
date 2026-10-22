@@ -94,10 +94,37 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Export native Android and iOS JavaScript
         run: pnpm mobile:export
+  selfhost:
+    name: Docker self-hosting
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Build and exercise a fresh checkout without host app dependencies
+        run: node scripts/check-self-hosting.mjs
+      - name: Show isolated check diagnostics on failure
+        if: failure()
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync, existsSync } from 'node:fs';
+          const file = '.local/self-hosting-result.json';
+          if (existsSync(file)) {
+            const report = JSON.parse(readFileSync(file, 'utf8'));
+            console.log(JSON.stringify(report, null, 2));
+            if (existsSync(report.log))
+              console.log(readFileSync(report.log, 'utf8').split('\n').slice(-100).join('\n'));
+          }
+          JS
   gate:
     name: Required checks
     if: always()
-    needs: [policy, quality, web, native]
+    needs: [policy, quality, web, native, selfhost]
     runs-on: ubuntu-24.04
     timeout-minutes: 1
     permissions: {}
@@ -108,7 +135,8 @@ jobs:
           QUALITY_RESULT: ${{ needs.quality.result }}
           WEB_RESULT: ${{ needs.web.result }}
           NATIVE_RESULT: ${{ needs.native.result }}
+          SELFHOST_RESULT: ${{ needs.selfhost.result }}
         run: |
-          for result in "$POLICY_RESULT" "$QUALITY_RESULT" "$WEB_RESULT" "$NATIVE_RESULT"; do
+          for result in "$POLICY_RESULT" "$QUALITY_RESULT" "$WEB_RESULT" "$NATIVE_RESULT" "$SELFHOST_RESULT"; do
             [[ "$result" == success ]] || { echo 'A required check failed, was cancelled or was skipped.'; exit 1; }
           done
