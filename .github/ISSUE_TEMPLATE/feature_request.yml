@@ -1,0 +1,30 @@
+name: Feature request
+description: Explain a portfolio workflow that could work better.
+title: '[Feature]: '
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the task and what currently gets in the way, using fictional examples.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed improvement
+      description: Include alternatives or your current workaround.
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Relevant clients
+      multiple: true
+      options:
+        - Web
+        - Native Android
+        - Native iOS
+        - API / self-hosting
+    validations:
+      required: true

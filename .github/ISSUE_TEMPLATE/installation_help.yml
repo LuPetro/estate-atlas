@@ -1,0 +1,27 @@
+name: Installation help
+description: Get help with Docker setup or updates.
+title: '[Setup]: '
+body:
+  - type: markdown
+    attributes:
+      value: 'Read docs/docker.md first. Remove secrets, email addresses, property information and private paths from logs. Never attach .env, .local, a Compose environment dump or a database backup.'
+  - type: input
+    id: version
+    attributes:
+      label: Commit or release
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS/CPU, Docker and Compose versions; new install or update?
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and result
+      description: Show the command, expected result and sanitized error. Include which guide step you reached.
+    validations:
+      required: true

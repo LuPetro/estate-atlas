@@ -1,0 +1,46 @@
+name: Bug report
+description: Report a reproducible problem with synthetic data.
+title: '[Bug]: '
+body:
+  - type: markdown
+    attributes:
+      value: 'For vulnerabilities, follow SECURITY.md. Never include passwords, cookies, tokens, private addresses, documents or database dumps.'
+  - type: input
+    id: version
+    attributes:
+      label: Commit or release
+      description: Include the commit SHA and branch or release name.
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where does it happen?
+      options:
+        - Web desktop
+        - Web mobile
+        - Native Android
+        - Native iOS
+        - API
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Use a synthetic account and example property; include browser/OS and relevant configuration without secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Sanitized logs or screenshots may help. Check them for private information before attaching.
+    validations:
+      required: true
