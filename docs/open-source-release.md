@@ -4,9 +4,9 @@ Preparing the repository, publishing its source, and launching a public hosted i
 
 ## Repository preparation
 
-The review branch proposes MIT in `LICENSE` and workspace metadata. Owner confirmation of this choice is pending; it is not authorization to change repository visibility. License comparison: [MIT](https://choosealicense.com/licenses/mit/) and [AGPL-3.0](https://choosealicense.com/licenses/agpl-3.0/).
+The owner confirmed MIT on 2026-10-22. The [license text](../LICENSE) and all workspace manifests use MIT; third-party terms remain in [their notices](../THIRD_PARTY_NOTICES.md). Repository publication remains a separate owner decision.
 
-- [ ] Owner selects the source license; add the unmodified license text and matching workspace metadata.
+- [x] Owner selects the source license; add the unmodified license text and matching workspace metadata.
 - [x] README explains the product, local start, native limitations and contribution path.
 - [x] Self-hosting, development and maintainer deployment guides are separated.
 - [x] Contributor/PR guidance, issue forms, security reporting and bundled-asset notices are present.
