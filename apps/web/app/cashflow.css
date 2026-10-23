@@ -250,7 +250,7 @@
   max-width: 240px;
 }
 .reminder-email-control input[role='switch'],
-.reminder-form input[role='switch'] {
+.reminder-form .inline-check input[role='switch'] {
   appearance: none;
   width: 34px;
   height: 20px;
@@ -260,7 +260,7 @@
   position: relative;
 }
 .reminder-email-control input[role='switch']::before,
-.reminder-form input[role='switch']::before {
+.reminder-form .inline-check input[role='switch']::before {
   content: '';
   display: block;
   position: absolute;
@@ -272,11 +272,11 @@
   border-radius: 50%;
 }
 .reminder-email-control input[role='switch']:checked,
-.reminder-form input[role='switch']:checked {
+.reminder-form .inline-check input[role='switch']:checked {
   background: var(--accent);
 }
 .reminder-email-control input[role='switch']:checked::before,
-.reminder-form input[role='switch']:checked::before {
+.reminder-form .inline-check input[role='switch']:checked::before {
   background: white;
   transform: translateX(14px);
 }
