@@ -1,6 +1,36 @@
 # EstateAtlas · Nutzergewinnung
 
-> **Veröffentlichungsentwurf:** Die folgenden Beiträge sind vorbereitet, nicht versendet. Aussagen zur öffentlichen Registrierung erst verwenden, wenn der echte Produktionsablauf einschließlich E-Mail-Zustellung geprüft ist; siehe [Web-Start](web-launch.md). Die private Dev-Vorschau ist kein öffentlicher Demo-Zugang.
+> **Vorbereitete Beiträge:** Die Texte in diesem Dokument sind noch nicht auf LinkedIn oder in externen Communities veröffentlicht. Den Open-Source-Aufruf erst nach der öffentlichen GitHub-Veröffentlichung verwenden. Aussagen zur öffentlichen Registrierung erst verwenden, wenn der echte Produktionsablauf einschließlich E-Mail-Zustellung geprüft ist; siehe [Web-Start](web-launch.md). Die private Dev-Vorschau ist kein öffentlicher Demo-Zugang.
+
+## Erster Aufruf zum Open-Source-Start
+
+Dieser Aufruf führt zum Quellcode und zur ersten Feedbackrunde. Er setzt keinen öffentlichen Demo- oder Registrierungszugang voraus.
+
+**LinkedIn, persönlicher Beitrag:**
+
+> Ich veröffentliche EstateAtlas unter der MIT-Lizenz: einen selbst hostbaren Workspace für Immobilien, Unterlagen, Mietzeiträume und eigene Wertnotizen.
+>
+> Ich suche fünf private Eigentümer oder Vermieter, die heute mit Tabellen und Ordnern arbeiten und mir zeigen möchten, wo dabei Zeit verloren geht. Besonders interessiert mich: Klappt es, eine erste Immobilie anzulegen oder eine vorhandene Liste zu importieren? Und welche Aufgabe würde euch nächste Woche zurückbringen?
+>
+> Quellcode, Screenshots und Docker-Einstieg: https://github.com/LuPetro/estate-atlas
+>
+> Fragen und Feedback: https://github.com/LuPetro/estate-atlas/discussions
+>
+> Wer nicht selbst hostet, kann mir hier mit einem Kommentar sein Interesse an einem Gespräch sagen. Bitte keine privaten Objektangaben oder Dokumente veröffentlichen.
+
+**Community, sofern Projektvorstellungen dort erlaubt sind:**
+
+> **EstateAtlas: MIT-lizenzierter Immobilien-Workspace, erste Nutzerfeedbackrunde**
+>
+> Ich baue EstateAtlas für Eigentümer, die Immobilieninformationen bisher auf Tabellen, Ordner und Notizen verteilen. CSV/Excel-Import, Dokumente pro Objekt, Mietzeiträume, eigene Wertverläufe und ein PDF-Bericht sind bereits enthalten. Die Web-App und native React-Native-Clients nutzen dieselbe API; native Store-Builds und Geräteabnahme sind noch offen.
+>
+> Der Quellcode steht unter MIT, der Einstieg läuft über Docker: https://github.com/LuPetro/estate-atlas
+>
+> Ich suche besonders Feedback von privaten Eigentümern: Welche Information sucht ihr regelmäßig? Wo scheitert ein Import? Was fehlt nach dem ersten angelegten Objekt? Der erste Test konzentriert sich auf diese Aufgaben. KI-Recherche ist optional und braucht eine eigene Providerkonfiguration; gespeicherte Werte sind keine professionellen Gutachten.
+>
+> Fragen oder Erfahrungen gern in https://github.com/LuPetro/estate-atlas/discussions. Bitte keine echten Adressen, Zugangsdaten oder Unterlagen posten.
+
+Der [Leitfaden für fünf Eigentümergespräche](feedback-pilot.md) beschreibt Beobachtung, freiwilligen Follow-up und Messung. Es sind noch keine Gespräche oder neuen Nutzer bestätigt. Die folgenden älteren Texte beziehen sich auf einen späteren, tatsächlich geprüften Hosted-Start.
 
 ## Positionierung
 
