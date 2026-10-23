@@ -166,6 +166,10 @@ export function registerWorkspaceRoutes(
         [id, paramId(req, 'userId')],
       );
       if (!result.rowCount) throw requestError(404, 'Freigabe nicht gefunden.');
+      await client.query(
+        'DELETE FROM reminder_email_notifications n USING property_reminders r WHERE n.reminder_id=r.id AND r.property_id=$1 AND n.user_id=$2',
+        [id, paramId(req, 'userId')],
+      );
     });
     return reply.code(204).send();
   });

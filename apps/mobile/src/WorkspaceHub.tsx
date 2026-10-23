@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Alert, ScrollView, View, Text, Pressable, RefreshControl } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Alert, ScrollView, View, Text, Pressable, RefreshControl, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import type { ApiClient } from '@estate-atlas/api-client';
@@ -14,6 +14,8 @@ import {
 } from '@estate-atlas/shared';
 import { PortfolioFilters, Chips, emptyFilters, filteredPortfolio } from './PortfolioTools';
 import { Card, Action, Input, ErrorMessage, ui, palette } from './WorkspaceUI';
+import CashflowPanel from './CashflowPanel';
+import ReminderEmailControl, { ReminderEmailDays, reminderTimeZone } from './ReminderEmailControl';
 
 export default function WorkspaceHub({
   properties,
@@ -27,6 +29,19 @@ export default function WorkspaceHub({
   onSelect: (id: string, tab?: 'documents') => void;
 }) {
   const [section, setSection] = useState('distribution');
+  const scroll = useRef<ScrollView>(null);
+  const cashflowDirty = useRef(false);
+  const onCashflowDirty = useCallback((dirty: boolean) => {
+    cashflowDirty.current = dirty;
+  }, []);
+  const switchSection = (value: string) => {
+    if (value !== section && cashflowDirty.current)
+      Alert.alert('Ungespeicherte Buchung', 'Änderungen verwerfen und den Bereich wechseln?', [
+        { text: 'Abbrechen', style: 'cancel' },
+        { text: 'Änderungen verwerfen', onPress: () => setSection(value) },
+      ]);
+    else setSection(value);
+  };
   const [filters, setFilters] = useState(emptyFilters);
   const [groupBy, setGroupBy] = useState<'country' | 'type' | 'rental'>('country');
   const [metric, setMetric] = useState<'value' | 'count' | 'area'>('value');
@@ -43,6 +58,11 @@ export default function WorkspaceHub({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const [emailAvailable, setEmailAvailable] = useState(false);
+  const [mailEnabled, setMailEnabled] = useState(false);
+  const [notifyEmail, setNotifyEmail] = useState(false);
+  const [emailDays, setEmailDays] = useState<0 | 1 | 3 | 7>(1);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const editableProperties = properties.filter(
     (property) => !property.archivedAt && property.access !== 'viewer',
   );
@@ -55,9 +75,17 @@ export default function WorkspaceHub({
     setError('');
     try {
       await reload();
-      const [nextAssets, nextReminders] = await Promise.all([api.assets(), api.reminders()]);
+      const [nextAssets, nextReminders, config, user] = await Promise.all([
+        api.assets(),
+        api.reminders(),
+        api.accountConfig(),
+        api.me(),
+      ]);
       setAssets(nextAssets);
       setReminders(nextReminders);
+      setMailEnabled(config.mailEnabled);
+      setEmailAvailable(config.mailEnabled && !!user.emailVerifiedAt);
+      setRefreshVersion((value) => value + 1);
       setLoaded(true);
     } catch (e) {
       setError((e as Error).message);
@@ -126,10 +154,14 @@ export default function WorkspaceHub({
         title: reminderTitle,
         dueDate: reminderDate,
         notes: reminderNotes,
+        emailNotification: notifyEmail
+          ? { daysBefore: emailDays, timeZone: reminderTimeZone() }
+          : null,
       });
       setReminderTitle('');
       setReminderNotes('');
       setReminderDate(localDateKey());
+      setNotifyEmail(false);
     });
   const removeReminder = (reminder: PortfolioReminder) =>
     Alert.alert('Wiedervorlage löschen?', `„${reminder.title}“ wird endgültig gelöscht.`, [
@@ -145,6 +177,7 @@ export default function WorkspaceHub({
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: palette.canvas }}>
       <ScrollView
+        ref={scroll}
         contentContainerStyle={{ padding: 22, paddingBottom: 40, gap: 16 }}
         refreshControl={<RefreshControl refreshing={busy} onRefresh={refresh} />}
       >
@@ -154,15 +187,26 @@ export default function WorkspaceHub({
         <Chips
           label="Bereich"
           value={section}
-          onChange={setSection}
+          onChange={switchSection}
           values={[
             { value: 'distribution', label: 'Verteilung' },
             { value: 'documents', label: 'Dokumente' },
             { value: 'reminders', label: 'Wiedervorlagen' },
+            { value: 'cashflow', label: 'Einnahmen & Ausgaben' },
             { value: 'sharing', label: 'Zusammenarbeit' },
           ]}
         />
         <ErrorMessage error={error} />
+        {section === 'cashflow' && (
+          <CashflowPanel
+            api={api}
+            properties={properties}
+            refreshVersion={refreshVersion}
+            onSelect={onSelect}
+            onDirty={onCashflowDirty}
+            onEditStart={() => scroll.current?.scrollTo({ y: 0, animated: false })}
+          />
+        )}
         {section === 'distribution' && (
           <>
             <PortfolioFilters properties={properties} filters={filters} onChange={setFilters} />
@@ -335,6 +379,34 @@ export default function WorkspaceHub({
                     onChange={setReminderNotes}
                     multiline
                   />
+                  <View style={ui.row}>
+                    <Text style={ui.label}>Mich per E-Mail erinnern</Text>
+                    <Switch
+                      accessibilityLabel="Mich per E-Mail erinnern"
+                      value={notifyEmail}
+                      disabled={!emailAvailable || busy}
+                      onValueChange={setNotifyEmail}
+                    />
+                  </View>
+                  {notifyEmail && (
+                    <>
+                      <ReminderEmailDays days={emailDays} onChange={setEmailDays} />
+                      <Text style={ui.note}>
+                        09:00 Uhr ({reminderTimeZone()}) · an deine bestätigte E-Mail-Adresse
+                      </Text>
+                    </>
+                  )}
+                  <Text style={ui.note}>
+                    E-Mails gelten nur für dein Konto und enthalten Titel, Immobilie und Fälligkeit.
+                    Ein bereits verstrichener Zeitpunkt heute wird zeitnah nachgeholt.
+                  </Text>
+                  {!emailAvailable && (
+                    <Text style={ui.note}>
+                      {mailEnabled
+                        ? 'Bestätige deine E-Mail-Adresse im Konto, um E-Mails zu aktivieren.'
+                        : 'Für diese Installation ist kein E-Mail-Versand eingerichtet.'}
+                    </Text>
+                  )}
                   <Action
                     disabled={busy || !reminderTitle.trim() || !reminderPropertyId}
                     onPress={() => void saveReminder()}
@@ -376,6 +448,20 @@ export default function WorkspaceHub({
                       </Text>
                       {!!reminder.notes && <Text style={ui.note}>{reminder.notes}</Text>}
                     </Pressable>
+                    <ReminderEmailControl
+                      notification={reminder.emailNotification}
+                      available={
+                        emailAvailable &&
+                        reminder.dueDate >= localDateKey() &&
+                        !properties.find((p) => p.id === reminder.propertyId)?.archivedAt
+                      }
+                      disabled={busy}
+                      onChange={(input) => {
+                        void mutateReminder(() =>
+                          api.setReminderEmail(reminder.propertyId, reminder.id, input),
+                        );
+                      }}
+                    />
                     <View style={ui.row}>
                       <Action
                         secondary

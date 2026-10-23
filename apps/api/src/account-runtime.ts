@@ -2,9 +2,10 @@ import { readFile } from 'node:fs/promises';
 import nodemailer from 'nodemailer';
 export type AccountMail = {
   to: string;
-  purpose: 'verify' | 'reset' | 'email' | 'notice';
+  purpose: 'verify' | 'reset' | 'email' | 'notice' | 'reminder';
   token?: string;
   text?: string;
+  messageId?: string;
 };
 export type AccountRuntime = {
   publicUrl: string;
@@ -63,12 +64,14 @@ export async function accountRuntime(
         reset: 'Passwort zurücksetzen',
         email: 'Neue E-Mail-Adresse bestätigen',
         notice: 'Kontosicherheit',
+        reminder: 'Deine Wiedervorlage',
       };
       // Fragment avoids putting bearer reset/verification tokens in access logs or Referer headers.
       const link = `${runtime.publicUrl}/account-action#${new URLSearchParams({ purpose: message.purpose, token: message.token ?? '' })}`;
       await transport.sendMail({
         from: env.SMTP_FROM,
         to: message.to,
+        messageId: message.messageId,
         subject: `EstateAtlas · ${titles[message.purpose]}`,
         text:
           message.text ??
@@ -83,8 +86,6 @@ export async function accountRuntime(
     env.ESTATEATLAS_ENVIRONMENT !== 'development' &&
     (!runtime.mail || !runtime.verificationRequired)
   )
-    throw new Error(
-      'Public production signup requires mail delivery and email verification',
-    );
+    throw new Error('Public production signup requires mail delivery and email verification');
   return runtime;
 }

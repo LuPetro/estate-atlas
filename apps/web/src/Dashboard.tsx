@@ -70,6 +70,7 @@ import {
   type WorkspaceTab,
 } from './WorkspacePanels';
 import PortfolioReminders from './PortfolioReminders';
+import PortfolioCashflow from './PortfolioCashflow';
 import PropertyCsvImport from './PropertyCsvImport';
 import PortfolioReportDialog from './PortfolioReportDialog';
 const PropertyMap = dynamic(() => import('./Map'), {
@@ -87,6 +88,7 @@ type Section =
   | 'distribution'
   | 'documents'
   | 'reminders'
+  | 'cashflow'
   | 'shared';
 
 function nameInitials(name: string) {
@@ -97,11 +99,21 @@ function nameInitials(name: string) {
 
 export default function Dashboard() {
   const accountEpoch = useRef(0);
+  const cashflowDirty = useRef(false);
+  const onCashflowDirty = useCallback((dirty: boolean) => {
+    cashflowDirty.current = dirty;
+  }, []);
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [reminderCount, setReminderCount] = useState(0);
   const [section, setSection] = useState<Section>('dashboard');
+  useEffect(() => {
+    if (user && window.location.hash === '#reminders') {
+      setSection('reminders');
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, [user?.id]);
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [user?.id, section]);
@@ -363,11 +375,20 @@ export default function Dashboard() {
     { key: 'map', label: 'Weltkarte', icon: Map },
     { key: 'documents', label: 'Dokumente', icon: FolderOpen },
     { key: 'reminders', label: 'Wiedervorlagen', icon: Bell },
+    { key: 'cashflow', label: 'Einnahmen & Ausgaben', icon: Landmark },
     { key: 'shared', label: 'Geteilt mit mir', icon: Users },
     { key: 'archive', label: 'Archiv', icon: Archive },
     { key: 'account', label: 'Mein Konto', icon: ShieldCheck },
   ] as const;
   const goto = (key: Section) => {
+    if (
+      key !== section &&
+      cashflowDirty.current &&
+      !window.confirm(
+        'Du hast ungespeicherte Buchungseingaben. Änderungen verwerfen und den Bereich wechseln?',
+      )
+    )
+      return;
     setSection(key);
     setQuery('');
     setCountry('');
@@ -492,7 +513,7 @@ export default function Dashboard() {
             />
           ) : (
             <>
-              {section !== 'reminders' && (
+              {!['reminders', 'cashflow'].includes(section) && (
                 <div className="page-heading">
                   <div>
                     <p className="eyebrow">DEIN IMMOBILIENPORTFOLIO</p>
@@ -611,6 +632,7 @@ export default function Dashboard() {
               )}
               {section !== 'documents' &&
                 section !== 'reminders' &&
+                section !== 'cashflow' &&
                 !(section === 'dashboard' && ownProperties.length === 0) && (
                   <div className="filters">
                     <label className="search">
@@ -690,6 +712,14 @@ export default function Dashboard() {
                   }}
                   onAddProperty={() => setEditor('new')}
                   onCountChange={setReminderCount}
+                />
+              )}
+              {section === 'cashflow' && (
+                <PortfolioCashflow
+                  api={api}
+                  properties={properties}
+                  onSelect={select}
+                  onDirty={onCashflowDirty}
                 />
               )}
               {section === 'distribution' && (
@@ -907,7 +937,9 @@ export default function Dashboard() {
                   </div>
                 </>
               )}
-              {!['values', 'distribution', 'documents', 'reminders'].includes(section) &&
+              {!['values', 'distribution', 'documents', 'reminders', 'cashflow'].includes(
+                section,
+              ) &&
                 !(section === 'dashboard' && ownProperties.length === 0) &&
                 (section !== 'dashboard' || widgets.properties) && (
                   <section className={`property-section ${section === 'map' ? 'map-section' : ''}`}>
