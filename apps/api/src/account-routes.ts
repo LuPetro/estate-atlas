@@ -474,6 +474,14 @@ export function createAccounts(
                 'SELECT r.* FROM property_reminders r JOIN properties p ON p.id=r.property_id WHERE p.owner_id=$1 ORDER BY r.id',
               ],
               [
+                'cashflow',
+                'SELECT e.id,e.property_id,e.title,e.booked_on,e.category,e.amount,e.currency,e.notes,e.version,e.created_at,e.updated_at FROM property_cashflow_entries e JOIN properties p ON p.id=e.property_id WHERE p.owner_id=$1 ORDER BY e.id',
+              ],
+              [
+                'reminderEmailPreferences',
+                'SELECT reminder_id,days_before,time_zone,send_at,status,sent_at FROM reminder_email_notifications WHERE user_id=$1 ORDER BY reminder_id',
+              ],
+              [
                 'analyses',
                 'SELECT j.id,j.property_id,j.status,j.requested_at,j.result,j.diagnostics FROM analysis_jobs j JOIN properties p ON p.id=j.property_id WHERE p.owner_id=$1 ORDER BY j.id',
               ],

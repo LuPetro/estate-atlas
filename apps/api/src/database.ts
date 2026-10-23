@@ -21,6 +21,7 @@ export async function migrate(pool: pg.Pool) {
       '005_accounts',
       '006_open_registration',
       '007_property_reminders',
+      '008_reminder_email_cashflow',
     ]) {
       const previous = await client.query('SELECT 1 FROM schema_migrations WHERE version=$1', [
         version,

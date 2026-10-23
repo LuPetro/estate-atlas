@@ -4,6 +4,10 @@ import { Check, Plus, Trash2 } from 'lucide-react';
 import type { ApiClient } from '@estate-atlas/api-client';
 import type { PortfolioReminder, Property } from '@estate-atlas/shared';
 import { localDateKey } from '@estate-atlas/shared';
+import ReminderEmailControl, {
+  ReminderEmailFields,
+  reminderTimeZone,
+} from './ReminderEmailControl';
 
 const localDate = (value: string) =>
   new Date(`${value}T00:00:00Z`).toLocaleDateString('de-AT', { timeZone: 'UTC' });
@@ -32,25 +36,45 @@ export default function PortfolioReminders({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [emailAvailable, setEmailAvailable] = useState(false);
+  const [mailEnabled, setMailEnabled] = useState(false);
+  const [notify, setNotify] = useState(false);
+  const [daysBefore, setDaysBefore] = useState<0 | 1 | 3 | 7>(1);
   const live = useRef(false);
+  const readVersion = useRef(0);
   const canEdit = (reminder: PortfolioReminder) =>
     properties.some(
       (property) => property.id === reminder.propertyId && property.access !== 'viewer',
     );
   const reload = useCallback(async () => {
+    const version = ++readVersion.current;
     const result = await api.reminders();
-    if (!live.current) return;
+    if (!live.current || version !== readVersion.current) return;
     setReminders(result);
     onCountChange(result.filter((reminder) => !reminder.completedAt).length);
     setLoaded(true);
   }, [api, onCountChange]);
   useEffect(() => {
     live.current = true;
+    void Promise.all([api.accountConfig(), api.me()])
+      .then(([config, user]) => {
+        if (live.current) {
+          setMailEnabled(config.mailEnabled);
+          setEmailAvailable(config.mailEnabled && !!user.emailVerifiedAt);
+        }
+      })
+      .catch((e) => {
+        if (live.current) setError(e.message);
+      });
     void reload().catch((e) => {
       if (live.current) setError(e.message);
     });
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void reload().catch(() => {});
+    }, 60000);
     return () => {
       live.current = false;
+      window.clearInterval(poll);
     };
   }, [reload]);
   useEffect(() => {
@@ -63,10 +87,17 @@ export default function PortfolioReminders({
     setBusy(true);
     setError('');
     try {
-      await api.createReminder(propertyId, { title, dueDate, notes });
+      await api.createReminder(propertyId, {
+        title,
+        dueDate,
+        notes,
+        emailNotification: notify ? { daysBefore, timeZone: reminderTimeZone() } : null,
+      });
+      if (!live.current) return;
       setTitle('');
       setDueDate('');
       setNotes('');
+      setNotify(false);
       await reload();
     } catch (e) {
       setError((e as Error).message);
@@ -100,6 +131,21 @@ export default function PortfolioReminders({
     }
   };
   const today = localDateKey();
+  const setEmail = async (
+    reminder: PortfolioReminder,
+    input: import('@estate-atlas/shared').ReminderEmailPreference | null,
+  ) => {
+    setBusy(true);
+    setError('');
+    try {
+      await api.setReminderEmail(reminder.propertyId, reminder.id, input);
+      if (live.current) await reload();
+    } catch (e) {
+      if (live.current) setError((e as Error).message);
+    } finally {
+      if (live.current) setBusy(false);
+    }
+  };
   const open = reminders.filter((reminder) => !reminder.completedAt);
   const completed = reminders.filter((reminder) => reminder.completedAt);
   return (
@@ -109,6 +155,18 @@ export default function PortfolioReminders({
           <p className="eyebrow">DEIN PORTFOLIO</p>
           <h1>Wiedervorlagen</h1>
           <p>Termine und Aufgaben zu deinen Immobilien. Fälliges zuerst.</p>
+          <p className="muted reminder-email-note">
+            E-Mails sind freiwillig und gelten nur für dein Konto. Versand um 09:00 Uhr in deiner
+            Zeitzone; ein bereits verstrichener Zeitpunkt wird zeitnah nachgeholt. Titel, Immobilie
+            und Fälligkeit stehen in der E-Mail.
+          </p>
+          {loaded && !emailAvailable && (
+            <p className="muted">
+              {mailEnabled
+                ? 'Bestätige deine E-Mail-Adresse im Konto, um Erinnerungen per E-Mail zu aktivieren.'
+                : 'Der E-Mail-Versand ist für diese Installation nicht eingerichtet.'}
+            </p>
+          )}
         </div>
       </div>
       {error && (
@@ -156,20 +214,32 @@ export default function PortfolioReminders({
                 >
                   <Check size={17} />
                 </button>
-                <button className="reminder-copy" onClick={() => onSelect(reminder.propertyId)}>
-                  <strong>{reminder.title}</strong>
-                  <span>
-                    {reminder.propertyTitle} ·{' '}
-                    <time dateTime={reminder.dueDate}>{localDate(reminder.dueDate)}</time>
-                    {reminder.dueDate < today
-                      ? ' · Überfällig'
-                      : reminder.dueDate === today
-                        ? ' · Heute'
-                        : ''}
-                    {!canEdit(reminder) && ' · Nur lesen'}
-                  </span>
-                  {reminder.notes && <small>{reminder.notes}</small>}
-                </button>
+                <div className="reminder-content">
+                  <button className="reminder-copy" onClick={() => onSelect(reminder.propertyId)}>
+                    <strong>{reminder.title}</strong>
+                    <span>
+                      {reminder.propertyTitle} ·{' '}
+                      <time dateTime={reminder.dueDate}>{localDate(reminder.dueDate)}</time>
+                      {reminder.dueDate < today
+                        ? ' · Überfällig'
+                        : reminder.dueDate === today
+                          ? ' · Heute'
+                          : ''}
+                      {!canEdit(reminder) && ' · Nur lesen'}
+                    </span>
+                    {reminder.notes && <small>{reminder.notes}</small>}
+                  </button>
+                  <ReminderEmailControl
+                    notification={reminder.emailNotification}
+                    available={
+                      emailAvailable &&
+                      !properties.find((p) => p.id === reminder.propertyId)?.archivedAt &&
+                      reminder.dueDate >= today
+                    }
+                    disabled={busy}
+                    onChange={(input) => void setEmail(reminder, input)}
+                  />
+                </div>
                 {canEdit(reminder) && (
                   <button
                     className="icon-button"
@@ -266,6 +336,23 @@ export default function PortfolioReminders({
                   rows={3}
                 />
               </label>
+              <label className="inline-check">
+                <input
+                  type="checkbox"
+                  checked={notify}
+                  disabled={!emailAvailable}
+                  onChange={(event) => setNotify(event.target.checked)}
+                />
+                Mich per E-Mail erinnern
+              </label>
+              {notify && (
+                <>
+                  <ReminderEmailFields days={daysBefore} onDays={setDaysBefore} />
+                  <p className="muted">
+                    09:00 Uhr ({reminderTimeZone()}) · an deine bestätigte E-Mail-Adresse
+                  </p>
+                </>
+              )}
               <button className="button primary" disabled={busy || !propertyId}>
                 <Plus size={16} /> Speichern
               </button>
