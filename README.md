@@ -7,6 +7,8 @@ A private workspace for your property portfolio. Keep properties, documents, ren
 
 [Self-hosting](docs/docker.md) · [Development](docs/development.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Documentation](docs/README.md)
 
+**Help shape EstateAtlas:** Do you manage several properties with spreadsheets and folders? Share your workflow or installation feedback in [Discussions](https://github.com/LuPetro/estate-atlas/discussions). The [first feedback round](docs/feedback-pilot.md) focuses on importing or adding a first property and returning the following week. Keep addresses, documents and account details private.
+
 ![EstateAtlas portfolio with synthetic demonstration data](docs/images/portfolio-desktop.png)
 
 _The screenshot uses the app's explicitly labeled synthetic test portfolio, with no user's account, documents or portfolio data. [More interface previews](docs/images/README.md)._
