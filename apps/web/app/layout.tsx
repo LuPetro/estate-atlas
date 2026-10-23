@@ -4,6 +4,7 @@ import SiteFooter from '../src/SiteFooter';
 import LanguageControl from '../src/LanguageControl';
 import './globals.css';
 import './platform.css';
+import './cashflow.css';
 export const metadata: Metadata = {
   metadataBase: new URL('https://estateatlas.app'),
   title: { default: 'EstateAtlas · Dein Immobilienportfolio', template: '%s | EstateAtlas' },

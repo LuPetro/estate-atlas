@@ -19,10 +19,12 @@ _The screenshot uses the app's explicitly labeled synthetic test portfolio, with
 - Track your own dated valuations and rental periods. Totals stay separate by currency.
 - Keep private photos, PDFs, checklists and reminders with each property; share access with owners, editors and viewers.
 - Import up to 50 properties from CSV/Excel with a preview, and generate a PDF portfolio report.
+- Record rent, other income, running costs, repairs and loan payments; view monthly totals by property and currency in web and native clients.
+- Opt into personal reminder emails with a choice of lead time in your device's timezone, using the installation's configured SMTP delivery.
 - Manage your account, sessions, two-factor authentication, exports and account deletion.
 - Optionally request source-linked AI research and explicitly choose whether to adopt a result. This requires your own provider configuration and is disabled by default.
 
-EstateAtlas is a portfolio organizer. User-entered values and AI research are not professional appraisals. Reminders do not currently send email or push notifications. The web app is optionally installable as a PWA; native Expo/React Native apps are separate deliverables.
+EstateAtlas is a portfolio organizer. User-entered values and AI research are not professional appraisals. Email reminders require configured SMTP and a verified recipient account; they are disabled until explicitly selected for a reminder. Push notifications are not implemented. The web app is optionally installable as a PWA; native Expo/React Native apps are separate deliverables.
 
 ## Run locally with Docker
 

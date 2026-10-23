@@ -177,7 +177,7 @@ services:
     image: ${API_IMAGE:-estate-atlas-api:local}
     command: [node, dist/maintenance.mjs]
     environment: *api_environment
-    secrets: [postgres_app_password]
+    secrets: [postgres_app_password, smtp_password]
     restart: unless-stopped
     init: true
     depends_on:

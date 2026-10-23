@@ -22,6 +22,10 @@ import type {
   PortfolioUsage,
   PortfolioReminder,
   ReminderInput,
+  ReminderEmailPreference,
+  CashflowInput,
+  CashflowEntry,
+  CashflowReport,
 } from '@estate-atlas/shared';
 export class ApiError extends Error {
   constructor(
@@ -193,6 +197,50 @@ export class ApiClient {
   deleteReminder(propertyId: string, reminderId: string) {
     return this.request<void>(`/properties/${propertyId}/reminders/${reminderId}`, {
       method: 'DELETE',
+    });
+  }
+  setReminderEmail(
+    propertyId: string,
+    reminderId: string,
+    notification: ReminderEmailPreference | null,
+  ) {
+    return this.request<PortfolioReminder>(
+      `/properties/${propertyId}/reminders/${reminderId}/email`,
+      { method: 'PUT', body: JSON.stringify({ notification }) },
+    );
+  }
+  cashflow(
+    month: string,
+    propertyId = '',
+    scope: 'owned' | 'all' = 'owned',
+    page = 1,
+    signal?: AbortSignal,
+  ) {
+    const query = new URLSearchParams({ month, scope, page: String(page) });
+    if (propertyId) query.set('propertyId', propertyId);
+    return this.request<CashflowReport>(`/portfolio/cashflow?${query}`, { signal });
+  }
+  createCashflow(propertyId: string, input: CashflowInput, requestKey: string) {
+    return this.request<CashflowEntry>(`/properties/${propertyId}/cashflow`, {
+      method: 'POST',
+      body: JSON.stringify({ ...input, requestKey }),
+    });
+  }
+  updateCashflow(
+    propertyId: string,
+    entryId: string,
+    input: CashflowInput,
+    expectedVersion: number,
+  ) {
+    return this.request<CashflowEntry>(`/properties/${propertyId}/cashflow/${entryId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ ...input, expectedVersion }),
+    });
+  }
+  deleteCashflow(propertyId: string, entryId: string, expectedVersion: number) {
+    return this.request<void>(`/properties/${propertyId}/cashflow/${entryId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ expectedVersion }),
     });
   }
   propertyWorkspace(id: string) {

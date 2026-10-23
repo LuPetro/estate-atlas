@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { countryCodeSchema } from './countries';
 export { countryCodeSchema, countryCodes, countryNames, countryFromEvidence } from './countries';
-export const currencies = ['EUR', 'USD', 'GBP', 'CHF', 'AED', 'CAD', 'AUD', 'JPY'] as const;
+import { currencies } from './currencies';
+export { currencies } from './currencies';
 export const propertyTypes = ['apartment', 'house', 'commercial', 'land'] as const;
 export const conditions = ['new', 'good', 'renovation'] as const;
 export const propertyTypeLabels: Record<PropertyType, string> = {
@@ -23,6 +24,7 @@ export type { DashboardWidget } from './portfolio';
 export * from './workspace';
 export * from './accounts';
 export * from './reminders';
+export * from './cashflow';
 export { portfolioDistribution } from './distribution';
 export type { DistributionGrouping, DistributionMetric } from './distribution';
 import { rentalSchema } from './rental';

@@ -1,12 +1,18 @@
 import { writeFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { database } from './database';
-import { connectionString } from './runtime-config';
+import { connectionString, browserSecurity } from './runtime-config';
+import { accountRuntime } from './account-runtime';
+import { deliverReminderEmails } from './reminder-mail';
 import { cleanupExpired } from './maintenance-rules';
 const retention = Number(process.env.AUDIT_RETENTION_DAYS ?? 180);
 if (!Number.isInteger(retention) || retention < 7 || retention > 730)
   throw new Error('Invalid AUDIT_RETENTION_DAYS');
 const pool = database(await connectionString(process.env));
+const mail = await accountRuntime(
+  { ...process.env, ACCOUNT_ENCRYPTION_KEY_FILE: undefined },
+  browserSecurity(process.env).production,
+);
 let stopping = false;
 const controller = new AbortController();
 const stop = () => {
@@ -27,6 +33,7 @@ try {
       console.log('Expired credentials and retention cleanup completed.');
       nextCleanup = Date.now() + 86400000;
     }
+    await deliverReminderEmails(pool, mail);
     await pool.query('SELECT 1');
     await writeFile('/tmp/maintenance-health', String(Date.now()));
     await delay(30000, undefined, { signal: controller.signal }).catch(() => {});
