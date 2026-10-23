@@ -60,7 +60,7 @@ Start a feature branch from `dev` and open a pull request targeting `dev`. Relea
 | Branch | Pipeline and deployment                                                                          |
 | ------ | ------------------------------------------------------------------------------------------------ |
 | `dev`  | Full checks, then automatic deployment to the private [Dev preview](https://dev.estateatlas.app) |
-| `main` | Full checks, then production deployment through explicit workflow approval                       |
+| `main` | Full checks, then automatic deployment to [estateatlas.app](https://estateatlas.app)             |
 
 The Dev preview needs separate gateway credentials and is not a public demo. A successful build does not by itself publish the production service. The [release checklist](docs/open-source-release.md) tracks publication requirements.
 
