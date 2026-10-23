@@ -249,6 +249,37 @@
 .reminder-email-lead select {
   max-width: 240px;
 }
+.reminder-email-control input[role='switch'],
+.reminder-form input[role='switch'] {
+  appearance: none;
+  width: 34px;
+  height: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  position: relative;
+}
+.reminder-email-control input[role='switch']::before,
+.reminder-form input[role='switch']::before {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: var(--muted);
+  border-radius: 50%;
+}
+.reminder-email-control input[role='switch']:checked,
+.reminder-form input[role='switch']:checked {
+  background: var(--accent);
+}
+.reminder-email-control input[role='switch']:checked::before,
+.reminder-form input[role='switch']:checked::before {
+  background: white;
+  transform: translateX(14px);
+}
 @media (max-width: 1000px) {
   .cashflow-layout {
     grid-template-columns: minmax(0, 1fr);

@@ -339,6 +339,7 @@ export default function PortfolioReminders({
               <label className="inline-check">
                 <input
                   type="checkbox"
+                  role="switch"
                   checked={notify}
                   disabled={!emailAvailable}
                   onChange={(event) => setNotify(event.target.checked)}

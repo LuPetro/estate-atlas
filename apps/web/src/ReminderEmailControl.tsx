@@ -56,6 +56,7 @@ export default function ReminderEmailControl({
       <label className="inline-check">
         <input
           type="checkbox"
+          role="switch"
           checked={active}
           disabled={disabled || (!available && !active)}
           onChange={(event) => onChange(event.target.checked ? preference : null)}

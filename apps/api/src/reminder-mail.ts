@@ -33,14 +33,22 @@ export async function deliverReminderEmails(pool: pg.Pool, runtime: AccountRunti
             [record.user_id],
           )
         ).rows[0];
-        const reminder = (
+        const property = (
           await client.query(
-            `SELECT r.title,r.due_on,r.completed_at,p.id AS property_id,p.owner_id,
-          p.archived_at,p.data->>'title' AS property_title FROM property_reminders r JOIN properties p ON p.id=r.property_id
-          WHERE r.id=$1 FOR UPDATE OF p,r`,
+            `SELECT id,owner_id,archived_at,data->>'title' AS property_title FROM properties
+             WHERE id=(SELECT property_id FROM property_reminders WHERE id=$1) FOR UPDATE`,
             [record.reminder_id],
           )
         ).rows[0];
+        // Separate statements guarantee property-before-reminder lock acquisition.
+        const reminder =
+          property &&
+          (
+            await client.query(
+              'SELECT title,due_on,completed_at FROM property_reminders WHERE id=$1 AND property_id=$2 FOR UPDATE',
+              [record.reminder_id, property.id],
+            )
+          ).rows[0];
         const current = (
           await client.query(
             'SELECT * FROM reminder_email_notifications WHERE reminder_id=$1 AND user_id=$2 FOR UPDATE',
@@ -48,12 +56,12 @@ export async function deliverReminderEmails(pool: pg.Pool, runtime: AccountRunti
           )
         ).rows[0];
         const member =
-          reminder &&
-          (reminder.owner_id === record.user_id ||
+          property &&
+          (property.owner_id === record.user_id ||
             (
               await client.query(
                 'SELECT 1 FROM property_members WHERE property_id=$1 AND user_id=$2',
-                [reminder.property_id, record.user_id],
+                [property.id, record.user_id],
               )
             ).rowCount);
         if (!current || current.generation !== record.generation || current.status !== 'sending') {
@@ -66,8 +74,9 @@ export async function deliverReminderEmails(pool: pg.Pool, runtime: AccountRunti
           user.status !== 'active' ||
           !user.email_verified_at ||
           !reminder ||
+          !property ||
           reminder.completed_at ||
-          reminder.archived_at ||
+          property.archived_at ||
           !member ||
           expired
         ) {
@@ -84,7 +93,7 @@ export async function deliverReminderEmails(pool: pg.Pool, runtime: AccountRunti
             to: user.email,
             purpose: 'reminder',
             messageId: `<reminder.${record.generation}@${new URL(runtime.publicUrl).hostname}>`,
-            text: `Deine Wiedervorlage in EstateAtlas\n\n${reminder.title}\nImmobilie: ${reminder.property_title}\nFällig am: ${due}\n\nÖffne deine Wiedervorlagen: ${runtime.publicUrl}/#reminders\n\nDu hast diese E-Mail für dein Konto aktiviert. Du kannst sie bei der Wiedervorlage wieder ausschalten.`,
+            text: `Deine Wiedervorlage in EstateAtlas\n\n${reminder.title}\nImmobilie: ${property.property_title}\nFällig am: ${due}\n\nÖffne deine Wiedervorlagen: ${runtime.publicUrl}/#reminders\n\nDu hast diese E-Mail für dein Konto aktiviert. Du kannst sie bei der Wiedervorlage wieder ausschalten.`,
           });
           await client.query(
             "UPDATE reminder_email_notifications SET status='sent',sent_at=now() WHERE reminder_id=$1 AND user_id=$2",
