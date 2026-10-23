@@ -38,7 +38,7 @@ EA_ENVIRONMENT=production ./scripts/check-backup
 
 An incomplete setup fails these checks; resolve the actual reported settings. Backup/restore commands affect only their selected environment. Do not restore into the live database to demonstrate recovery.
 
-Release through **Actions → EstateAtlas Main pipeline → Run workflow → main → production_approval=deploy** after the `dev` → `main` release PR and successful Main push checks. Authorization verifies the identical source tree already deployed successfully on Dev. The VPS promotes its exact API/Web image IDs, runs preflight, starts production and checks HTTPS. This does not rebuild a different production application or transfer Dev data.
+Merge the `dev` → `main` release pull request after the Dev deployment succeeds. The Main pipeline runs all checks and then deploys production automatically, without a separate manual approval. Authorization verifies the identical source tree already deployed successfully on Dev. The VPS promotes its exact API/Web image IDs, runs preflight, starts production and checks HTTPS. This does not rebuild a different production application or transfer Dev data. **Actions → EstateAtlas Main pipeline → Run workflow → main** reruns the complete pipeline for the current Main version.
 
 The shared VPS checkout is preserved; deployment uses immutable source archives. A failed release does not automatically roll back containers or database migrations. Details and records are in [deployment](development-deployment.md).
 

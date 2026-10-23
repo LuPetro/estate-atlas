@@ -20,4 +20,5 @@ The native Expo app remains a separate application; this stylesheet covers respo
 and its PWA presentation.
 
 Design changes reach Dev through successful push CI and the development deployment.
-Production promotion requires the owner's review and explicit approval.
+After review and a release pull request from Dev to Main, successful Main checks
+automatically promote that tested version to production.

@@ -5,13 +5,6 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      production_approval:
-        description: Deploy this checked main release to production
-        required: true
-        type: choice
-        default: hold
-        options: [hold, deploy]
 permissions:
   contents: read
 concurrency:
@@ -23,8 +16,9 @@ jobs:
   authorize-production:
     needs: checks
     if: >-
+      needs.checks.result == 'success' &&
       github.repository == 'LuPetro/estate-atlas' && github.ref == 'refs/heads/main' &&
-      github.event_name == 'workflow_dispatch' && inputs.production_approval == 'deploy'
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -43,12 +37,8 @@ jobs:
         with:
           node-version: '22'
           package-manager-cache: false
-      - name: Require successful push checks for the exact main commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_SHA: ${{ github.sha }}
-          RELEASE_BRANCH: main
-        run: node scripts/assert-release-ci.mjs
+      # The checks dependency verifies this exact commit in the current run.
+      # Requiring a completed push run here would block the run's own deployment.
       - name: Find and verify the identical source already tested on Dev
         id: development
         env:

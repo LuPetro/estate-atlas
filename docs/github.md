@@ -4,7 +4,7 @@ Contributors can use their own Git client and GitHub account. GitHub authenticat
 
 ## Branch model
 
-Features target `dev`; release PRs go from `dev` to `main`. Both branches require pull requests and `checks / Required checks`. Dev deploys automatically after checks; production needs explicit workflow approval and identical tested Dev source/images. See [CONTRIBUTING.md](../CONTRIBUTING.md) and [deployment](development-deployment.md).
+Features target `dev`; release PRs go from `dev` to `main`. Both branches require pull requests and `checks / Required checks`. Dev deploys automatically after checks. Main deploys production automatically after its checks, using identical successfully deployed Dev source/images and passing production preflight. Merging the release PR authorizes publication; no separate workflow approval is needed. See [CONTRIBUTING.md](../CONTRIBUTING.md) and [deployment](development-deployment.md).
 
 The reusable checks live in `.github/workflows/ci.yml`; callers are `development.yml` and `main.yml`. Fork PRs receive no deployment secrets. Repository-default workflow tokens are read-only, and only the intended branch can deploy to each environment.
 
