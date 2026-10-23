@@ -130,81 +130,6 @@
   font-size: 14px;
   line-height: 1.8;
 }
-.architecture {
-  position: relative;
-  margin: -16px -30px -2px;
-}
-.architecture > svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-.ground {
-  opacity: 0.55;
-}
-.siteLines {
-  opacity: 0.65;
-}
-.buildingBack {
-  animation: construct 1100ms 160ms both;
-}
-.buildingFront {
-  animation: construct 1100ms 340ms both;
-}
-.houseMotionBack {
-  animation: house-float 8600ms -1800ms ease-in-out infinite;
-}
-.houseMotionFront {
-  animation: house-float 7200ms -4200ms ease-in-out infinite reverse;
-}
-.roofTrace {
-  stroke-dasharray: 14 86;
-  stroke-dashoffset: 0;
-  animation: roof-trace 9s linear infinite;
-}
-.houseMotionBack .roofTrace {
-  animation-duration: 12s;
-  animation-delay: -4s;
-}
-.windowLights > path {
-  fill-opacity: 0.22;
-  animation: window-glow 8s ease-in-out infinite;
-}
-.windowLights > path:nth-child(2) {
-  animation-delay: -2800ms;
-}
-.windowLights > path:nth-child(3) {
-  animation-delay: -5300ms;
-}
-.houseMotionBack .windowLights > path {
-  animation-duration: 11s;
-}
-.treeSway {
-  transform-box: fill-box;
-  transform-origin: center bottom;
-  animation: tree-sway 6s -1s ease-in-out infinite;
-}
-.treeRight {
-  animation-duration: 7400ms;
-  animation-delay: -3500ms;
-}
-.drawingNotes {
-  opacity: 1;
-}
-.artCaption {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin: -3px 30px 0;
-  font-family: var(--font);
-  font-size: 9px;
-  color: #686f60;
-  letter-spacing: 1px;
-}
-.artCaption > span:last-child {
-  letter-spacing: 0;
-}
 .storyFooter {
   display: flex;
   justify-content: space-between;
@@ -497,53 +422,11 @@
     transform: translateY(0);
   }
 }
-@keyframes construct {
-  from {
-    transform: translateY(22px);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
-@keyframes house-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
-}
-@keyframes roof-trace {
-  to {
-    stroke-dashoffset: -100;
-  }
-}
-@keyframes window-glow {
-  0%,
-  100% {
-    fill-opacity: 0.15;
-  }
-  45%,
-  60% {
-    fill-opacity: 0.72;
-  }
-}
-@keyframes tree-sway {
-  0%,
-  100% {
-    transform: rotate(-4deg);
-  }
-  50% {
-    transform: rotate(4deg);
-  }
-}
-
 @media (min-width: 1600px) {
   .layout {
     min-height: min(900px, calc(100svh - 96px));
@@ -559,9 +442,6 @@
   }
   .story h1 {
     font-size: 43px;
-  }
-  .artCaption > span:last-child {
-    display: none;
   }
   .storyFooter > span:last-child {
     display: none;
@@ -624,7 +504,6 @@
     font-size: 12px;
     line-height: 1.7;
   }
-  .architecture,
   .storyFooter {
     display: none;
   }

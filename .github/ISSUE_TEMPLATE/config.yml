@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Questions and product feedback
+    url: https://github.com/LuPetro/estate-atlas/discussions
+    about: Describe your workflow, suggest improvements or ask a question without sharing private property information.
   - name: Security reporting
     url: https://github.com/LuPetro/estate-atlas/blob/main/SECURITY.md
     about: Read the private reporting instructions before sharing a possible vulnerability.

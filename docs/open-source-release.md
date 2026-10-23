@@ -6,6 +6,8 @@ Preparing the repository, publishing its source, and launching a public hosted i
 
 The owner confirmed MIT on 2026-10-22. The [license text](../LICENSE) and all workspace manifests use MIT; third-party terms remain in [their notices](../THIRD_PARTY_NOTICES.md). Repository publication remains a separate owner decision.
 
+On 2026-10-23 the owner instructed the maintainer to carry out the source-publication plan. The release targets `main` through [PR #4](https://github.com/LuPetro/estate-atlas/pull/4), with final branch checks required before changing visibility. Hosted production deployment and public signup remain subject to the web-launch requirements below.
+
 - [x] Owner selects the source license; add the unmodified license text and matching workspace metadata.
 - [x] README explains the product, local start, native limitations and contribution path.
 - [x] Self-hosting, development and maintainer deployment guides are separated.
@@ -13,6 +15,14 @@ The owner confirmed MIT on 2026-10-22. The [license text](../LICENSE) and all wo
 - [x] Generate and inspect the synthetic desktop/mobile previews from the fresh-install check.
 - [x] Pass the fresh-checkout Docker check for the committed onboarding code; retain its local report.
 - [ ] Pass documentation links, workflow validation, full-history secret scanning and both branch pipelines.
+
+## Publication review, 2026-10-23
+
+The initial review covered all 54 reachable commits, all 714 unique historical file blobs, and the complete tracked path inventory. Both the Git-history scan and a second scan of the extracted historical text blobs reported no secrets. Binary assets are the bundled fonts, generated application icons and five historical screenshot versions; those screenshots were visually inspected and contain only the labeled synthetic portfolio or the signed-out interface. No database dump or private upload is tracked. Deployment documentation includes operational paths and the public server address; those are not credentials.
+
+All 64 completed Actions runs available at review time were downloaded and inspected; no workflow artifacts were retained on GitHub. The log scan found Git commit hashes in API image tags and connection details from already-terminated isolated PostgreSQL tests in two old failed runs. The logs for runs `38090741418` and `38281698138` were privately preserved and deleted from GitHub before publication. Their workflow results and the source history are retained. New release logs must be reviewed as they complete. Private scan reports and original logs stay under ignored `.local/publication-audit/`.
+
+The first release audit also caught newly published advisories affecting Next.js 16.4.0 and Fastify 5.12.5. Publication preparation upgrades to Next.js 16.4.3 and Fastify 5.12.7 and records the SHA-512 integrity of the official SheetJS 0.20.3 archive. The dependency gate continues to reject unknown advisories; the existing isolated Expo tooling exception is not expanded. Required CI verifies the final lockfile, real PostgreSQL API, browser flows, native exports and a fresh Docker installation.
 
 ## Local verification
 
@@ -38,4 +48,4 @@ The eight checks cover a clean clone without host app dependencies/user configur
 
 Use [web launch](web-launch.md). Verify the real public registration, email confirmation, login, first property and password-recovery path. Keep private preview credentials separate. A source release can be self-hostable before the hosted service is ready for unrestricted signup.
 
-For the first feedback round, invite a small group of property owners, show only a labeled synthetic demo, and track whether they can create their first property and return. Outreach drafts live in [marketing](marketing-launch.md); they are not evidence of a completed launch or of existing users.
+For the first feedback round, follow the [five-owner pilot](feedback-pilot.md), show only a labeled synthetic demo, and track whether participants can create their first property and return. Outreach drafts live in [marketing](marketing-launch.md); they are not evidence of a completed hosted launch or of existing users.

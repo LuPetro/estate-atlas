@@ -22,6 +22,7 @@
 - [Public web launch](web-launch.md): production configuration and first-launch prerequisites.
 - [Open-source release](open-source-release.md): publication checklist and remaining owner decisions.
 - [GitHub tools](github.md): project-local maintainer CLI.
-- [Marketing plan](marketing-launch.md): draft outreach, only after verifying the public signup path.
+- [Feedback pilot](feedback-pilot.md): first five owner conversations, onboarding observation and return visits.
+- [Marketing plan](marketing-launch.md): source-launch outreach and separately gated hosted-signup drafts.
 
 [Status history](status.md) and the [earlier release plan](release-plan.md) retain dated implementation notes. They are historical records; use the current setup/deployment guides above for commands and requirements.
