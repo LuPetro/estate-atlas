@@ -17,3 +17,9 @@ The maintainer reviews reports as capacity allows; no response or remediation de
 ## Operators
 
 Keep `.local/`, secrets and backups out of Git. Use HTTPS, verified email and MFA for public administration; restrict database access; maintain a separate protected backup. Never attach raw production logs or user exports to issues. See [self-hosting](docs/docker.md) and [public launch](docs/web-launch.md).
+
+## Isolated development tooling
+
+The dependency gate rejects advisories in deployed web/API dependencies. On 25 October 2026, Zod was updated to 4.6.7, Nodemailer to 10.1.4 and both Fast URI release lines to their patched versions after new advisory metadata blocked the release.
+
+Expo 57's CLI still depends on Zod 3.25.76 for its DevTools schemas. No patched Zod 3 version is published for [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5). A temporary exception is restricted to that exact version under `apps__mobile>expo>@expo/cli>zod` and expires on 25 November 2026. It does not apply to application validation or any other dependency path. Expo preview runs on localhost; do not expose Expo DevTools publicly. Review and remove the exception when a compatible patched Expo dependency is available. Existing narrowly scoped Expo tooling exceptions remain visible in audit output.

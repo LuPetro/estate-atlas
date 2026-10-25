@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { X, Check, MapPin } from 'lucide-react';
 import AddressSearch from './AddressSearch';
 import LocationMap from './LocationMap';
+import PropertyArtwork from './PropertyArtwork';
 import {
   propertyInputSchema,
   propertyTypes,
@@ -24,6 +25,7 @@ export default function PropertyEditor({
 }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [type, setType] = useState<Property['type']>(property?.type ?? 'apartment');
   const [address, setAddress] = useState(property?.address ?? '');
   const [country, setCountry] = useState(property?.country ?? 'AT');
   const [latitude, setLatitude] = useState(property ? String(property.latitude) : '');
@@ -149,7 +151,8 @@ export default function PropertyEditor({
               <select
                 aria-label="Immobilienart"
                 name="type"
-                defaultValue={property?.type ?? 'apartment'}
+                value={type}
+                onChange={(event) => setType(event.target.value as Property['type'])}
               >
                 {propertyTypes.map((t) => (
                   <option key={t} value={t}>
@@ -158,6 +161,13 @@ export default function PropertyEditor({
                 ))}
               </select>
             </label>
+            <div className="full property-type-preview">
+              <PropertyArtwork type={type} />
+              <div>
+                <strong>{propertyTypeLabels[type]}</strong>
+                <p>Symbolansicht im Portfolio</p>
+              </div>
+            </div>
             <div className="full location-picker">
               <div className="location-picker-heading">
                 <MapPin size={16} />

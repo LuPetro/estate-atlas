@@ -13,6 +13,16 @@ The fresh-checkout check runs on Linux x86_64. The bootstrap also selects Node a
 
 Build API and Web sequentially on a small host. The wrapper does this automatically; avoid running builds, browser tests and mobile exports at the same time on a memory-constrained machine.
 
+The dependency installation stage limits Node's old-space heap to 128 MiB per process, the semi-space to 8 MiB, and uses one pnpm tarball worker. Application builds have a separate 384 MiB heap limit. Heap limits do not cap total build memory: on a small host also use a dedicated BuildKit container with a hard memory limit. For the shared EstateAtlas VPS, this builder is selected in the repository's private Docker configuration:
+
+```bash
+DOCKER_CONFIG="$PWD/.local/docker/cli" docker buildx create \
+  --name estateatlas-vps --driver docker-container --use \
+  --driver-opt image=moby/buildkit:v0.34.0,memory=640m,memory-swap=640m,default-load=true,restart-policy=no
+```
+
+This requires Buildx with the Docker container driver and `default-load` support. The cap applies to the builder and its build processes, so memory exhaustion fails the build. `default-load=true` places completed images in the local image store for Compose. The builder starts on demand; its cache is separate from the default Docker builder. Inspect an existing builder before creating another one, and stop it with the same `DOCKER_CONFIG` and `docker buildx stop estateatlas-vps` when idle.
+
 ## First start
 
 ```bash
