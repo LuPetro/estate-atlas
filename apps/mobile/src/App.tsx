@@ -49,6 +49,7 @@ import PortfolioValues from './PortfolioValues';
 import WorkspaceHub from './WorkspaceHub';
 import PropertyWorkspace from './PropertyWorkspace';
 import PropertySharing from './PropertySharing';
+import PropertyArtwork from './PropertyArtwork';
 import { Card, Action, ui, palette } from './WorkspaceUI';
 import {
   PortfolioFilters,
@@ -520,6 +521,7 @@ function ValuesScreen({ navigation }: BottomTabScreenProps<Tabs, 'Values'>) {
 function PropertyCard({ property: p, onPress }: { property: Property; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" style={styles.propertyCard} onPress={onPress}>
+      <PropertyArtwork type={p.type} />
       <View style={styles.cardTop}>
         <Text style={styles.cardCategory}>
           {propertyTypeLabels[p.type]} · {p.country}
@@ -1595,6 +1597,7 @@ function Editor({ route, navigation }: NativeStackScreenProps<Stack, 'Editor'>) 
           onChange={setType}
           labels={propertyTypeLabels}
         />
+        <PropertyArtwork type={type} preview />
         <Choices label="Währung" values={currencies} value={currency} onChange={setCurrency} />
         <Choices
           label="Zustand"
