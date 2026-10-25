@@ -12,6 +12,8 @@ The project's license does not replace the licenses of dependencies, bundled fon
 
 Fonts are served locally. The overview map uses the bundled, generalized country geometry. The house illustration on the sign-in page is rendered by the application's SVG components. Documentation screenshots show the app with synthetic fixtures, not photographs of real portfolios.
 
+The four property-type drawings are original SVG geometry in `packages/shared/src/artwork.ts`, rendered by both clients. They are symbolic illustrations, use no third-party or generated bitmap assets, and are covered by the project's MIT license.
+
 ## External services and dependencies
 
 OpenStreetMap detail tiles, the optional CARTO basemap and the configured Photon geocoder are external services with their own terms, attribution requirements and availability limits. Their data is not relicensed by this repository. UI attribution remains required. See [self-hosting](docs/docker.md) and the map/provider implementation before changing a provider.

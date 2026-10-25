@@ -568,7 +568,7 @@ table td small {
   box-shadow: 0 2px 6px #39342608;
 }
 
-/* Portfolio surfaces and abstract architecture echo the sign-in illustration. */
+/* Portfolio surfaces and architectural drawings share a quiet, warm palette. */
 .panel,
 .stat-card,
 .property-card,
@@ -721,59 +721,45 @@ table td small {
   box-shadow: 0 16px 35px #3934260c;
 }
 .property-art {
-  --art-ground: #e5dfd0;
-  --art-top: #d88d70;
-  --art-front: #ba6a4e;
-  --art-side: #974d39;
-  --art-line: #b5a68c;
-  --art-window: #f1ce9e;
-  --art-highlight: #f5c8ac;
-  --art-tree: #929a71;
   height: 164px;
-  background: #f0ebe1;
-  color: var(--accent);
-  isolation: isolate;
-}
-.art-house {
-  --art-top: #d2c8a8;
-  --art-front: #b6b58c;
-  --art-side: #84896c;
-  --art-highlight: #eeecd6;
-  background: #eeeee4;
-}
-.art-commercial {
-  --art-top: #bcc8c7;
-  --art-front: #96a8a9;
-  --art-side: #6d8387;
-  --art-highlight: #e0e8e4;
-  background: #e9edeb;
-}
-.art-land {
-  --art-top: #c5c6a6;
-  --art-front: #a1ac7a;
-  --art-side: #7b875e;
-  background: #efeee3;
+  background: #f3f1e9;
+  border-bottom: 1px solid var(--line);
 }
 .property-art > .property-artwork {
-  width: 215px;
-  height: 145px;
+  width: min(100%, 280px);
+  height: 100%;
+  max-height: 180px;
   opacity: 1;
-  align-self: flex-end;
-  margin-bottom: 5px;
+  align-self: center;
+  flex-shrink: 0;
 }
-.art-building {
-  transition: transform 450ms ease;
+.property-type-preview {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 4px 18px;
+  background: #f3f1e9;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  min-width: 0;
 }
-.property-card:hover .art-building {
-  transform: translateY(-3px);
+.property-type-preview > .property-artwork {
+  width: 156px;
+  height: 100px;
+  flex-shrink: 1;
+  min-width: 0;
 }
-.art-roof-line {
-  stroke-dasharray: 100;
-  stroke-dashoffset: 0;
-  transition: stroke-dashoffset 900ms ease;
+.property-type-preview strong {
+  display: block;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 550;
 }
-.property-card:hover .art-roof-line {
-  stroke-dashoffset: 200;
+.property-type-preview p {
+  margin: 5px 0 0;
+  color: #626956;
+  font-size: 11px;
+  line-height: 1.5;
 }
 .location-badge,
 .sample-badge {
@@ -2443,7 +2429,6 @@ tbody tr:hover {
     scroll-behavior: auto !important;
   }
   .property-card:hover,
-  .property-card:hover .art-building,
   .button:hover {
     transform: none;
   }
