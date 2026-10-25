@@ -9,7 +9,10 @@ COPY apps/web/package.json ./apps/web/package.json
 COPY apps/mobile/package.json ./apps/mobile/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY packages/api-client/package.json ./packages/api-client/package.json
-RUN --mount=type=cache,target=/app/.local/pnpm-store pnpm install --frozen-lockfile
+# Bound both the installer and its tarball worker on the shared 1.8 GB VPS.
+# The later source stage retains its separate heap limit for application builds.
+RUN --mount=type=cache,target=/app/.local/pnpm-store \
+    NODE_OPTIONS=--max-old-space-size=192 PNPM_MAX_WORKERS=1 pnpm install --frozen-lockfile
 
 FROM dependencies AS source
 COPY . .
